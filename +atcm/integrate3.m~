@@ -796,14 +796,14 @@ for ins = 1:ns
 %             
 %             layers.weighted(ins,:,:) = layers.iweighted(ins,:,:);
             
-        case {'dmd' 'instantaneous' 'svd' 'none'}
+        case {'dmd' 'instantaneous' 'svd'}
             
             switch fmethod
                 case 'dmd'
                 [Eigenvalues, Eigenvectors, ModeAmplitudes, ModeFrequencies, ...
                     GrowthRates, POD_Mode_Energies] = atcm.fun.dmd((yx), length(Ji), dt);
-               %[Eigenvaluesi, Eigenvectorsi, ModeAmplitudesi, ModeFrequenciesi, ...
-               %    GrowthRatesi, POD_Mode_Energiesi] = atcm.fun.dmd(real(yx), length(Ji), dt);
+               [Eigenvaluesi, Eigenvectorsi, ModeAmplitudesi, ModeFrequenciesi, ...
+                   GrowthRatesi, POD_Mode_Energiesi] = atcm.fun.dmd(real(yx), length(Ji), dt);
                 
                % Eigenvectors = Eigenvectors + Eigenvectorsi;
                                 
@@ -825,8 +825,6 @@ for ins = 1:ns
                 case 'svd'
                     [Eigenvectors,s,v] = svd(cov(real(yx)'));
                     Eigenvectors = Eigenvectors'*yx; 
-                case 'none'
-                    Eigenvectors = yx;
             end
             
             warning on;
@@ -844,11 +842,6 @@ for ins = 1:ns
                 try
                     
                     switch fmethod
-                        case 'none'
-                            % just a smoothed fft of the (contributing)
-                            % states
-                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),:),1/dt,w,60);   
-                            
                         case {'dmd' 'svd'}
                             % just a smoothed fft of the dmd series
                             [Pf,Hz]  = atcm.fun.AfftSmooth(y0(burn:end),1/dt,w,60);          % 60 FOR DEXPRO
@@ -899,7 +892,7 @@ for ins = 1:ns
                 warning on;
 
                 % Noise shaping - fixed f-scaling
-                Pf = abs(Pf)';
+                Pf = Pf';
                 Pf = full(Pf)';
                 %Pf = Pf .* Hz';                               % PUT BACK!
 
