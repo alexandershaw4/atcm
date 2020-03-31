@@ -6,7 +6,7 @@ function plotcellspecific(units,vect)
 
 cells = {'ss'  'sp'  'si'  'dp'  'di'  'tp'  'rt'  'rl'};
 
-for i = 1:8
-    subplot(2,4,i); plot(units,vect(i,:),'linewidth',2);
+for i = [2 3 1 5 4 6 7 8]
+    subplot(8,1,i); plot(units,vect(i,:),'linewidth',2);
     title(cells{i});
 end

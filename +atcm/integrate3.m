@@ -726,23 +726,23 @@ if isfield(M,'fmethod')
     fmethod = M.fmethod;
 end
 
-%try
-% switch fmethod
-%     case 'dmd';
-%         for ins = 1:ns
-%             % remove principal [dominant] eigenmode(s) from states series
-%             x = squeeze( y(ins,:,:,:) );
-%             x = reshape( x , [npp*nk, length(t)] );
-%             [u0,s0,v0] = spm_svd((x));
-%             %ipc = find( (cumsum(diag(full(s0)))./sum(diag(full(s0))) > .8) );
-%             p1 = u0(:,1)*s0(1,1)*v0(:,1)';
-%             x = x - p1 ;%- p2;
-%             %x = full(p1);
-%             y(ins,:,:,:) = reshape(x,[npp,nk,length(t)]);
-%         end
-%         timeseries=y;
-% end
-%end
+try
+switch fmethod
+    case 'dmd';
+        for ins = 1:ns
+            % remove principal [dominant] eigenmode(s) from states series
+            x = squeeze( y(ins,:,:,:) );
+            x = reshape( x , [npp*nk, length(t)] );
+            [u0,s0,v0] = spm_svd((x));
+            %ipc = find( (cumsum(diag(full(s0)))./sum(diag(full(s0))) > .8) );
+            p1 = u0(:,1)*s0(1,1)*v0(:,1)';
+            x = x - p1 ;%- p2;
+            %x = full(p1);
+            y(ins,:,:,:) = reshape(x,[npp,nk,length(t)]);
+        end
+        timeseries=y;
+end
+end
 
 % This is the main loop over regions to calculate the spectrum
 %--------------------------------------------------------------------------
@@ -796,12 +796,20 @@ for ins = 1:ns
 %             
 %             layers.weighted(ins,:,:) = layers.iweighted(ins,:,:);
             
-        case {'dmd' 'instantaneous' 'svd' 'none'}
+        case {'dmd' 'instantaneous' 'svd' 'none' 'glm'}
             
             switch fmethod
                 case 'dmd'
+                %yx = yx([1 2 4 6 8],:);
                 [Eigenvalues, Eigenvectors, ModeAmplitudes, ModeFrequencies, ...
                     GrowthRates, POD_Mode_Energies] = atcm.fun.dmd((yx), length(Ji), dt);
+                
+                %[u,s,v] = svd(yx);
+               % 
+               % for idmd = 1:4
+               %     Eigenvectors(idmd,:) = v(:,idmd)*s(idmd,:)*mean(v,1)';
+               % end
+                
                %[Eigenvaluesi, Eigenvectorsi, ModeAmplitudesi, ModeFrequenciesi, ...
                %    GrowthRatesi, POD_Mode_Energiesi] = atcm.fun.dmd(real(yx), length(Ji), dt);
                 
@@ -827,6 +835,14 @@ for ins = 1:ns
                     Eigenvectors = Eigenvectors'*yx; 
                 case 'none'
                     Eigenvectors = yx;
+                case 'glm'
+                    % project 8 series onto 4 components, onto 1
+                    W = ones(8,4)/(8*4);
+                    W = W .* repmat(P.W1(:) ,[1 4]); % 8x1
+                    W = W .* repmat(P.W2(:)',[8 1]);
+                    
+                    Eigenvectors = W'*yx;
+                                      
             end
             
             warning on;
@@ -844,12 +860,12 @@ for ins = 1:ns
                 try
                     
                     switch fmethod
-                        case 'none'
+                        case {'none'}
                             % just a smoothed fft of the (contributing)
                             % states
-                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),:),1/dt,w,60);   
+                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),:),1/dt,w,30);   
                             
-                        case {'dmd' 'svd'}
+                        case {'dmd' 'svd' 'glm'}
                             % just a smoothed fft of the dmd series
                             [Pf,Hz]  = atcm.fun.AfftSmooth(y0(burn:end),1/dt,w,60);          % 60 FOR DEXPRO
                     
@@ -899,10 +915,11 @@ for ins = 1:ns
                 warning on;
 
                 % Noise shaping - fixed f-scaling
-                Pf = abs(Pf)';
+                Pf = (Pf)';
                 Pf = full(Pf)';
-                %Pf = Pf .* Hz';                               % PUT BACK!
-
+                Pf = Pf .* Hz';                               % PUT BACK!
+                %Pf = abs(Pf);
+                
                 % Multiply in the parameterised noise terms
                 for i = 1:length(Hz)
                     Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))';
@@ -916,7 +933,7 @@ for ins = 1:ns
                     if ~isfield(M,'Hamlower');
                         M.Hamlower = 0;
                     end
-
+                    
                     if M.Hamlower == 0
                         H(1:round(nf/2)) = 1;
                     end
