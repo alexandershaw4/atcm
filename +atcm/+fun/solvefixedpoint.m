@@ -28,18 +28,18 @@ else
     nk = 7;
 end
 
-if isfield(M,'x') && ~iscell(M.x)
+%if isfield(M,'x') && ~iscell(M.x)
     % Point estimator / neural mass models
     mfm = 0;
     x        = zeros(ns,np,nk) ;
     x(:,:,1) = -70;
-elseif isfield(M,'x') && iscell(M.x)
-    % Mean field models
-    mfm = 1;
-    x{1}        = zeros(ns,np,nk) ;
-    x{1}(:,:,1) = -70;
-    x{2}        = ones(nk,nk,ns,np);
-end
+%elseif isfield(M,'x') && iscell(M.x)
+%    % Mean field models
+%    mfm = 1;
+%    x{1}        = zeros(ns,np,nk) ;
+%    x{1}(:,:,1) = -70;
+%    x{2}        = ones(nk,nk,ns,np);
+%end
     
 M.g   = {};
 M.x   = x;
