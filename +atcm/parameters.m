@@ -17,12 +17,17 @@ if Ns == 1
     %load NewDelayPriors.mat
     pth = fileparts(mfilename('fullpath'));
     %load([pth '/AugSpectralPriors']);
-    load([pth '/TCM_PRIORS_FEB20']);
+    load([pth '/NewModPriors']);
     
     DCM.M.pE = pE;
     DCM.M.pC = pC;
+        
     
 else
+    
+    % I need to put the priors from .mat above into here for multinode
+    % setup - CBA right now
+    fprintf('Priors for multi-node models are out of date\n');
     
     % NEEDS UPDATING FOR MULTINODE/REGION
     pth = fileparts(mfilename('fullpath'));
