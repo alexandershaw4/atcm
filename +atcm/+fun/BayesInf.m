@@ -12,6 +12,10 @@ if isstruct(Cp)
     Cp = diag(spm_vec(Cp));
 end
 
+if all(size(Cp) > 1)
+    Cp = diag(Cp);
+end
+
 dP = spm_unvec(Ep-pE,Qp);
 
 % Bayesian inference {threshold = prior} NB Prior on A,B and C = exp(0) = 1

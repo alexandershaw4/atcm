@@ -1,4 +1,4 @@
-function [f,J,Q,D,DV] = tc_dev_dev(x,u,P,M,m)
+function [f,J,Q] = tc_dev_dev(x,u,P,M,m)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,

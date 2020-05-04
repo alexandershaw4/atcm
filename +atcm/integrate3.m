@@ -522,12 +522,12 @@ switch IntMethod
                 % firing function at dxdt - assumes conductance model using
                 % the JD Williams approximation
                 %--------------------------------------------------------------
-%                 VR       = -40;
-%                 Vx       = exp(P.S)*32;
-%                 V        = spm_unvec(v,M.x);
-%                 Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);     % mean firing rate  
-%                 S(:,:,i) = Curfire;
-                S = [];
+                VR       = -40;
+                Vx       = exp(P.S)*32;
+                V        = spm_unvec(v,M.x);
+                Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);     % mean firing rate  
+                S(:,:,i) = Curfire;
+          %      S = [];
                  %Dfire   = (1./[1 1/2 1/4 1 1/2 1 8 8]);
                  % Dfire   = (1./[1 1   1/4 1 1/2 1 1 1]);   % CHANGE ME BACK!!
                  %Dfire   = Dfire .* exp(P.TV);

@@ -448,8 +448,13 @@ for i = 1:nr
         
         %[X,F(i),Cp]  = AO(@fakeDM,Px(:),c,DCM.xY.y,256,12*4,[],1e-3);
         
-        [X,F(i),Cp]  = AO(@fakeDM,Px(:),c,DCM.xY.y,64*4,12*4,[],1e-3,0.000001);
+        %[X,F(i),Cp]  = AO(@fakeDM,Px(:),c,DCM.xY.y,64*4,12*4,[],1e-3,0.000001);
           
+        
+        [X,F(i),Cp,Pp,History]  = AO(@fakeDM,Px(:),c,DCM.xY.y,32,12*4,[],...
+                                    -inf,1e-12,2,0,'fe',0,1,[],1);
+        
+        
         %[X,F(i),Cp]  = AO(@optimi,Px(:),c,[],64*4,12*4,[],1e-3,0.000001);
         
         
@@ -616,7 +621,7 @@ PP  = spm_unvec(x1,pE);        % proper structure
 
 
 M    = DD.M;
-M.pC = ( ~~spm_vec(PP) +0.125 );
+M.pC = ( ~~real(spm_vec(PP)) +0.125 );
 M.pC = spm_unvec(M.pC,PP);
 
 IS = spm_funcheck(DD.M.IS);       % Integrator

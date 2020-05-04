@@ -16,7 +16,7 @@ for i  = 1:length(nc)
 end
 
 % get the membrane potentials over time
-mV = squeeze(s{1}(1,:,1,:));
+mV = real(squeeze(s{1}(1,:,1,:)));
 
 for i = 1:8
     subplot(8,1,i);
