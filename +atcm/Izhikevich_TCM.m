@@ -33,13 +33,14 @@ for i = 1:ns
     b = [O.b].*exp(P.Iz.b);
     c = [O.c];%.*exp(P.Iz.c);
     d = [O.d];%.*exp(P.Iz.d);
-
+    
+    a =  a * M.dt;
 
     V = x(i,:,1);%- 64; 
     %u = b .* V;   %membrane voltage with initial value
     u = x(i,:,2);
     
-    tau = 0.25;        %tau is the discretization time-step
+    tau = M.dt;%0.25;        %tau is the discretization time-step
 
     for k = 1:8
         if k < 8

@@ -18,7 +18,7 @@ DCM.M.pC = V;
 
 % Plot the result
 figure('position',[1000         424         869         914]);
-imagesc(j(ip,:));
+imagesc(real(j(ip,:))+imag(j(ip,:)));
 
 % if using intrinsics, get labels
 if strcmp(parameter,'H')

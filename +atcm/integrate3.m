@@ -863,7 +863,7 @@ for ins = 1:ns
                         case {'none'}
                             % just a smoothed fft of the (contributing)
                             % states
-                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),:),1/dt,w,30);   
+                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),:),1/dt,w,50);   
                             
                         case {'dmd' 'svd' 'glm'}
                             % just a smoothed fft of the dmd series
@@ -941,9 +941,9 @@ for ins = 1:ns
                     Pf = Pf.*H;
                 end
 
-                layers.unweighted(ins,ij,:) = ( Pf         ) * exp(P.L(ins));
-                layers.weighted  (ins,ij,:) = ( Pf * J(ij) ) * exp(P.L(ins));
-                layers.iweighted (ins,ij,:) = ( Pf * J(ij) ) * exp(P.L(ins));
+                layers.unweighted(ins,ij,:) = ( Pf             )      * exp(P.L(ins));
+                layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) ) * exp(P.L(ins));
+                layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) ) * exp(P.L(ins));
                 layers.DMD(ins,ij,:)        = y0;               % retain DMD series
              end
     end
