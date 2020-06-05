@@ -146,7 +146,7 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 w     = M.Hz;                     % FoI (w)
 x     = M.x;                      % model (hidden) states
 Kx    = x;                        % pre-fp x, for kernel scheme
-dt    = 1/1200;                   % hard-wired 400 hz
+dt    = 1/1200;                   % hard-wired 1200 hz
 Fs    = 1/dt;                     % sampling frequency
 tn    = 2;                        % sample window length, in seconds
 pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
@@ -154,9 +154,14 @@ pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
 % unpack simulation pst options, if specified
 %--------------------------------------------------------------------------
 if isfield(M,'sim')
-    tn  = M.sim.pst(end);
+    %tn  = M.sim.pst(end);
     pst = M.sim.pst;
     dt  = M.sim.dt;
+end
+
+if isfield(P,'dt')
+    dt    = (1/1200)*exp(P.dt);
+    pst   = 1000*((0:dt:tn-dt)');
 end
 
 % Select a numerical integration method, if specified
@@ -178,6 +183,7 @@ end
 % Select input type: 0 = constant (DC), 1 = oscilltion, 2 = ERP bump
 %--------------------------------------------------------------------------
 InputType = 0;
+if isfield(M,'InputType'); InputType=M.InputType;end
 switch InputType
     case 0
         
@@ -190,8 +196,8 @@ switch InputType
         
         % For oscillatory inputs...
         %------------------------------------------------------------------
-        mu    = 1+(P.R(1));                      % mean amplitude
-        mf    = 1+(P.R(2));                      % frequency
+        mu    = 1*(P.R(1));                      % mean amplitude
+        mf    = 10*exp(P.R(2));                      % frequency
         drive = mu * sin(2*pi*mf*(pst/1000));  % (sin) oscillation over time
         
     case 2
@@ -211,6 +217,20 @@ switch InputType
         hfn   = randn(length(pst),1);
         hfn   = bandpassfilter(hfn,1/dt,[100 300]);
         drive = hfn*mu;   % amplitude (constant) over time
+        
+    case 4
+        
+        % TWO oscillatory inputs...
+        %------------------------------------------------------------------
+        mu1   = .001*exp(P.R(1));                      % mean amplitude
+        mu2   = .001*exp(P.R(2));
+        mf1   = 50*exp(P.R(3));                  % frequency
+        mf2   = 10*exp(P.R(4));
+        
+        drive(:,2) = .2*(mu1 * sin(2*pi*mf1*(pst/1000)) ) ;  % (sin) oscillation over time
+        drive(:,1) = .2*(mu2 * sin(2*pi*mf2*(pst/1000)) );
+        
+        
 end
 
 
@@ -402,7 +422,7 @@ switch IntMethod
                 % dx = (expm(dt*J) - I)*inv(J)*f(x,u)
                 for j = 1:N
                     %v = v + Q*f(v,drive(i),P,M,Curfire);
-                    v = v + Q*f(spm_unvec(v,M.x),drive(i),P,M);           % CHANGE ME BACK   
+                    v = v + Q*f(spm_unvec(v,M.x),drive(i,:),P,M);           % CHANGE ME BACK   
                     
                     % Ozaki 1992 numerical method:
                     % A bridge between nonlinear time-series models and
@@ -751,7 +771,7 @@ for ins = 1:ns
     % extract time series of all states from this region
     %----------------------------------------------------------------------
     yx = reshape( squeeze(y(ins,:,:,:)), [npp*nk,length(t)]); 
-    yx = yx(1:8,:);        % limit to membrane potentials                    % 1:8 FOR DEXPRO
+    yx = yx(1:size(y,2),:);        % limit to membrane potentials                    % 1:8 FOR DEXPRO
     %yx = yx([1 2 4 6],:);
     %yx = yx(9:end,:);     % limit to post synaptic currents
     %yx = yx([1 2 4 6],:);    
@@ -863,8 +883,9 @@ for ins = 1:ns
                         case {'none'}
                             % just a smoothed fft of the (contributing)
                             % states
-                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),:),1/dt,w,50);   
-                            
+                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),:),1/dt,w,50); 
+                            %[Pf,Hz]  = atcm.fun.Afft(Eigenvectors(Ji(ij),:),1/dt,w);
+                            %Pf = Pf';
                         case {'dmd' 'svd' 'glm'}
                             % just a smoothed fft of the dmd series
                             [Pf,Hz]  = atcm.fun.AfftSmooth(y0(burn:end),1/dt,w,60);          % 60 FOR DEXPRO

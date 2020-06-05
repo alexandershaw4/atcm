@@ -154,23 +154,23 @@ SNMDA = [1   0   0   0   0;   %  SS
 % Excitatory (np x np): AMPA & NMDA
 %--------------------------------------------------------------------------
 %           ss  sp  si  dp  di  tp  rt  rl   
-% GEa(1,:) = [0   .1  0   .5  0   0   0   1]/1;% ss
-% GEa(2,:) = [1   0   0   .5  0   .5  0   .8]/1;% sp
-% GEa(3,:) = [1   3   0   1   0   0   0   1]/1;% si
-% GEa(4,:) = [1   .1  0   0   0   0   0   1.5]/1;% dp
-% GEa(5,:) = [1   1   0   3   0   0   0   1.5]/1;% di
-% GEa(6,:) = [0   .5  0   2   0   0   0   1]/1;% tp
-% GEa(7,:) = [0   0   0   0   0   .5  0   0]/1;% rt
-% GEa(8,:) = [0   0   0   0   0   .75 0   0]/1;% rl
+GEa(1,:) = [0   .1  0   .5  0   0   0   1]/1;% ss
+GEa(2,:) = [1   0   0   .5  0   .5  0   .8]/1;% sp
+GEa(3,:) = [1   3   0   1   0   0   0   1]/1;% si
+GEa(4,:) = [1   .1  0   0   0   0   0   1.5]/1;% dp
+GEa(5,:) = [1   1   0   3   0   0   0   1.5]/1;% di
+GEa(6,:) = [0   .5  0   2   0   0   0   1]/1;% tp
+GEa(7,:) = [0   0   0   0   0   .5  0   0]/1;% rt
+GEa(8,:) = [0   0   0   0   0   .75 0   0]/1;% rl
 
-GEa(1,:) = [0   4  0   4   0   0   0   4]/1;% ss
-GEa(2,:) = [4   0  0   4   0   4   0   4]/1;% sp
-GEa(3,:) = [4   4  0   4   0   0   0   4]/1;% si
-GEa(4,:) = [4   4  0   0   0   0   0   4]/1;% dp
-GEa(5,:) = [4   4  0   4   0   0   0   4]/1;% di
-GEa(6,:) = [0   4  0   4   0   0   0   4]/1;% tp
-GEa(7,:) = [0   0  0   0   0   4   0   0]/1;% rt
-GEa(8,:) = [0   0  0   0   0   4   0   0]/1;% rl
+% GEa(1,:) = [0   4  0   4   0   0   0   4]/1;% ss
+% GEa(2,:) = [4   0  0   4   0   4   0   4]/1;% sp
+% GEa(3,:) = [4   4  0   4   0   0   0   4]/1;% si
+% GEa(4,:) = [4   4  0   0   0   0   0   4]/1;% dp
+% GEa(5,:) = [4   4  0   4   0   0   0   4]/1;% di
+% GEa(6,:) = [0   4  0   4   0   0   0   4]/1;% tp
+% GEa(7,:) = [0   0  0   0   0   4   0   0]/1;% rt
+% GEa(8,:) = [0   0  0   0   0   4   0   0]/1;% rl
 
 
 GEa = GEa .* ~eye(np);
@@ -190,23 +190,25 @@ GEn = GEa;
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
 %           ss  sp  si  dp  di  tp  rt  rl
-% GIa(1,:) = [8   0   .1  0   1.5 0   0   0 ];% ss
-% GIa(2,:) = [0   8   1.2 0   0   0   0   0 ];% sp
-% GIa(3,:) = [0   0   .2  0   0   0   0   0 ];% si
-% GIa(4,:) = [0   0   0   8   1   0   0   0 ];% dp
-% GIa(5,:) = [0   0   0   0   .2  0   0   0 ];% di
-% GIa(6,:) = [0   0   0   0   .7  8   0   0 ];% tp
-% GIa(7,:) = [0   0   0   0   0   0   8   0 ];% rt
-% GIa(8,:) = [0   0   0   0   0   0   1.5 8 ];% rl
+GIa(1,:) = [8   0   .1  0   1.5 0   0   0 ];% ss
+GIa(2,:) = [0   8   1.2 0   0   0   0   0 ];% sp
+GIa(3,:) = [0   0   .2  0   0   0   0   0 ];% si
+GIa(4,:) = [0   0   0   8   1   0   0   0 ];% dp
+GIa(5,:) = [0   0   0   0   .2  0   0   0 ];% di
+GIa(6,:) = [0   0   0   0   .7  8   0   0 ];% tp
+GIa(7,:) = [0   0   0   0   0   0   8   0 ];% rt
+GIa(8,:) = [0   0   0   0   0   0   1.5 8 ];% rl
 
-GIa(1,:) = [8   0   2   0   8   0   0   0 ];% ss
-GIa(2,:) = [0   8   2   0   0   0   0   0 ];% sp
-GIa(3,:) = [0   0  32   0   0   0   0   0 ];% si
-GIa(4,:) = [0   0   0   8   8   0   0   0 ];% dp
-GIa(5,:) = [0   0   0   0  32   0   0   0 ];% di
-GIa(6,:) = [0   0   0   0   8   8   0   0 ];% tp
-GIa(7,:) = [0   0   0   0   0   0  32   0 ];% rt
-GIa(8,:) = [0   0   0   0   0   0   8   8 ];% rl
+GIa = GIa*200;
+
+% GIa(1,:) = [8   0   2   0   8   0   0   0 ];% ss
+% GIa(2,:) = [0   8   2   0   0   0   0   0 ];% sp
+% GIa(3,:) = [0   0  32   0   0   0   0   0 ];% si
+% GIa(4,:) = [0   0   0   8   8   0   0   0 ];% dp
+% GIa(5,:) = [0   0   0   0  32   0   0   0 ];% di
+% GIa(6,:) = [0   0   0   0   8   8   0   0 ];% tp
+% GIa(7,:) = [0   0   0   0   0   0  32   0 ];% rt
+% GIa(8,:) = [0   0   0   0   0   0   8   8 ];% rl
 
 
 % GABA-B conductances: same as GABA-A
@@ -215,81 +217,81 @@ GIb     = GIa;
 
 % M- channel connections (np x np) {excitatory cells only}
 %--------------------------------------------------------------------------
-GIm  = eye(8)*4/10;
+GIm  = eye(8)*4/100;
 Mh   = diag(exp(P.Mh));
  
 % H-channel conductances {L6 & Thal Relay only}
 %--------------------------------------------------------------------------
-GIh      = full(sparse([6 8],[6 8],4/10,8,8));
+GIh      = full(sparse([6 8],[6 8],4/100,8,8));
 Hh       = exp(P.Hh);
 GIh(6,6) = GIh(6,6)*Hh(1);
 GIh(8,8) = GIh(8,8)*Hh(2);
 
 % Channel rate constants [opening times] & conduction velocities (ns x np) 
 %--------------------------------------------------------------------------
-RR = exp(-P.T) .* (1000./[4 16 100 200]);           % receptor opening rate
-CR = exp(-P.TV).* (100./[10 2 2 10 5 10 10 800]);
-CR = CR*0;
-
-for i = 1:8
-    for j = 1:4
-        Kmat(i,j) = RR(j) + CR(i);
-    end
-end
-
-for in = 1:ns
-    KE(in,:)    = Kmat(:,1)';        % AMPA   opening + CV
-    KI(in,:)    = Kmat(:,2)';        % GABA-A opening + CV
-    KN(in,:)    = Kmat(:,3)';        % NMDA   opening + CV
-    KB(in,:)    = Kmat(:,4)';        % GABA-B opening + CV
-end
-
-
-% % AMPA rates
-% %     ss sp si dp di tp rt rl
-% KEt = [0  2  0  2  0  2  0  2; % ss
-%       2  0  0  2  0  2  0  2; % sp
-%       .8 .8 0  .8 0  .8 0  1; % si
-%       2  2  0  0  0  2  0  2; % dp
-%       .8 .8 0  .8 0  .8 0  1; % di
-%       2  2  0  2  0  0  0  2; % tp
-%       0  0  0  0  0  0  0  2; % rt
-%       0  0  0  0  0  2  3.3 0];% rl
-%   
-% % NMDA rates
-% %     ss sp si dp di tp rt rl
-% KNt = [0  13 0  13 0  13 0  13;
-%       13 0  0  13 0  13 0  13;
-%       0  10 0  10 0  10 0  10;
-%       13 13 0  0  0  13 0  13;
-%       0  10 0  10 0  10 0  10;
-%       13 13 0  13 0  0  0  13;
-%       0  0  0  0  0  0  0  15;
-%       0  0  0  0  0  0  0  0]*10;
+% RR = exp(-P.T) .* (1000./[4 16 100 200]);           % receptor opening rate
+% CR = exp(-P.TV).* (100./[10 2 2 10 5 10 10 800]);
+% CR = CR*0;
 % 
-% % GABA-A rates
-% %     ss sp si dp di tp rt rl
-% KIt = [0  0  3  0  3  0  0  0;
-%       0  0  3  0  3  0  0  0;
-%       0  0  0  0  0  0  0  0;
-%       0  0  3  0  3  0  0  0;
-%       0  0  0  0  0  0  0  0;
-%       0  0  3  0  3  0  0  0;
-%       0  0  0  0  0  0  9  0;
-%       0  0  0  0  0  0  3.3 0];
-% 
-% % invert & multiply by parameter
-% for in = 1:ns
-%     KE(in,:,:) = exp( -P.T(1) ) * (1000./KEt);
-%     KI(in,:,:) = exp( -P.T(2) ) * (1000./KIt);
-%     KN(in,:,:) = exp( -P.T(3) ) * (1000./KNt);
-%     KB(in,:,:) = exp( -P.T(4) ) * (1000./KIt);
+% for i = 1:8
+%     for j = 1:4
+%         Kmat(i,j) = RR(j) + CR(i);
+%     end
 % end
 % 
-% KE(isinf(KE)) = 0;
-% KI(isinf(KI)) = 0;
-% KN(isinf(KN)) = 0;
-% KB(isinf(KB)) = 0;
+% for in = 1:ns
+%     KE(in,:)    = Kmat(:,1)';        % AMPA   opening + CV
+%     KI(in,:)    = Kmat(:,2)';        % GABA-A opening + CV
+%     KN(in,:)    = Kmat(:,3)';        % NMDA   opening + CV
+%     KB(in,:)    = Kmat(:,4)';        % GABA-B opening + CV
+% end
+
+
+% AMPA rates
+%     ss sp si dp di tp rt rl
+KEt = [0  2  0  2  0  2  0  2; % ss
+       2  0  0  2  0  2  0  2; % sp
+       .8 .8 0  .8 0  .8 0  1; % si
+       2  2  0  0  0  2  0  2; % dp
+       .8 .8 0  .8 0  .8 0  1; % di
+       2  2  0  2  0  0  0  2; % tp
+       0  0  0  0  0  0  0  2; % rt
+       0  0  0  0  0  2  3.3 0];% rl
+  
+% NMDA rates
+%     ss sp si dp di tp rt rl
+KNt = [0  13 0  13 0  13 0  13;
+      13 0  0  13 0  13 0  13;
+      0  10 0  10 0  10 0  10;
+      13 13 0  0  0  13 0  13;
+      0  10 0  10 0  10 0  10;
+      13 13 0  13 0  0  0  13;
+      0  0  0  0  0  0  0  15;
+      0  0  0  0  0  0  0  0]*10;
+
+% GABA-A rates
+%     ss sp si dp di tp rt rl
+KIt = [0  0  3  0  3  0  0  0;
+      0  0  3  0  3  0  0  0;
+      0  0  0  0  0  0  0  0;
+      0  0  3  0  3  0  0  0;
+      0  0  0  0  0  0  0  0;
+      0  0  3  0  3  0  0  0;
+      0  0  0  0  0  0  9  0;
+      0  0  0  0  0  0  3.3 0];
+
+% invert & multiply by parameter
+for in = 1:ns
+    KE(in,:,:) = exp( -P.T(1) ) * (1000./KEt);
+    KI(in,:,:) = exp( -P.T(2) ) * (1000./KIt);
+    KN(in,:,:) = exp( -P.T(3) ) * (1000./KNt);
+    KB(in,:,:) = exp( -P.T(4) ) * (1000./KIt);
+end
+
+KE(isinf(KE)) = 0;
+KI(isinf(KI)) = 0;
+KN(isinf(KN)) = 0;
+KB(isinf(KB)) = 0;
 
 
 KM    = (exp(-P.m)*1000/160) ;   % m-current opening + CV
@@ -395,12 +397,12 @@ for i = 1:ns
                    
         % Conductance equation
         %==================================================================        
-        f(i,:,2) = (E'     - x(i,:,2)).*KE(i,:);
-        f(i,:,3) = (I'     - x(i,:,3)).*KI(i,:);
-        f(i,:,5) = (IB'    - x(i,:,5)).*KB(i,:);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).*KN(i,:);
-        f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );
-        f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );
+        f(i,:,2) = (E'     - x(i,:,2))*squeeze(KE(i,:,:));
+        f(i,:,3) = (I'     - x(i,:,3))*squeeze(KI(i,:,:));
+        f(i,:,5) = (IB'    - x(i,:,5))*squeeze(KB(i,:,:));
+        f(i,:,4) = (ENMDA' - x(i,:,4))*squeeze(KN(i,:,:));
+        f(i,:,6) = (Im'    - x(i,:,6))*(KM(i,:) );
+        f(i,:,7) = (Ih'    - x(i,:,7))*(KH(i,:) );
         
 end
 

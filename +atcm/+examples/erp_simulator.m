@@ -3,7 +3,7 @@
 
 % function handles
 M.IS = @atcm.integrate_erp;
-M.f  = @atcm.tc_dev;
+M.f  = @atcm.tc_dev_dev;
 
 % time, freqs etc.
 M.Hz      = 4:80;
@@ -25,6 +25,11 @@ R(1) = 0.69; % input bump (stim) delay: exp(R(1))*60
 R(2) = .5;   % input bump (stim) size:  exp(R(2))*8
 R(3) = 2;    % input bump (stim) width
 DCM.M.pE.R = R;
+
+% states that contirbute to the signal
+J = zeros(1,56)-1000;   % 56 total per node
+J([1 2 4 6]) = log(.8); % pyramidal cells only
+DCM.M.pE.J = J;
 
 % Trial data
 U.X = [0];

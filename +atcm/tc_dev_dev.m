@@ -147,9 +147,9 @@ SA   = [1   0   0   0   0;   %  SS
         0   1   0   0   0;   %  SI
         1   0   0   0   0;   %  DP
         0   0   0   0   0;   %  DI
-        0   0   0   0   0;   %  TP
-        0   0   0   0   0;   %  rt
-        0   0   0   0   0]/8;%  rc
+        0   0   1   0   0;   %  TP
+        0   0   0   1   1;   %  rt
+        0   0   0   1   1]/8;%  rc
     
 % % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
 % %--------------------------------------------------------------------------    
@@ -158,9 +158,9 @@ SNMDA = [1   0   0   0   0;   %  SS
          0   1   0   0   0;   %  SI
          1   0   0   0   0;   %  DP
          0   0   0   0   0;   %  DI
-         0   0   0   0   0;   %  TP
-         0   0   0   0   0;   %  rt
-         0   0   0   0   0]/8;%  rc
+         0   0   1   0   0;   %  TP
+         0   0   0   1   1;   %  rt
+         0   0   0   1   1]/8;%  rc
 
 % intrinsic connectivity switches
 %--------------------------------------------------------------------------    
@@ -331,7 +331,7 @@ for i = 1:ns
         %------------------------------------------------------------------
         if any(full(U(:))) ; %&& size(U,1) >= i
             %dU = u(1)*( C(i,:).*[1 1/64 1/128 1/128] );
-            dU = u(1)*C(i,1);%1
+            dU = u*C(i,1);%1
         else
             dU = 0;
         end
@@ -359,6 +359,11 @@ for i = 1:ns
         % and exogenous input(U): 
         %------------------------------------------------------------------
         input_cell        = 8;%[8 1 2 4];
+        
+        if length(dU) == 2
+            input_cell = [8 1];
+        end
+        
         E(input_cell)     = E(input_cell)         +dU';
         ENMDA(input_cell) = ENMDA(input_cell)     +dU';
                 
