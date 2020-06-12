@@ -102,10 +102,6 @@ end
 G    = full(P.H);
 G    = exp(G);
 
-% nmda matrix
-Gn = full(P.Hn);
-Gn = exp(Gn);
-
 % this was for specifying trial-specific intrinsic connections (w Betas)
 % in the LTP project (Sumner, Spriggs, Shaw 2020)
 %--------------------------------------------------
@@ -151,7 +147,6 @@ SA   = [1   0   0   0   0;   %  SS
         0   0   0   1   1;   %  rt % 0 in ket study
         0   0   0   1   1]/8;%  rc % 0 in ket study
     
-    SA(:,[3 4 5]) = 0; % For ket study
     
     
 % % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
@@ -165,7 +160,6 @@ SNMDA = [1   0   0   0   0;   %  SS
          0   0   0   1   1;   %  rt % 0 in ket study
          0   0   0   1   1]/8;%  rc % 0 in ket study
 
-     SNMDA(:,[3 4 5]) = 0; % For ket study
      
 % intrinsic connectivity switches
 %--------------------------------------------------------------------------    
@@ -200,7 +194,7 @@ GEa = GEa .* ~eye(np);
 GEa = GEa + eye(np);      % KILLED
 GEn = GEa;
 
-GEn = GEn + (eye(8)/8);
+%GEn = GEn + (eye(8)/8);
 
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
@@ -343,7 +337,7 @@ for i = 1:ns
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------
         E      = ( G(:,:,i).*GEa)*m(i,:)'; % AMPA currents
-        ENMDA  = ( Gn(:,:,i).*GEn)*m(i,:)'; % NMDA currents
+        ENMDA  = ( G(:,:,i).*GEn)*m(i,:)'; % NMDA currents
         I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
         IB     = ( G(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
         
@@ -394,35 +388,35 @@ for i = 1:ns
                    
         % Conductance equations
         %==================================================================   
-        %pop_rates = [1 1 2 1 2 1 1 1];
-        %pop_rates = pop_rates.*exp(P.pr);
+        pop_rates = [1 1 4 1 2 1 1 1];
+        pop_rates = pop_rates.*exp(P.TV(:)');
         
-        f(i,:,2) = (E'     - x(i,:,2)).* KE(i,:);%*pop_rates);
-        f(i,:,3) = (I'     - x(i,:,3)).* KI(i,:);%*pop_rates);
-        f(i,:,5) = (IB'    - x(i,:,5)).* KB(i,:);%*pop_rates);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* KN(i,:);%*pop_rates);
+        f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
+        f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*pop_rates);
+        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)*pop_rates);
+        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)*pop_rates);
         
         if IncludeMH
             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );
         end
 
-        % Restrict the states flow rate by the conduction rate of the population
-        % c.f. synaptic delays + conduction delays
-        %------------------------------------------------------------------
-        DV       = 1./[1 1 1 2.2 1 2 8 8]; 
-        DV       = 1./[2 1 1 2.2 1 2 1 2]; 
-        DV       = 1./[1 1 1 1   1 1 1 1]; 
-        DV       = DV.*exp(P.TV);
-        f(i,:,2) = f(i,:,2) .* DV;  % AMPA
-        f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
-        f(i,:,4) = f(i,:,4) .* DV;  % NMDA
-        f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
-        
-        if IncludeMH
-            f(i,:,6) = f(i,:,6) .* DV;  % M
-            f(i,:,7) = f(i,:,7) .* DV;  % H
-        end 
+%         % Restrict the states flow rate by the conduction rate of the population
+%         % c.f. synaptic delays + conduction delays
+%         %------------------------------------------------------------------
+%         DV       = 1./[1 1 1 2.2 1 2 8 8]; 
+%         DV       = 1./[2 1 1 2.2 1 2 1 2]; 
+%         DV       = 1./[1 1 1 1   1 1 1 1]; 
+%         DV       = DV.*exp(P.TV);
+%         f(i,:,2) = f(i,:,2) .* DV;  % AMPA
+%         f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
+%         f(i,:,4) = f(i,:,4) .* DV;  % NMDA
+%         f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
+%         
+%         if IncludeMH
+%             f(i,:,6) = f(i,:,6) .* DV;  % M
+%             f(i,:,7) = f(i,:,7) .* DV;  % H
+%         end 
         
                 
 end
@@ -467,8 +461,8 @@ Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
 %Thalamocortical System. I. Layers, Loops and the Emergence of Fast Synchronous Rhythms
 % Lumer et al 1997
 
-CT = 8; %60;
-TC = 3; %20;
+CT = 8;%8; %60;
+TC = 3;%3; %20;
 
 Tc              = zeros(np,np);
 Tc([7 8],[1:6]) = CT  * exp(P.D0(1)); % L6->thal
@@ -479,17 +473,17 @@ Tc = -Tc / 1000;
 
 Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
 
-if isfield(P,'ID')
-    % ignore..... doesn't trigger  unless you have an entry in P 'ID'
-    %-----------------------------------------------------------------
-    % intrisc delays
-    ID = [0 0 0 1 0 1 1 1];
-    ID = [1 .2 .1 1 .2 1 .4 1];
-    ID = [2 1  .1 2 .2 2 .4 2]; % this 
-    ID = -ID.*exp(P.ID)/1000;
-    ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
-    Tc = Tc + ID;
-end
+% if isfield(P,'ID')
+%     % ignore..... doesn't trigger  unless you have an entry in P 'ID'
+%     %-----------------------------------------------------------------
+%     % intrisc delays
+%     ID = [0 0 0 1 0 1 1 1];
+%     ID = [1 .2 .1 1 .2 1 .4 1];
+%     ID = [2 1  .1 2 .2 2 .4 2]; % this 
+%     ID = -ID.*exp(P.ID)/1000;
+%     ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
+%     Tc = Tc + ID;
+% end
 
 
 % Mean intra-population delays, inc. axonal etc. Seem to help oscillation

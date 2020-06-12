@@ -899,12 +899,9 @@ for ins = 1:ns
                         case {'none'}
                             % just a smoothed fft of the (contributing)
                             % states
-                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),burn:end),1/dt,w,20); % 50
-                            
+                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),burn:end),1/dt,w,50); % 50
                             %[Pf,Hz]  = atcm.fun.Afft(Eigenvectors(Ji(ij),:),1/dt,w);
-                            %Pf = full(HighResMeanFilt(Pf(:),1,3));
-                            %Pf = sgolayfilt(Pf(:),2,11);
-                            %Pf = abs(Pf(:));
+                            %Pf = Pf';
                             
                             Pf0(ins,ij,:) = Pf;
                             
@@ -1014,19 +1011,13 @@ if DoPCA
     for ins = 1:ns
         
         Pfa   = squeeze(abs(Pf0(ins,:,:)));
-        %[V,D] = eig(cov(Pfa'));  ... % V = eigenvalues = principal component vectors
-        %pcs   = ( V*Pfa );
+        [V,D] = eig(cov(Pfa'));  ... % V = eigenvalues = principal component vectors
+        pcs   = ( V*Pfa );
         
-        % here i transpose for the pca because i don't want to compute
-        % modes that are linear combinations of the channels, but
-        % identify *frequency* modes
-        [Q,S] = pca(Pfa);
-        %pcs = Q*Pfa;
-        pcs = S';
+        [~,order] = sort(diag(D),'descend');
         
         for im = 1:length(P.pca)
-            %WC(im,:) = exp(P.pca(im))*pcs(im,:);
-            WC(im,:) = exp(P.pca(im))*Q(:,im)';
+            WC(im,:) = exp(P.pca(im))*pcs(im,:);
         end
 
         % store

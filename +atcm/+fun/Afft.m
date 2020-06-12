@@ -50,9 +50,11 @@ for s1 = 1:size(signal,1)
     for s2 = 1:size(signal,1)
         
         data1  = signal(s1,:);
+        %data1  = pmcov(data1);
         data1  = fft(data1);
         
         data2  = signal(s2,:);
+        %data2  = pmcov(data2);
         data2  = fft(data2);
         
         Pxy    = data1 .* conj(data2);

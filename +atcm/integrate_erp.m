@@ -158,7 +158,7 @@ switch InputType
         %------------------------------------------------------------------
         delay  = 60 + P.R(1);             % bump
         scale1 = 8  * exp(P.R(2));
-        width = 16*exp(P.R(3));
+        width = 1*exp(P.R(3));
         drive  = atcm.fun.makef(pst,delay,scale1,width);
     
     case 3
