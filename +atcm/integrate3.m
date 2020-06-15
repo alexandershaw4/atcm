@@ -641,29 +641,21 @@ end
 % Spectrum of channel noise (non-specific): added to spectrum
 %--------------------------------------------------------------------------
 Gn = P.b(1)*(w.^0)';
-%Gn = P.b(1)*w.^(-exp(P.b(2)))';
 
 % Spectrum of channel noise (specific): added to spectrum
 %--------------------------------------------------------------------------
 for i = 1:size(P.c,2)
-    %Gs(:,i) = exp(P.c(1,i) - 2)+w.^(-exp(P.c(2,1)));
     Gs(:,i) = exp(P.c(1,i) )+w.^(-exp(P.c(2,1)));
-    %Gs(:,i) = exp(P.c(1,i) - 2)*(w.^0);
-    %Gs = Gs*0;
 end
-
-%Gs=Gs*0;
 
 if HamNoise
     % Hamming to taper the edges 
-    %H  = (1 - cos(2*pi*[1:nf]'/(nf + 1)))/2;
+    % H  = (1 - cos(2*pi*[1:nf]'/(nf + 1)))/2;
     % optimisation struggles with edge effects
     %----------------------------------------------------------------------
-    warning off ;     % dont warn of integrer operands
+    warning off ;     % dont warn of integer operands
     H  = kaiser(nf,2.5);
-    %Gn = (Gn.*H);
     Gs = (Gs.*H);
-    %Gu = (Gu.*H);
     warning on;
     
 end
@@ -968,7 +960,7 @@ for ins = 1:ns
                 % Noise shaping - fixed f-scaling
                 Pf = (Pf)';
                 Pf = full(Pf)';
-                %Pf = Pf .* Hz';                               % PUT BACK!
+                %Pf = Pf .* Hz';                % PUT BACK!                               % PUT BACK!
                 %Pf = abs(Pf);
                 
                 % Multiply in the parameterised noise terms
@@ -1023,10 +1015,23 @@ if DoPCA
         [Q,S] = pca(Pfa);
         %pcs = Q*Pfa;
         pcs = S';
+        Q = abs(Q);
+        
+        if isfield(P,'psmooth')
+            warning off
+            for im = 1:length(P.pca)
+                Q(:,im) = smooth( Q(:,im) , (P.psmooth(im)) ,'lowess' );
+            end
+            warning on
+        end
         
         for im = 1:length(P.pca)
             %WC(im,:) = exp(P.pca(im))*pcs(im,:);
             WC(im,:) = exp(P.pca(im))*Q(:,im)';
+            
+            if DoHamming
+                WC(im,:) = WC(im,:).*H(:)';
+            end
         end
 
         % store
