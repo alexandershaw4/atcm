@@ -50,7 +50,7 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 %                     = Q*f = Q*J*x(t)
 % or,
 %
-%    Q      = spm_inv(speye(length(J)) - D.*J);
+%    D      = spm_inv(speye(length(J)) - D.*J);
 %    Q      = (spm_expm(dt*D*J/N) - speye(n,n))*spm_inv(J);
 %    y(i+1) = y(i) + Q*dt*f(y(i),..,P)
 %
@@ -1015,23 +1015,30 @@ if DoPCA
         [Q,S] = pca(Pfa);
         %pcs = Q*Pfa;
         pcs = S';
-        Q = abs(Q);
+        %Q = abs(Q);
         
-        if isfield(P,'psmooth')
-            warning off
-            for im = 1:length(P.pca)
-                Q(:,im) = smooth( Q(:,im) , (P.psmooth(im)) ,'lowess' );
-            end
-            warning on
-        end
+%         if isfield(P,'psmooth')
+%             warning off
+%             for im = 1:length(P.pca)
+%                 Q(:,im) = smooth( Q(:,im) , (P.psmooth(im)) ,'lowess' );
+%             end
+%             warning on
+%         end
         
         for im = 1:length(P.pca)
-            %WC(im,:) = exp(P.pca(im))*pcs(im,:);
             WC(im,:) = exp(P.pca(im))*Q(:,im)';
             
             if DoHamming
                 WC(im,:) = WC(im,:).*H(:)';
+                %pw = polyfit(w,1./(w.^2),2);
+                %WC(im,:) = WC(im,:) - polyval(pw,WC(im,:));
             end
+            if isfield(P,'psmooth')
+                warning off
+                WC(im,:) = smooth( WC(im,:) , (P.psmooth(im)) ,'lowess' );
+                warning on
+            end
+                
         end
 
         % store
