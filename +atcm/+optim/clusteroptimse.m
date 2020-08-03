@@ -80,7 +80,7 @@ DD.Gmax = -inf;
 
 others = [];
 
-sf = 1; % scale factor on variances - i.e. bigger = wider var
+sf = 4; % scale factor on variances - i.e. bigger = wider var
 
 % % force replace q
 % q      = spm_Q(1/2,77,1); 
@@ -269,6 +269,7 @@ for i = 1:nr
         UB  = (Px+(c'*sf));  
         DD.doplot = 0;
         opts = optimoptions('surrogateopt','PlotFcn','surrogateoptplot');
+        %opts.MaxFunctionEvaluations = 200*length(UB);
         [X,F(i)] = surrogateopt(@optimi,LB,UB,opts);
         
         case 'NNA'
@@ -646,7 +647,7 @@ if nargout > 1
     [J,ip] = jaco1(@fakeDM,Px, V  );
     
     J = J';
-    return;
+    %return;
 end
 
 

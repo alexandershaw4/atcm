@@ -146,7 +146,7 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 w     = M.Hz;                     % FoI (w)
 x     = M.x;                      % model (hidden) states
 Kx    = x;                        % pre-fp x, for kernel scheme
-dt    = 1/1200;                   % hard-wired 1200 hz
+dt    = 1/600;                   % hard-wired 1200 hz
 Fs    = 1/dt;                     % sampling frequency
 tn    = 2;                        % sample window length, in seconds
 pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
@@ -298,6 +298,10 @@ IntMethod   =  ' ';
 WithDelays  = method;%2;          % 45 = 4th order Runge-Kutta method with delays
 [ns,npp,nk] = size(M.x);
 
+if isfield(M,'IntMethod')
+    IntMethod = M.IntMethod;
+end
+
 % Prerequisits for integration with delays
 if WithDelays == 2 || WithDelays == 5 || WithDelays == 20 || WithDelays == 21 ...
         || WithDelays == 22 || WithDelays == 8 || WithDelays == 24 || WithDelays == 101
@@ -333,7 +337,7 @@ end
 
 try
    % uncomment to put a hard limit on delay integration time
-   N = min([N 4]);
+   %N = min([N 4]);
 end
 
 % initial firing rate
@@ -403,6 +407,31 @@ switch IntMethod
         y = y';
         S = [];
         
+    case 'linearise'
+        % Here we aim to linearise f, such that:
+        % dx = f(x) --> dx = Ax
+        % then we use matrix A to predict the timeseries of the system
+        
+        % initial point
+        x0      = spm_vec(M.x);
+        
+        % find a fixed point
+        xbar    = atcm.fun.solvefixedpoint(P,M);
+        M.x     = spm_unvec(xbar,M.x);
+        
+        % compute Jacobian, evaluated at xbar
+        dfdx    = spm_diff(M.f,M.x,M.u,P,M,1);
+        
+        % eigenvectors and values
+        [T,D]   = eig(full(real(dfdx)));
+        iT      = pinv(T);
+        
+        % integrate: x(t) = T*exp(D*t)*iT*x0        
+        for i = 1:length(t)
+            y(:,i) = T*exp(D*(t(i)./1000))*iT*x0;
+        end
+        S=[];
+        
     otherwise
                 
         % Do an actual numerical integration for a discrete epoch, if not using kernel approach
@@ -442,6 +471,22 @@ switch IntMethod
                 else
                     y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
                 end
+                
+                
+            elseif WithDelays == 101
+                
+                % logistic equation with harvest
+                r = dt;
+                k = 1;
+                h = 0;
+                
+                for j = 1:N
+                    fx = Q*f(spm_unvec(v,M.x),drive(i,:),P,M);            
+                    v  = v + r*fx.*( 1 - (fx./k) ) - h;
+                end
+                
+                y(:,i) = v;
+                
                 
                 
             elseif WithDelays == 20
@@ -615,7 +660,7 @@ spike       = firings;
 DoHilbert      = 0; % take the absolute (magnitude) of the hilbert envelope
 Bandpassfilter = 0; % band pass filter to [w(1)-1) : w]
 DoDCT          = 0; % discrete cosine transform series before fft
-IncDCS         = 1; % include a cosine set in the noise model               x       % ON FOR DEXPRO
+IncDCS         = 1; % include semi-stochastic neuronal fluctuations       x       % ON FOR DEXPRO
 DoHamming      = 1; % Cosine Hann window the model spectrum      
 HamNoise       = 0; % Hann noise components - if data was BPF, exponential 
                     % delay based noise model wont fit without hanning edges
@@ -635,17 +680,17 @@ end
 %--------------------------------------------------------------------------
 for i = 1:size(P.a,2)
     %Gu(:,i) =  exp(P.a(1,i))*(w.^(-exp(P.a(2,i))));
-    Gu(:,i) = exp(P.a(1,i))*(w.^0);
+    Gu(:,i) = exp(P.a(1,i))*(w.^0);                  % P.a = constant
 end
 
 % Spectrum of channel noise (non-specific): added to spectrum
 %--------------------------------------------------------------------------
-Gn = P.b(1)*(w.^0)';
+Gn = P.b(1)*(w.^0)';                                 % P.b = constant
 
 % Spectrum of channel noise (specific): added to spectrum
 %--------------------------------------------------------------------------
 for i = 1:size(P.c,2)
-    Gs(:,i) = exp(P.c(1,i) )+w.^(-exp(P.c(2,1)));
+    Gs(:,i) = exp(P.c(1,i) )+w.^(-exp(P.c(2,1)));    % P.c = expone
 end
 
 if HamNoise
@@ -697,6 +742,7 @@ noise.Gs = Gs;
     
 % Optional burn in - i.e. take transform of n:end ms instead of 0:end...
 burn = findthenearest(300,t); 
+%burn=1;
 
 % Generate weighted (principal cells) signal - g & fft(g)i
 %--------------------------------------------------------------------------
@@ -743,7 +789,7 @@ end
 
 try
 switch fmethod            % UNCOMMENT FOR KET PAPER
-    case 'dmd';
+    case {'dmd'};
         for ins = 1:ns
             % remove principal [dominant] eigenmode(s) from states series
             x = squeeze( y(ins,:,:,:) );
@@ -800,36 +846,72 @@ for ins = 1:ns
         
     switch lower(fmethod)
         
-        case 'isvd'
-            % this is basically the transfer function from spm12
-            [Eigenvectors,s,v] = svd(yx);
-            %Eigenvectors = Eigenvectors'*yx;
-            warning on;
-
-            s  = diag(s);
-            Pf = -(Eigenvectors'*(1./(1j*2*pi*w - s)));
-        
-            Pf = Pf(1:length(Ji),:);
-                
-            for ij = 1:length(Ji)
-                for i = 1:length(w)
-                    Pf(ij,i) = sq(Pf(ij,i))*diag(Gu(i,ins))*sq(Pf(ij,i))';
-                end
-            end
-
-            for ij = 1:length(Ji)
-                layers.iweighted (ins,ij,:) = ( Pf(ij,:) * J(ij) ) * exp(P.L(ins));
-            end
+%         case 'isvd'
+%             % this is basically the transfer function from spm12
+%             yx = reshape( squeeze(y(ins,:,:,:)), [npp*nk,length(t)]); 
+%             [v,s] = eig(full(yx*yx'),'nobalance');
+%             
+%             %[Eigenvectors,s,v] = svd(yx);
+%             %Eigenvectors = Eigenvectors'*yx;
+%             warning on;
+% 
+%             s  = diag(s);
+%             %Pf = -(Eigenvectors'*(1./(1j*2*pi*w - s)));
+%             
+%             dgdx  = spm_diff(M.g,M.x,M.u,P,M,1);
+%             dfdu  = spm_diff(M.f,M.x,M.u,P,M,2);
+%             dgdv  = dgdx*v;
+%             dvdu  = pinv(v)*dfdu;
+%             
+%             ng    = size(dgdx,1);         % number of outputs
+%             nu    = size(dfdu,2);         % number of inputs
+%             nk    = size(v,2);            % number of modes
+% 
+%             S = zeros(length(w),nk,ng,nu);
+%             for j = 1:nu
+%                 for i = 1:ng
+%                     for k = 1:nk
+%                         %if ismember(k,Ji)
+%                         
+%                             % transfer functions (FFT of kernel)
+%                             %--------------------------------------------------------------
+%                             Sk       = 1./(1j*2*pi*w - s(k));
+%                             S(:,k,i,j) = S(:,k,i,j) + spm_vec( dgdv(i,k)*dvdu(k,j)*Sk );
+%                         %end                          
+%                     end
+%                 end
+%             end
+% 
+%             Pf = squeeze(S)';
+%                         
+%             for ij = 1:length(Ji)
+%                 layers.iweighted (ins,ij,:) = ( Pf(ij,:) * J(ij) ) * exp(P.L(ins));
+%             end
+%             
+%             layers.weighted(ins,:,:) = layers.iweighted(ins,:,:);
             
-            layers.weighted(ins,:,:) = layers.iweighted(ins,:,:);
-            
-        case {'dmd' 'instantaneous' 'svd' 'none' 'glm' 'fooof'}
+        case {'dmd' 'instantaneous' 'svd' 'none' 'glm' 'fooof' 'timefreq'}
             
             switch fmethod
                 case 'dmd'
                 %yx = yx([1 2 4 6 8],:);
                 [Eigenvalues, Eigenvectors, ModeAmplitudes, ModeFrequencies, ...
                     GrowthRates, POD_Mode_Energies] = atcm.fun.dmd((yx), length(Ji), dt);
+                
+%                 % Manual DMD:
+%                 X1 = yx(:,1:end-1);
+%                 X2 = yx(:,2:end);
+%                 
+%                 [U,S,V] = spm_svd(X1);
+%                 r = length(Ji);
+%                 U = U(:,1:r);
+%                 S = S(1:r,1:r);
+%                 V = V(:,1:r);
+%                 Atilde = full(U')*X2*full(V)*pinv(full(S));
+%                 [W,eigs] = eig(Atilde);
+%                 Phi = X2*V*pinv(full(S))*W;
+%                 
+%                 Eigenvectors = Phi'*yx;
                 
                 %[u,s,v] = svd(yx);
                % 
@@ -861,7 +943,7 @@ for ins = 1:ns
                     [Eigenvectors,s,v] = svd(cov(real(yx)'));
                     Eigenvectors = Eigenvectors'*yx; 
                     
-                case {'none' 'fooof'}
+                case {'none' 'fooof' 'timefreq'}
                     Eigenvectors = yx;
                 case 'glm'
                     % project 8 series onto 4 components, onto 1
@@ -888,15 +970,88 @@ for ins = 1:ns
                 try
                     
                     switch fmethod
+                        
+                        case {'timefreq'}
+                            
+                            data = Eigenvectors(Ji(ij),burn:end);
+                            
+                            for ik = 1:length(w)-1
+                                
+                                [B, A] = mk_filter(1./dt,w(ik), w(ik+1), 4);
+                                filtve = filtfilt(B,A,data);
+                                this(ik,:) = abs(hilbert(filtve));
+                                
+                            end
+                                        
+                            tfm = HighResMeanFilt(this,1,4);
+                            [u,s,v]=spm_svd(tfm');
+                            p1 = u(:,1)*s(1,1)*v(:,1)';
+                            tfm = mean(tfm - p1',2);
+                            
+                            Pf = tfm;
+                            Pf(end+1)=Pf(end);
+                            Pf0(ins,ij,:) = Pf;
+                        
                         case {'none'}
                             % just a smoothed fft of the (contributing)
                             % states
-                            [Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),burn:end),1/dt,w,20); % 50
+                            %[Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),burn:end),1/dt,w,4); % 50
+                            %clear Hz Pf new;
                             
-                            %[Pf,Hz]  = atcm.fun.Afft(Eigenvectors(Ji(ij),:),1/dt,w);
-                            %Pf = full(HighResMeanFilt(Pf(:),1,3));
-                            %Pf = sgolayfilt(Pf(:),2,11);
-                            %Pf = abs(Pf(:));
+                            this = Eigenvectors(Ji(ij),burn:end);
+                            
+                            %sk = 8;
+                            %[Pf,Hz]  = atcm.fun.Afft(this,1/dt,w(1):1/sk:w(end));
+                            [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
+                            Pf = ((Pf))';
+                            
+                            Pf = envelope(Pf, 1,'peak');% + (.2*Pf);
+                            
+%                             % maxi downsampling
+%                             for is = 1:length(w)-1
+%                                 ind = findthenearest(Hz,w(is));
+%                                 val = mean( Pf(ind:ind+(sk-1)) );
+%                                 new(is) = val(1);
+%                             end
+%                             new(end+1)=Pf(end);
+%                             
+%                             Pf = new';
+%                             Hz = w;
+                            
+                            %Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
+                            %Pf = smooth( Pf , 8 ,'lowess' );
+                            
+%                             % reduce each to a unimodela distribution
+%                             w1 = w./w(end);
+%                             %w1 = w1.*hamming(length(w))'; 
+%                             Pf = Pf.*w1(:);
+                            %warning off;
+                            %[curve] = fit((w).',Pf,'poly9');
+                            %warning on;
+                            %Pf = curve(w);
+%                             
+%                             c(1,:) = curve.a1*exp(-((w-curve.b1)/curve.c1).^2)';
+%                             c(2,:) = curve.a2*exp(-((w-curve.b2)/curve.c2).^2)';
+%                             c(3,:) = curve.a3*exp(-((w-curve.b3)/curve.c3).^2)';
+%                             c(4,:) = curve.a4*exp(-((w-curve.b4)/curve.c4).^2)';
+%                             %c(5,:) = curve.a5*exp(-((w-curve.b5)/curve.c5).^2)';
+%                             %c(6,:) = curve.a6*exp(-((w-curve.b6)/curve.c6).^2)';
+%                             %c = smooth2(c,8);
+%                             
+%                             %Pf = c(2,:)' ;
+%                             
+%                             Pf = sum(c,1)';
+%                             
+%                             Pf = smooth( Pf , 8 ,'lowess' );
+                            
+                            %[curve1,gof(1)] = fit(w.',Pf,'gauss2');
+                            %[curve2,gof(2)] = fit(w.',Pf,'gauss3');
+                            %[curve3,gof(3)] = fit(w.',Pf,'gauss4');
+                            %[curve4,gof(4)] = fit(w.',Pf,'gauss5');
+                            %[~,best] = max([gof.adjrsquare]);
+                            %eval(['Pf = curve' num2str(best) '(w);']);
+                                                        
+                            %Pf = abs(hilbert(Pf));
                             
                             Pf0(ins,ij,:) = Pf;
                             
@@ -909,6 +1064,8 @@ for ins = 1:ns
                             
                             %[Pf,Hz]  = atcm.fun.Affti(y0(burn:end),1/dt,w); %*
                             %Pf = Pf';
+                            Pf0(ins,ij,:) = Pf;
+                            
                         case {'fooof'}
                             
                             fq = w(1):(1/8):w(end);
@@ -960,10 +1117,10 @@ for ins = 1:ns
                 % Noise shaping - fixed f-scaling
                 Pf = (Pf)';
                 Pf = full(Pf)';
-                %Pf = Pf .* Hz';                % PUT BACK!                               % PUT BACK!
+                Pf = Pf .* Hz';                % PUT BACK!                               % PUT BACK!
                 %Pf = abs(Pf);
                 
-                % Multiply in the parameterised noise terms
+                % Multiply in the semi-stochastic neuronal fluctuations
                 for i = 1:length(Hz)
                     Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
                 end
@@ -1005,49 +1162,86 @@ if DoPCA
     layers.weighted = [];
     for ins = 1:ns
         
-        Pfa   = squeeze(abs(Pf0(ins,:,:)));
-        %[V,D] = eig(cov(Pfa'));  ... % V = eigenvalues = principal component vectors
-        %pcs   = ( V*Pfa );
+        Pfa   = squeeze( (Pf0(ins,:,:)));    
+        %Pfa   = Pfa.*repmat(w,[size(Pfa,1),1]);
         
-        % here i transpose for the pca because i don't want to compute
-        % modes that are linear combinations of the channels, but
-        % identify *frequency* modes
-        [Q,S] = pca(Pfa);
-        %pcs = Q*Pfa;
-        pcs = S';
-        %Q = abs(Q);
+       % [Q,S] = pca(Pfa);
         
-%         if isfield(P,'psmooth')
-%             warning off
-%             for im = 1:length(P.pca)
-%                 Q(:,im) = smooth( Q(:,im) , (P.psmooth(im)) ,'lowess' );
-%             end
-%             warning on
+%         Pfa = Pfa';
+%         X1 = Pfa(:,1:end-1);
+%         X2 = Pfa(:,2:end);
+%         
+%         % Implement dynamic mode decomposition...
+%         [U,S,V] = spm_svd(X1);
+%         
+%         % Catch & fix when optimisation breaks the system
+%         if all(size(S))==0
+%             U = ones(size(U,1),1);
+%             S = size(1,1);
+%             V = ones(size(X1,2),1);
+%         end
+%         
+%         r  = length(P.pca);
+%         r  = min(r,length(S)); % rank can be less than user wanted...
+%         U  = U(:,1:r);
+%         S  = S(1:r,1:r);
+%         V  = V(:,1:r);
+%         
+%         Atilde    = full(U')*X2*full(V)*pinv(full(S));
+%         [W,eigvs] = eig(Atilde);
+%         Phi       = X2*V*pinv(full(S))*W;
+%         Q         = abs(full(Phi));
+%         %Q        = real(-Phi'*Pfa)';      
+%         layers.phi(ins,:,:) = full(Phi)';
+
+       Q = Pfa';
+
+         % High-order polynomial smoothing
+%         for j = 1:size(Q,2)
+%             this = Q(:,j);            
+%             warning off;
+%             [curve2, goodness2] = fit(w.',this,'poly9');
+%             warning on;
+%             Q(:,j) = curve2(w);
+%             %Q(:,j)  = ( curve2(w)*.8 + this*.3 ) ./2;
 %         end
         
-        for im = 1:length(P.pca)
-            WC(im,:) = exp(P.pca(im))*Q(:,im)';
+        for im = 1:min([size(Q,2) length(P.pca)])
+            WC(im,:) = exp(P.pca(im))*(Q(:,im))';
             
             if DoHamming
                 WC(im,:) = WC(im,:).*H(:)';
-                %pw = polyfit(w,1./(w.^2),2);
-                %WC(im,:) = WC(im,:) - polyval(pw,WC(im,:));
             end
             if isfield(P,'psmooth')
                 warning off
-                WC(im,:) = smooth( WC(im,:) , (P.psmooth(im)) ,'lowess' );
+                %[WC(im,:),~] = envelope(WC(im,:), 200,'analytic');
+                  
+                w0 = linspace(1.5,8,length(w)).^2;
+                WC(im,:) = WC(im,:).*w0(:)';
+
+                
+                %WC(im,:) = atcm.fun.bandpassfilter(WC(im,:),1./dt,[w(1) w(end)]);
+                %WC(im,:) = atcm.fun.HighResMeanFilt(WC(im,:)',1,2);
+                %WC(im,:) = smooth( WC(im,:) , exp(P.psmooth(im))*4 ,'moving' );
+                %WC(im,:) = smooth( WC(im,:) , .05*exp(P.psmooth(im)) ,'moving' );
+                %WC(im,:) = smooth( WC(im,:) , .05*exp(P.psmooth(im)) ,'rlowess' );
+                
                 warning on
             end
-                
-        end
+            %if DoHamming
+            %    WC(im,:) = WC(im,:).*H(:)';
+            %end
+            %Multiply in the semi-stochastic neuronal fluctuations
+            WC(im,:) = WC(im,:).*Gu(:,ins)';
 
+        end
+                        
         % store
         layers.iweighted(ins,:,:) = WC * exp(P.L(ins));
         layers.weighted = layers.iweighted;
+        
     end
 end
-    
-
 
 
 % Now compute node proper CSDs from sum of weighted cells/modes per region
@@ -1071,6 +1265,67 @@ for inx = 1:ns
         end
     end
 end
+
+
+% negative beta fit!
+if isfield(P,'beta')
+    beta = atcm.fun.makef(w,21*exp(P.beta(1)),4*exp(P.beta(2)),4*exp(P.beta(3)));
+    for inx = 1:ns
+        for iny = 1:ns
+            Pf(:,inx,iny) = Pf(:,inx,iny) - beta';
+        end
+    end
+end
+
+
+%layers.weighted = [];
+%layers.weighted(1,:,:) = reshape(combined,[nc*npc,length(w)]);
+
+% GMM fit the CSDs ...
+%----------------------------------------------------------------------
+DoGMM = 1;
+
+if DoGMM
+    for ins = 1:ns
+        dat = Pf(:,ins,ins);
+
+        %[P,F] = afit.fitgaussiansbayes(w,dat,3,.08);  
+
+        %dat = afit.makegauskew(w,P.f,P.a,P.w,P.s);
+        %w1 = w./w(end); dat = dat.*w1(:);
+        %warning off;
+        %[curve2, goodness2] = fit((w).',dat,'poly9'); % 3
+        %warning on;
+        %dat  = curve2(w);
+        
+        %if DoHamming
+        %    dat = dat.*H(:);
+        %end
+        
+        %dat = envelope(dat, 1,'peak') + (.2*dat);
+            
+        %dat = smooth( dat , 24*exp(P.psmooth(im)) ,'moving' ); % 16
+        %w0 = w./w(end);
+%         w0 = linspace(1.5,8,length(w)).^2;
+%         dat = dat.*w0(:);
+        %dat = smooth( dat , 12*exp(P.psmooth(im)) ,'sgolay' );
+        %dat = atcm.fun.HighResMeanFilt(dat',1,8);
+        
+        Pf(:,ins,ins) = dat;
+    end
+
+    % recompute CSDs 
+    for inx = 1:ns
+        for iny = 1:ns
+            if inx ~= iny
+                Pf(:,inx,iny) = squeeze( Pf(:,inx,inx) ) .* ...
+                                   conj( Pf(:,iny,iny) ) ;
+            end
+        end
+    end
+    
+end
+
 
 % Take the absolute (magnitude) of the cross spectra
 %----------------------------------------------------------------------

@@ -21,8 +21,7 @@ if Ns == 1
     
     DCM.M.pE = pE;
     DCM.M.pC = pC;
-        
-    
+            
 else
     
     % I need to put the priors from .mat above into here for multinode
@@ -166,7 +165,7 @@ else
     %pE.L = repmat(14.7361         ,[ns,1]);
     pE.L = repmat(pr.pE.L(1)         ,[ns,1]);
     pC.L = repmat(64              ,[ns,1]);
-    
+        
     % Contributing states
     %J           = zeros(1,np,nk) - 1000;
     %J(:,[1 2 4 6],1)    = log([.2 .8 .2 .2]);

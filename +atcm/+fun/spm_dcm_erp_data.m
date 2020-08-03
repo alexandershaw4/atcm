@@ -245,6 +245,8 @@ for i = 1:length(trial)
             oY = squeeze(D(Ic,It,c(j)))';
             bY = squeeze(mean((D(Ic,Bt,c(j))),2))';
             
+            oY = detrend(oY);
+            
             A  = repmat(bY, [length(It),1]);
             Y  = Y + R*(oY - A);
             if j==1 fprintf('Baselining...\n');end
@@ -264,7 +266,10 @@ for i = 1:length(trial)
     else
         Y     = zeros(Ns,Nc,Nt);
         for j = 1:Nt
-            Y(:,:,j) = R*D(Ic,It,c(j))';
+            
+            this = R*D(Ic,It,c(j))';
+                        
+            Y(:,:,j) = this;
         end
         DCM.xY.y{i} = Y;
     end

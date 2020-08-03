@@ -87,8 +87,8 @@ DCM.Delays              = DelayMat;
  
 % Compute functional amplitude & phase coupling between all cells (all regions)
 %--------------------------------------------------------------------------
-DCM.FunctionalConnectivty = atcm.fun.computefc(s);
-[DCM.phases,DCM.PhsCor]   = atcm.fun.computephase(s);
+% DCM.FunctionalConnectivty = atcm.fun.computefc(s);
+% [DCM.phases,DCM.PhsCor]   = atcm.fun.computephase(s);
 
 % store parameter estimates in DCM
 %--------------------------------------------------------------------------

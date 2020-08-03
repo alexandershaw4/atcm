@@ -105,6 +105,7 @@ G    = exp(G);
 % nmda matrix
 Gn = full(P.Hn);
 Gn = exp(Gn);
+%Gn = exp(full(G));
 
 % this was for specifying trial-specific intrinsic connections (w Betas)
 % in the LTP project (Sumner, Spriggs, Shaw 2020)
@@ -151,7 +152,7 @@ SA   = [1   0   0   0   0;   %  SS
         0   0   0   1   1;   %  rt % 0 in ket study
         0   0   0   1   1]/8;%  rc % 0 in ket study
     
-    SA(:,[3 4 5]) = 0; % For ket study
+    %SA(:,[3 4 5]) = 0; % For ket study
     
     
 % % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
@@ -165,7 +166,7 @@ SNMDA = [1   0   0   0   0;   %  SS
          0   0   0   1   1;   %  rt % 0 in ket study
          0   0   0   1   1]/8;%  rc % 0 in ket study
 
-     SNMDA(:,[3 4 5]) = 0; % For ket study
+     %SNMDA(:,[3 4 5]) = 0; % For ket study
      
 % intrinsic connectivity switches
 %--------------------------------------------------------------------------    
@@ -193,6 +194,16 @@ GEa(5,:) = [0   0   0   4   0   0   0   0]/1;
 GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
 GEa(7,:) = [0   0   0   0   0   0   0   2]/1; 
 GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
+
+% Trying out some additional synapses - RL->SP&DP, TP->RT & DP->RL/RT
+% GEa(1,:) = [0   0   0   0   0   2   0   2]/1;
+% GEa(2,:) = [4   0   0   0   0   0   0   2]/1;
+% GEa(3,:) = [4   4   0   0   0   0   0   0]/1; 
+% GEa(4,:) = [0   4   0   0   0   0   0   1]/1;
+% GEa(5,:) = [0   0   0   4   0   0   0   0]/1;
+% GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
+% GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
+% GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
 
 GEa = GEa .* ~eye(np);
@@ -334,8 +345,8 @@ for i = 1:ns
         % input scaling: 
         %------------------------------------------------------------------
         if any(full(U(:))) ; %&& size(U,1) >= i
-            %dU = u(1)*( C(i,:).*[1 1/64 1/128 1/128] );
-            dU = u*C(i,1);%1
+            %dU = u(1)*( C(i,:).*[1 1/64 1/128 1/128] );                  % CHANGE BACK
+            dU = u(i)*C(i,1);%1
         else
             dU = 0;
         end
@@ -362,11 +373,11 @@ for i = 1:ns
       
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = 8;%[8 1 2 4];
+        input_cell        = 8;%[8 1 2 4];8;%[8 1 2 4];                   % CHANGE BACK
         
-        if length(dU) == 2
-            input_cell = [8 1];
-        end
+        %if length(dU) == 2
+        %    input_cell = [8 1];
+        %end
         
         E(input_cell)     = E(input_cell)         +dU';
         ENMDA(input_cell) = ENMDA(input_cell)     +dU';
@@ -413,6 +424,7 @@ for i = 1:ns
         DV       = 1./[1 1 1 2.2 1 2 8 8]; 
         DV       = 1./[2 1 1 2.2 1 2 1 2]; 
         DV       = 1./[1 1 1 1   1 1 1 1]; 
+        %DV       = 1./[1 .2 .2 2 .2 2 .5 .9];
         DV       = DV.*exp(P.TV);
         f(i,:,2) = f(i,:,2) .* DV;  % AMPA
         f(i,:,3) = f(i,:,3) .* DV;  % GABA-A

@@ -14,16 +14,17 @@ end
 c.cells = {'ss' 'sp' 'si' 'dp' 'di' 'tp' 'rt' 'rl'};
 
 % precompute function connectivity for all trials
-fc = atcm.fun.computefc(s);
+s0 = spm_unvec( real(spm_vec(s)), s);
+fc = atcm.fun.computefc(s0);
 
 % precompute phase-coupling for all trials
-[ph,PhsCor] = atcm.fun.computephase(s);
+[ph,PhsCor] = atcm.fun.computephase(s0);
 
 % loop over trial types
 for i = 1:length(y)
 
     % convert firing to Hz/s for this trial
-    c(i).fire = f2sr(f{i},DCM.M.dt);
+    c(i).fire = atcm.fun.f2sr(f{i},DCM.M.dt);
     
     % extract membrane potentials
     c(i).mV   = squeeze(s{i}(:,:,1,:));
