@@ -269,6 +269,7 @@ for i = 1:nr
         UB  = (Px+(c'*sf));  
         DD.doplot = 0;
         opts = optimoptions('surrogateopt','PlotFcn','surrogateoptplot');
+        opts.ObjectiveLimit = 0.4;
         %opts.MaxFunctionEvaluations = 200*length(UB);
         [X,F(i)] = surrogateopt(@optimi,LB,UB,opts);
         

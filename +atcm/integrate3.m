@@ -986,10 +986,12 @@ for ins = 1:ns
                             tfm = HighResMeanFilt(this,1,4);
                             [u,s,v]=spm_svd(tfm');
                             p1 = u(:,1)*s(1,1)*v(:,1)';
-                            tfm = mean(tfm - p1',2);
+                            %tfm = mean(tfm - p1',2);
+                            tfm=mean(tfm,2);
                             
                             Pf = tfm;
                             Pf(end+1)=Pf(end);
+                            Pf = envelope(Pf, 1,'peak');
                             Pf0(ins,ij,:) = Pf;
                         
                         case {'none'}
@@ -1000,59 +1002,22 @@ for ins = 1:ns
                             
                             this = Eigenvectors(Ji(ij),burn:end);
                             
-                            %sk = 8;
-                            %[Pf,Hz]  = atcm.fun.Afft(this,1/dt,w(1):1/sk:w(end));
+                            % splined fft
                             [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             Pf = ((Pf))';
+                                        
+                            % offset 1./f nature of slope
+                            w0 = linspace(1.5,8,length(w)).^2;
+                            Pf = Pf.*w0(:);    
                             
-                            Pf = envelope(Pf, 1,'peak');% + (.2*Pf);
+                            %Pf = smooth(Pf,2,'moving');
                             
-%                             % maxi downsampling
-%                             for is = 1:length(w)-1
-%                                 ind = findthenearest(Hz,w(is));
-%                                 val = mean( Pf(ind:ind+(sk-1)) );
-%                                 new(is) = val(1);
-%                             end
-%                             new(end+1)=Pf(end);
-%                             
-%                             Pf = new';
-%                             Hz = w;
+                            % use the envelope as a form of smoothing
+                            %Pf = envelope(Pf, 1,'peak');% + (.1*Pf);
                             
-                            %Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
-                            %Pf = smooth( Pf , 8 ,'lowess' );
+                            %Pf = smooth(Pf,4,'moving');
                             
-%                             % reduce each to a unimodela distribution
-%                             w1 = w./w(end);
-%                             %w1 = w1.*hamming(length(w))'; 
-%                             Pf = Pf.*w1(:);
-                            %warning off;
-                            %[curve] = fit((w).',Pf,'poly9');
-                            %warning on;
-                            %Pf = curve(w);
-%                             
-%                             c(1,:) = curve.a1*exp(-((w-curve.b1)/curve.c1).^2)';
-%                             c(2,:) = curve.a2*exp(-((w-curve.b2)/curve.c2).^2)';
-%                             c(3,:) = curve.a3*exp(-((w-curve.b3)/curve.c3).^2)';
-%                             c(4,:) = curve.a4*exp(-((w-curve.b4)/curve.c4).^2)';
-%                             %c(5,:) = curve.a5*exp(-((w-curve.b5)/curve.c5).^2)';
-%                             %c(6,:) = curve.a6*exp(-((w-curve.b6)/curve.c6).^2)';
-%                             %c = smooth2(c,8);
-%                             
-%                             %Pf = c(2,:)' ;
-%                             
-%                             Pf = sum(c,1)';
-%                             
-%                             Pf = smooth( Pf , 8 ,'lowess' );
-                            
-                            %[curve1,gof(1)] = fit(w.',Pf,'gauss2');
-                            %[curve2,gof(2)] = fit(w.',Pf,'gauss3');
-                            %[curve3,gof(3)] = fit(w.',Pf,'gauss4');
-                            %[curve4,gof(4)] = fit(w.',Pf,'gauss5');
-                            %[~,best] = max([gof.adjrsquare]);
-                            %eval(['Pf = curve' num2str(best) '(w);']);
-                                                        
-                            %Pf = abs(hilbert(Pf));
-                            
+                            % store 
                             Pf0(ins,ij,:) = Pf;
                             
                         case {'dmd' 'svd' 'glm'}
@@ -1195,6 +1160,13 @@ if DoPCA
 %         layers.phi(ins,:,:) = full(Phi)';
 
        Q = Pfa';
+       
+%        [u,s,v]=spm_svd(Pfa);
+%        for ik = 1:size(u,2)
+%            qq(ik,:) = u(:,ik)'*Pfa;
+%        end
+%        Q=qq';
+       
 
          % High-order polynomial smoothing
 %         for j = 1:size(Q,2)
@@ -1216,8 +1188,8 @@ if DoPCA
                 warning off
                 %[WC(im,:),~] = envelope(WC(im,:), 200,'analytic');
                   
-                w0 = linspace(1.5,8,length(w)).^2;
-                WC(im,:) = WC(im,:).*w0(:)';
+                %w0 = linspace(1.5,8,length(w)).^2;
+                %WC(im,:) = WC(im,:).*w0(:)';
 
                 
                 %WC(im,:) = atcm.fun.bandpassfilter(WC(im,:),1./dt,[w(1) w(end)]);
@@ -1267,50 +1239,28 @@ for inx = 1:ns
 end
 
 
-% negative beta fit!
-if isfield(P,'beta')
-    beta = atcm.fun.makef(w,21*exp(P.beta(1)),4*exp(P.beta(2)),4*exp(P.beta(3)));
-    for inx = 1:ns
-        for iny = 1:ns
-            Pf(:,inx,iny) = Pf(:,inx,iny) - beta';
-        end
-    end
+% % negative beta fit!
+% if isfield(P,'beta')
+%     beta = atcm.fun.makef(w,21*exp(P.beta(1)),4*exp(P.beta(2)),4*exp(P.beta(3)));
+%     for inx = 1:ns
+%         for iny = 1:ns
+%             Pf(:,inx,iny) = Pf(:,inx,iny) - beta';
+%         end
+%     end
+% end
+
+% Smooth the CSDs
+%----------------------------------------------------------------------
+DoSmth = 1;
+if isfield(M,'DoSmth')
+    DoSmth=M.DoSmth;
 end
 
-
-%layers.weighted = [];
-%layers.weighted(1,:,:) = reshape(combined,[nc*npc,length(w)]);
-
-% GMM fit the CSDs ...
-%----------------------------------------------------------------------
-DoGMM = 1;
-
-if DoGMM
+if DoSmth
     for ins = 1:ns
         dat = Pf(:,ins,ins);
-
-        %[P,F] = afit.fitgaussiansbayes(w,dat,3,.08);  
-
-        %dat = afit.makegauskew(w,P.f,P.a,P.w,P.s);
-        %w1 = w./w(end); dat = dat.*w1(:);
-        %warning off;
-        %[curve2, goodness2] = fit((w).',dat,'poly9'); % 3
-        %warning on;
-        %dat  = curve2(w);
-        
-        %if DoHamming
-        %    dat = dat.*H(:);
-        %end
-        
-        %dat = envelope(dat, 1,'peak') + (.2*dat);
-            
-        %dat = smooth( dat , 24*exp(P.psmooth(im)) ,'moving' ); % 16
-        %w0 = w./w(end);
-%         w0 = linspace(1.5,8,length(w)).^2;
-%         dat = dat.*w0(:);
-        %dat = smooth( dat , 12*exp(P.psmooth(im)) ,'sgolay' );
-        %dat = atcm.fun.HighResMeanFilt(dat',1,8);
-        
+        %dat = envelope(dat, 1,'peak') ;%+ (.1*Pf);
+        dat = smooth( dat , 16*exp(P.psmooth(im)) ,'moving' ); % 16
         Pf(:,ins,ins) = dat;
     end
 
