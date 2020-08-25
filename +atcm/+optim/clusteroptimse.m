@@ -270,7 +270,7 @@ for i = 1:nr
         DD.doplot = 0;
         opts = optimoptions('surrogateopt','PlotFcn','surrogateoptplot');
         opts.ObjectiveLimit = 0.4;
-        %opts.MaxFunctionEvaluations = 200*length(UB);
+        opts.MaxFunctionEvaluations = 50*length(UB);
         [X,F(i)] = surrogateopt(@optimi,LB,UB,opts);
         
         case 'NNA'

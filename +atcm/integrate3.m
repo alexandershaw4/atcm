@@ -312,7 +312,7 @@ if WithDelays == 2 || WithDelays == 5 || WithDelays == 20 || WithDelays == 21 ..
         dfdx = zeros(size(dfdx));
         D    = zeros(size(D));
     end
-    
+        
     OPT.tol = 1e-6*norm((dfdx),'inf');
     
     if OPT.tol == 0
@@ -326,6 +326,8 @@ if WithDelays == 2 || WithDelays == 5 || WithDelays == 20 || WithDelays == 21 ..
     % system delay operator, Q
     Q       = (spm_expm(dt*D*dfdx/N) - speye(n,n))*spm_inv(dfdx);
     QD      = Q;
+    
+    %Q = dt*D;
         
 elseif WithDelays == 3
     [fx,~,~,D] = f(M.x,0,P,M);
@@ -416,7 +418,10 @@ switch IntMethod
         x0      = spm_vec(M.x);
         
         % find a fixed point
-        xbar    = atcm.fun.solvefixedpoint(P,M);
+        if solvefp; xbar    = atcm.fun.solvefixedpoint(P,M);
+        else;       xbar    = spm_vec(M.x);
+        end
+        
         M.x     = spm_unvec(xbar,M.x);
         
         % compute Jacobian, evaluated at xbar
@@ -1001,7 +1006,7 @@ for ins = 1:ns
                             %clear Hz Pf new;
                             
                             this = Eigenvectors(Ji(ij),burn:end);
-                            
+                                                                                                                
                             % splined fft
                             [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             Pf = ((Pf))';
@@ -1010,13 +1015,12 @@ for ins = 1:ns
                             w0 = linspace(1.5,8,length(w)).^2;
                             Pf = Pf.*w0(:);    
                             
-                            %Pf = smooth(Pf,2,'moving');
-                            
-                            % use the envelope as a form of smoothing
-                            %Pf = envelope(Pf, 1,'peak');% + (.1*Pf);
-                            
-                            %Pf = smooth(Pf,4,'moving');
-                            
+                            % compute the envelope of this spiky spectrum
+                            % using local maxima and cubic spline
+                            %Pf = atcm.fun.aenvelope(Pf,20);
+                            Pf = atcm.fun.aenvelope(Pf,30);
+                            %Pf = atcm.fun.aenvelope(Pf,50);
+                                                        
                             % store 
                             Pf0(ins,ij,:) = Pf;
                             
@@ -1082,12 +1086,13 @@ for ins = 1:ns
                 % Noise shaping - fixed f-scaling
                 Pf = (Pf)';
                 Pf = full(Pf)';
-                Pf = Pf .* Hz';                % PUT BACK!                               % PUT BACK!
+                %Pf = Pf .* Hz';                % PUT BACK!                               % PUT BACK!
                 %Pf = abs(Pf);
                 
                 % Multiply in the semi-stochastic neuronal fluctuations
                 for i = 1:length(Hz)
-                    Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
+                    %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
+                    Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
                 end
 
                 J  = full(J);
@@ -1239,16 +1244,6 @@ for inx = 1:ns
 end
 
 
-% % negative beta fit!
-% if isfield(P,'beta')
-%     beta = atcm.fun.makef(w,21*exp(P.beta(1)),4*exp(P.beta(2)),4*exp(P.beta(3)));
-%     for inx = 1:ns
-%         for iny = 1:ns
-%             Pf(:,inx,iny) = Pf(:,inx,iny) - beta';
-%         end
-%     end
-% end
-
 % Smooth the CSDs
 %----------------------------------------------------------------------
 DoSmth = 1;
@@ -1256,11 +1251,30 @@ if isfield(M,'DoSmth')
     DoSmth=M.DoSmth;
 end
 
+if isfield(M,'supersmooth')
+    supersmooth = M.supersmooth;
+else
+    supersmooth = 0;
+end
+
 if DoSmth
     for ins = 1:ns
         dat = Pf(:,ins,ins);
         %dat = envelope(dat, 1,'peak') ;%+ (.1*Pf);
-        dat = smooth( dat , 16*exp(P.psmooth(im)) ,'moving' ); % 16
+        
+        dat = atcm.fun.aenvelope(dat,30);
+        %dat = atcm.fun.aenvelope(dat,10);
+        
+        %dat = dat.*H(:);
+        %dat = smooth( dat , 16*exp(P.psmooth(1)) ,'moving' ); % 16
+        %dat = smooth( dat , 2*exp(P.psmooth(1)) ,'moving' ); % 16
+        
+        %dat = smooth( dat , 12*exp(P.psmooth(1)) ,'moving' ); % 16
+        
+        if supersmooth
+            dat = smooth( dat , 4*exp(P.psmooth(1)) ,'moving' ); % 16
+        end
+        
         Pf(:,ins,ins) = dat;
     end
 
@@ -1303,21 +1317,32 @@ if DoHamming
     end
 end
 
-% kill final portion of frequency window - if data wand bandpass filtered
-%--------------------------------------------------------------------------
-if KillTail
-    % bandpass filteing the real data forces the edges to ~0, but the model
-    % can't necessarily do that, so force it here 
-    kf   = 70; % tail off from 70
-    H    = ones(nf,1); H(end) = 0;
-    Ikf  = atcm.fun.findthenearest(w,kf); 
-    Wexp = 1./(1:length(Ikf:nf));
-    Wexp = smooth(Wexp,.3);
-    for i = 1:ns
-        for j = 1:ns
-            Pf(Ikf:end,i,j) = Pf(Ikf:end,i,j).*Wexp;
+% If M.y contains the empirical data, fit it as a GLM of the contirbuting
+% populations
+if isfield(M,'y')
+   
+    for ins = 1:ns
+        dat = squeeze(layers.iweighted(ins,:,:))';
+        yy  = squeeze(M.y{1}(:,ins,ins));
+        
+        warning off;
+        b  = glmfit(dat,yy);
+        warning on;
+        Pf(:,ins,ins) = ( (b(2:end)'*dat')' ) * exp(P.L(ins));
+        %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4);
+        Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
+    end
+
+    for inx = 1:ns
+        for iny = 1:ns
+            if inx ~= iny
+                Pf(:,inx,iny) = squeeze( Pf(:,inx,inx) ) .* ...
+                                   conj( Pf(:,iny,iny) ) ;
+            end
         end
     end
+    
+    
 end
 
 % returns for this trial - {g}

@@ -209,6 +209,7 @@ GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
 GEa = GEa .* ~eye(np);
 %GEa = GEa * .8;
 GEa = GEa + eye(np);      % KILLED
+
 GEn = GEa;
 
 GEn = GEn + (eye(8)/8);
@@ -233,6 +234,7 @@ GIa(5,:) = [0   0   0   0   16  0   0   0 ];
 GIa(6,:) = [0   0   0   0   8   8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   32]; % 32!! SEPT
+
 
 GIb      = GIa;
 
@@ -451,7 +453,6 @@ if nargout < 2, return, end
 %==========================================================================
 J = spm_cat(spm_diff(M.f,x,u,P,M,1));
 
-
 if nargout < 3, return, end
 
 % Only compute Delays if requested
@@ -498,7 +499,20 @@ if isfield(P,'ID')
     ID = [0 0 0 1 0 1 1 1];
     ID = [1 .2 .1 1 .2 1 .4 1];
     ID = [2 1  .1 2 .2 2 .4 2]; % this 
+    
+    %ID = double(~~GEa | ~~GIa);
+    %ID = (repmat(ID,[8 1]).*~eye(8)+diag(ID)).* double(~~GEa | ~~GIa);
+    
+    %ID = (repmat(ID,[8 1])).* double(~~GEa | ~~GIa);
+    
+    %ID = diag(ID) + 1e-2*double(~~GEa | ~~GIa);
+    
     ID = -ID.*exp(P.ID)/1000;
+    %ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
+    %IDm = ID+ID';
+    %IDm = IDm.*~eye(8);
+    %IDm = IDm + diag(ID);
+    IDm=ID;
     ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
     Tc = Tc + ID;
 end
