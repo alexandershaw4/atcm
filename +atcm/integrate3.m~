@@ -1017,7 +1017,8 @@ for ins = 1:ns
                             
                             % compute the envelope of this spiky spectrum
                             % using local maxima and cubic spline
-                            Pf = atcm.fun.aenvelope(Pf,20);
+                            %Pf = atcm.fun.aenvelope(Pf,20);
+                            Pf = atcm.fun.aenvelope(Pf,100);
                             %Pf = atcm.fun.aenvelope(Pf,50);
                                                         
                             % store 
@@ -1316,15 +1317,20 @@ if DoHamming
     end
 end
 
-% If M.y contains the empirical data, 
+% If M.y contains the empirical data, fit it as a GLM of the contirbuting
+% populations
 if isfield(M,'y')
    
     for ins = 1:ns
         dat = squeeze(layers.iweighted(ins,:,:))';
         yy  = squeeze(M.y{1}(:,ins,ins));
         
+        warning off;
         b  = glmfit(dat,yy);
+        warning on;
         Pf(:,ins,ins) = ( (b(2:end)'*dat')' ) * exp(P.L(ins));
+        %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4);
+        Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
     end
 
     for inx = 1:ns
