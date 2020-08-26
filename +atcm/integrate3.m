@@ -1010,17 +1010,32 @@ for ins = 1:ns
                             % splined fft
                             [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             Pf = ((Pf))';
-                                        
+                            
                             % offset 1./f nature of slope
                             w0 = linspace(1.5,8,length(w)).^2;
-                            Pf = Pf.*w0(:);    
+                            Pf = Pf.*w0(:);                             
                             
-                            % compute the envelope of this spiky spectrum
-                            % using local maxima and cubic spline
-                            %Pf = atcm.fun.aenvelope(Pf,20);
-                            Pf = atcm.fun.aenvelope(Pf,30);
-                            %Pf = atcm.fun.aenvelope(Pf,50);
-                                                        
+                            DoEnv = 1;
+                            if isfield(M,'DoEnv')
+                                DoEnv=M.DoEnv;
+                            end
+                            
+                            if DoEnv
+
+                                ncompe = 30;
+
+                                if isfield(M,'ncompe')
+                                    ncompe = M.ncompe;
+                                end
+
+                                % compute the envelope of this spiky spectrum
+                                % using local maxima and cubic spline
+                                %Pf = atcm.fun.aenvelope(Pf,20);
+                                Pf = atcm.fun.aenvelope(Pf,ncompe);
+                                %Pf = atcm.fun.aenvelope(Pf,50);
+
+                            end
+                            
                             % store 
                             Pf0(ins,ij,:) = Pf;
                             
@@ -1330,7 +1345,7 @@ if isfield(M,'y')
         warning on;
         Pf(:,ins,ins) = ( (b(2:end)'*dat')' ) * exp(P.L(ins));
         %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4);
-        Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
+        %Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
     end
 
     for inx = 1:ns

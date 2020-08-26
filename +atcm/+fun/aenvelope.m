@@ -11,7 +11,8 @@ w  = (1:length(x))'./length(x);
 % Whiten: 1d poly in log-log space
 %----------------------------------------------------
 warning off;
-c  = fit(log(w),log(x),'poly1');
+lx = log(x); lx(isinf(lx))=log(1e-8);
+c  = fit(log(w), (lx),'poly1');
 wx = exp( log(x) - c(log(w)) );
 warning on;
 

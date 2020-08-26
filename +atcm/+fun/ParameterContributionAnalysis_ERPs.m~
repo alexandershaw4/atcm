@@ -1,0 +1,26 @@
+function yy = ParameterContributionAnalysis_ERPs(DCM,param)
+
+load FixNew_-101-110_LFPs_PlasticityMean.mat
+
+% Select parameter - 
+param = 'CV';
+
+
+P  = DCM.Ep;
+i  = spm_fieldindices(P,param);
+pv = spm_vec(P);
+f  = @(p) spm_cat(atcm.fun.evalERP(DCM,spm_unvec(p,P),DCM.Eg);
+
+% perturbation value - relative to posterior (fitted) parameter value
+%s  = [.2 .4 .6 .8 1 1.2 1.4 1.6 1.8];
+s = [.01 1 100];
+
+% loop and evaluate outputs
+for j  = 1:length(i)
+    for k = 1:length(s)
+        dp           = pv;    
+        dp(i(j))     = dp(i(j)) * s(k);     
+        yy{j}(k,:) = full(spm_cat( f(dp)' ));
+    end
+end
+
