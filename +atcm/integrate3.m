@@ -1,8 +1,16 @@
 function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargin)
 % Numerical integration and spectral response of a neural mass model.
 % This is the NETWORK version, which handles networks of connected models,
-% and with different trial types. This version (atcm.integrate3) uses
-% dynamic mode decomposition 
+% and with different trial types. This version (atcm.integrate3) has a number 
+% of options for the integration method (Euler, Runge-Kutta 1, 2, 4th) and
+% for the transfer function - such as the use of dynamic mode decomposition 
+% (DMD), different smothed FFTs and the option to form the output signal
+% from a weighted sum of different levels of smoothed time series.
+% 
+% Usage is designed to be plug-n-play with the way that SPM's Dynamic Causal 
+% Modelling (DCM) is structured:
+%
+% [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U)
 %
 % Use as a replacement for spm_csd_mtf.m, for calculating the voltage time-series
 % and spectral response from a neural mass.
@@ -13,7 +21,6 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 % or Runge-Kutta scheme over >1s to first generate a the states time series 
 % (voltages, currents). Finally, weighting & an fft of  the resultant 
 % timeseries provide the spectral response.
-%
 % This is nice because one can access both the continuous and discrete 
 % time responses of the system. Channel noise (exponetial decay functions)
 % are computed and returned.
@@ -32,109 +39,68 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 %          firing = firing rate from each integration step
 %
 %
-% Definitions & methods:
+% Definitions, methods and options:
+%--------------------------------------
+% All options are selected by specifying fields in the input 'M' structure.
 %
-% Neural model:
-% -------------------------------------------------------------------------
-%    dx/dt = f(x,..,P)  // x = states, P = param structure
+% Selecting Input Type:
+% -------------------------------------
+% By default, the input is a constant (D.C).
+% Set M.InputType = 0 ... constant
+%                 = 1 ... an oscillation
+%                 = 2 ... an ERP (Guassian) bump
+%                 = 3 ... high frequency noise
 %
-% Numerical integration options:
-% -------------------------------------------------------------------------
-% (1. ) Straight RK / Euler scheme (if delays are implicit in equations, f):
+% Select Sample Period:
+% -------------------------------------
+% Default = 2s @ 600Hz.
+% Set M.sim.pst = vector of sample times
+%     M.sim.dt  = update set (1./fs)
 %
-%    y(i+1) = y(i) + dt*f(x,...P)
+% Selecting Numerical Integration Method:
+% -------------------------------------
+% By default a modified Euler scheme incorporating a delay operator is
+% used. 
+% To switch from a numerical integration to another option:
+% Set M.IntMethod = 'kernels' ... use spm kernel scheme
+%       ~~~~      = 'ode45'   ... built in matlab ode solver
+%                 = ' '       ... use a numerical method (default)
+%                 = 'linearise' ... local linearisation using
+%                 Eigendecomposition of the jacobian
+% 
+% If using a numerical method, switch the method type:
+% Set M.intmethod = 0  ... Euler no delays
+%       ~~~~      = 2  ... Euler with delays
+%                 = 21 ... integration with bilinear jacobian
+%                 = 23 ... full jacobian integration
+%                 = 24 ... stochastic equation integration
+%                 = 8  ... 8th-order Runge-Kutta w/ delays
+%                 = 45 ... 4th order Runge-Kutta w/ delays
 %
-% (2. ) Euler-like scheme with delays:
+% Selecting Spectral (transfer) Method
+% -------------------------------------
+% Set M.fmethod = 'dmd' ... use dynamic mode decomposition to identify 
+%                           frequency modes in the intgrated timeseries
+%               = 'instantaneous' ... estimate instantaneous frequency and
+%                            amplitude from the phase of the int'd series
+%               = 'svd'  ... use an svd-based PCA to idenfiy frequencies in
+%                            integrated timseries
+%               = 'none' ... just use an fft (or smooth fft) of the data
+%               = 'timefreq' ... do a time-frequency decomp and average it
 %
-%    dx(t)/dt = f(x(t - d)) = inv(1 - D.*dfdx)*f(x(t))
-%                     = Q*f = Q*J*x(t)
-% or,
+% Note - when using 'none', optionally specify whether to take the
+% envelope of this spiky spectrum using M.DoEnv (flag 0/1) and how many
+% components to include in the envelope (M.ncompe=30).
 %
-%    D      = spm_inv(speye(length(J)) - D.*J);
-%    Q      = (spm_expm(dt*D*J/N) - speye(n,n))*spm_inv(J);
-%    y(i+1) = y(i) + Q*dt*f(y(i),..,P)
+% Other options:
+% -------------------------------------
+% M.IncDCS = flag to include a discrete cosine set (a semi-stochastic set
+% of neuronal fluctuations in frequency space).
 %
-% (2.) - THIS VERISON USIING THE OSAKI 1992 METHOD:
-%
-%    dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f
-%
-%
-% (3. ) Or a 4th order Runge-Kutta with or without the above delays:
-%
-%    k1 = f(x          ,...,P)
-%    k2 = f(x+0.5*dt*k1,...,P)
-%    k3 = f(x+0.5*dt*k2,...,P)
-%    k4 = f(x+    dt*k3,...,P)
-%
-%    y(i+1) = y(i) +     (dt/6) * (k1+2*k2+2*k3+k4)
-%    y(i+1) = y(i) + Q * (dt/6) * (k1+2*k2+2*k3+k4)
-%
-%
-% Delays
-% -------------------------------------------------------------------------
-% Delays between states are dealt with during the integration scheme, using 
-% the following system:
-%
-% Q Implements: dx(t)/dt = f(x(t - d)) = inv(1 - D.*dfdx)*f(x(t))
-%                        = Q*f = Q*J*x(t)
-%
-%
-% Observation model: Dynamic mode decomposition
-% -------------------------------------------------------------------------
-% This version implements dynamic mode decomposition (DMD) and formulates
-% the forward projection as a weighted linear combination of discrete
-% temporal modes (a Koopman operator). Whereas atcm.integrate weights the 
-% states using J, this routine weights the modes using J.
-%
-% In this version (intgerate3), the DMD routine returns multiple outputs -
-% so the system is still 'multiple-output' and quite nonlinear. See
-% integrate4.m, where the DMD routine reduces to a single output. This
-% converges quicker and prliminary testing suggests might be more accurate.
-%
-%    yx   :    DMD(y)                     [DMD applied to region state series]
-%    Pf[i]:    L * ( J[i] * fft(yx[i]) )  [weighting over modes, i] 
-%  c/psd  :    (Pf * Gu) + Gn(auto) + Gs(cross) [augmented w spectral noise]      
-%
-% Fourier transforms are computed using AfftSmooth.m, which computes cross
-% spectra using FFT and the complex-conjugate method. Smoothing is done by
-% chunking the series into overlapping windows, computing fft and
-% averaging.
-%
-% Dynamic mode decomposition
-% -------------------------------------------------------------------------
-%   y           = U*S*V'    
-%   y'          = A*U*S*V'
-%   U*X'*V*S^-1 = U*AU      = Atilde
-%   AtildeW     = WA
-%   I           = X'VS^-1*W
-%
-% Noise model - 3 components (Gu, Gn, Gs)
-% -------------------------------------------------------------------------
-%   Gu(:,i) = exp(P.a(1,i))*(w.^0);                
-%   Gn      = 0;
-%   Gs(:,i) = exp(P.c(1,i) - 2)*w.^(-exp(P.c(2,1)));
-%
-%
-% Integrate & fire scheme:
-% -------------------------------------------------------------------------
-%    y(i+1) = y(i) + dt*f(x,...,P)
-%    S(i)   = 1./(1 + exp(-R.*y(i)')) - 1/2;    [convolution models]
-%    F(i)   = sqrt(1 - exp(-(2/pi)*y(i).^2))/2; [conductance models]
-%
-% Offline, use f2st.m to convert the resultant firing probability time-series 
-% to Hz/s series.
-%
-%
-% Dependencies: +atcm tools (which includes:)
-%                atcm.Setup.m     - top level set-up script
-%                atcm.prepdata.m  - data preparation function
-%                atcm.parameters  - prior parameters function
-%                atcm.integrate.m - model integration function [this]
-%                atcm.tcm.m       - model equations
-%                atcm.complete.m  - complete model specification
-%                atcm.optim       - tools / functions for optimsation
-%                atcm.fun         - misc functions for CSDs etc.
-%                atcm.plots       - plotting functions
+% Including the data (DCM.xY.y) in M (i.e. DCM.M.y = DCM.xY.y) will invoke
+% a linear model, formed by a combination of the raw fourier spectrum and
+% the corresponding smoothed (envelope) version (minus the spectrum). This 
+% is a way of 'optimising' the smoothing function.
 %
 % Also required: SPM12 w/ DCM,  
 %
@@ -591,28 +557,18 @@ switch IntMethod
                     
             end
             
-            
                 % firing function at dxdt - assumes conductance model using
                 % the JD Williams approximation
                 %--------------------------------------------------------------
                 VR       = -40;
                 Vx       = exp(P.S)*32;
                 V        = spm_unvec(v,M.x);
-                Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);     % mean firing rate  
+                Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);    
                 S(:,:,i) = Curfire;
-          %      S = [];
-                 %Dfire   = (1./[1 1/2 1/4 1 1/2 1 8 8]);
-                 % Dfire   = (1./[1 1   1/4 1 1/2 1 1 1]);   % CHANGE ME BACK!!
-                 %Dfire   = Dfire .* exp(P.TV);
-                 %Dfire   = (1./[1 1/2 1/4 1 1/2 1 1 1]);
-                 %Curfire = Curfire .* Dfire;
-
-                 %y(i) = (-x(i-1) + x(i))./dt;
-                 
                 %fired     = find(squeeze(V(:,:,1)) >= VR); 
                 %firings   = [firings; [i+0*fired',fired'] ];
-            fired=[];
-            firings=[];
+                fired=[];
+                firings=[];
         end
 end
 
@@ -624,7 +580,6 @@ if DoBilinear
     % reduce to a (bi)linear form: operators M0, M1{c}
     %----------------------------------------------------------------------
     [M0,M1,L1,L2] = spm_bireduce(M,P);
-    %[M0,M1,L1,L2] = spm_soreduce(M,P);
     M0            = spm_bilinear_condition(M0,length(t),dt);
 
     % dq/dt = M0*q + u(1)*M1{1}*q + u(2)*M1{2}*q + ....
@@ -632,7 +587,6 @@ if DoBilinear
     M0 = M0(2:end,2:end);    % remove constant
     M1 = M1{1}(2:end,2:end); % remove constant
     qy = M0*y + M1*y;
-    %qy = TSNorm(qy,5);
     y  = qy;
     
     % y(i) = L1(i,:)*q + q'*L2{i}*q/2;
