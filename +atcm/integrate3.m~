@@ -1002,6 +1002,9 @@ for ins = 1:ns
                         case {'none'}
                             % just a smoothed fft of the (contributing)
                             % states
+                            %[Pf,Hz]  = atcm.fun.AfftSmooth(Eigenvectors(Ji(ij),burn:end),1/dt,w,4); % 50
+                            %clear Hz Pf new;
+                            
                             this = Eigenvectors(Ji(ij),burn:end);
                                                                                                                 
                             % splined fft
@@ -1020,13 +1023,16 @@ for ins = 1:ns
                             if DoEnv
 
                                 ncompe = 30;
+
                                 if isfield(M,'ncompe')
                                     ncompe = M.ncompe;
                                 end
 
                                 % compute the envelope of this spiky spectrum
                                 % using local maxima and cubic spline
+                                %Pf = atcm.fun.aenvelope(Pf,20);
                                 Pf = atcm.fun.aenvelope(Pf,ncompe);
+                                %Pf = atcm.fun.aenvelope(Pf,50);
 
                             end
                             
@@ -1074,9 +1080,13 @@ for ins = 1:ns
                                 q  = ufq(iq);
                                 %qw = std( ifq(find(ufq(iq)==rfq)) );
                                 qw = length( ifq(find(ufq(iq)==rfq)) );
+                                
                                 amplitude = mean( amps(find(ufq(iq)==rfq)) );
+                                
                                 pd  = makedist('normal','mu',q,'sigma', 2*(qw));
+
                                 spec = spec + ( abs(amplitude) * pdf(pd,w));
+
                             end
                             Pf = spec(:)/iq;
                     end
@@ -1108,6 +1118,7 @@ for ins = 1:ns
                     if ~isfield(M,'Hamlower');
                         M.Hamlower = 0;
                     end
+                    
                     if M.Hamlower == 0
                         H(1:round(nf/2)) = 1;
                     end
@@ -1136,9 +1147,57 @@ if DoPCA
     layers.weighted = [];
     for ins = 1:ns
         
-       Pfa   = squeeze( (Pf0(ins,:,:)));    
+        Pfa   = squeeze( (Pf0(ins,:,:)));    
+        %Pfa   = Pfa.*repmat(w,[size(Pfa,1),1]);
+        
+       % [Q,S] = pca(Pfa);
+        
+%         Pfa = Pfa';
+%         X1 = Pfa(:,1:end-1);
+%         X2 = Pfa(:,2:end);
+%         
+%         % Implement dynamic mode decomposition...
+%         [U,S,V] = spm_svd(X1);
+%         
+%         % Catch & fix when optimisation breaks the system
+%         if all(size(S))==0
+%             U = ones(size(U,1),1);
+%             S = size(1,1);
+%             V = ones(size(X1,2),1);
+%         end
+%         
+%         r  = length(P.pca);
+%         r  = min(r,length(S)); % rank can be less than user wanted...
+%         U  = U(:,1:r);
+%         S  = S(1:r,1:r);
+%         V  = V(:,1:r);
+%         
+%         Atilde    = full(U')*X2*full(V)*pinv(full(S));
+%         [W,eigvs] = eig(Atilde);
+%         Phi       = X2*V*pinv(full(S))*W;
+%         Q         = abs(full(Phi));
+%         %Q        = real(-Phi'*Pfa)';      
+%         layers.phi(ins,:,:) = full(Phi)';
+
        Q = Pfa';
-               
+       
+%        [u,s,v]=spm_svd(Pfa);
+%        for ik = 1:size(u,2)
+%            qq(ik,:) = u(:,ik)'*Pfa;
+%        end
+%        Q=qq';
+       
+
+         % High-order polynomial smoothing
+%         for j = 1:size(Q,2)
+%             this = Q(:,j);            
+%             warning off;
+%             [curve2, goodness2] = fit(w.',this,'poly9');
+%             warning on;
+%             Q(:,j) = curve2(w);
+%             %Q(:,j)  = ( curve2(w)*.8 + this*.3 ) ./2;
+%         end
+        
         for im = 1:min([size(Q,2) length(P.pca)])
             WC(im,:) = exp(P.pca(im))*(Q(:,im))';
             
@@ -1200,59 +1259,59 @@ for inx = 1:ns
 end
 
 
-% % Smooth the CSDs
-% %----------------------------------------------------------------------
-% DoSmth = 1;
-% if isfield(M,'DoSmth')
-%     DoSmth=M.DoSmth;
-% end
-% 
-% if isfield(M,'supersmooth')
-%     supersmooth = M.supersmooth;
-% else
-%     supersmooth = 0;
-% end
-% 
-% if DoSmth
-%     for ins = 1:ns
-%         dat = Pf(:,ins,ins);
-%         %dat = envelope(dat, 1,'peak') ;%+ (.1*Pf);
+% Smooth the CSDs
+%----------------------------------------------------------------------
+DoSmth = 1;
+if isfield(M,'DoSmth')
+    DoSmth=M.DoSmth;
+end
+
+if isfield(M,'supersmooth')
+    supersmooth = M.supersmooth;
+else
+    supersmooth = 0;
+end
+
+if DoSmth
+    for ins = 1:ns
+        dat = Pf(:,ins,ins);
+        %dat = envelope(dat, 1,'peak') ;%+ (.1*Pf);
+        
+        %dat = atcm.fun.aenvelope(dat,30);
+        %dat = atcm.fun.aenvelope(dat,10);
+        
+        %dat = dat.*H(:);
+        %dat = smooth( dat , 16*exp(P.psmooth(1)) ,'moving' ); % 16
+        %dat = smooth( dat , 2*exp(P.psmooth(1)) ,'moving' ); % 16
+        
+        %dat = smooth( dat , 12*exp(P.psmooth(1)) ,'moving' ); % 16
+        
+%         yy = squeeze(M.y{1}(:,ins,ins));
+%         fe = @(x) atcm.fun.aenvelope(dat,x);
+%         ge = @(x) sum( (yy-fe(x)).^2 );
 %         
-%         %dat = atcm.fun.aenvelope(dat,30);
-%         %dat = atcm.fun.aenvelope(dat,10);
+%         [XX,FF] = fminsearch(ge,30);
 %         
-%         %dat = dat.*H(:);
-%         %dat = smooth( dat , 16*exp(P.psmooth(1)) ,'moving' ); % 16
-%         %dat = smooth( dat , 2*exp(P.psmooth(1)) ,'moving' ); % 16
-%         
-%         %dat = smooth( dat , 12*exp(P.psmooth(1)) ,'moving' ); % 16
-%         
-% %         yy = squeeze(M.y{1}(:,ins,ins));
-% %         fe = @(x) atcm.fun.aenvelope(dat,x);
-% %         ge = @(x) sum( (yy-fe(x)).^2 );
-% %         
-% %         [XX,FF] = fminsearch(ge,30);
-% %         
-% %         dat = atcm.fun.aenvelope(dat,XX); 
-%         
-%         %if supersmooth
-%         %    dat = smooth( dat , 4*exp(P.psmooth(1)) ,'moving' ); % 16
-%         %end
-%         
-%         Pf(:,ins,ins) = dat;
-%     end
-% 
-%     % recompute CSDs 
-%     for inx = 1:ns
-%         for iny = 1:ns
-%             if inx ~= iny
-%                 Pf(:,inx,iny) = squeeze( Pf(:,inx,inx) ) .* ...
-%                                    conj( Pf(:,iny,iny) ) ;
-%             end
-%         end
-%     end
-%     
-% end
+%         dat = atcm.fun.aenvelope(dat,XX); 
+        
+        %if supersmooth
+        %    dat = smooth( dat , 4*exp(P.psmooth(1)) ,'moving' ); % 16
+        %end
+        
+        Pf(:,ins,ins) = dat;
+    end
+
+    % recompute CSDs 
+    for inx = 1:ns
+        for iny = 1:ns
+            if inx ~= iny
+                Pf(:,inx,iny) = squeeze( Pf(:,inx,inx) ) .* ...
+                                   conj( Pf(:,iny,iny) ) ;
+            end
+        end
+    end
+    
+end
 
 
 % Take the absolute (magnitude) of the cross spectra
@@ -1260,6 +1319,7 @@ end
 Pf = abs(Pf)/length(w);
 %Pf = Pf/length(w);
 
+%    if WithDelays ~= 20
 % Incorporate noise components for auto (Gs) and cross (Gn) spectra
 %----------------------------------------------------------------------
 for i = 1:ns
@@ -1288,44 +1348,33 @@ if isfield(M,'y')
         dat = squeeze(layers.iweighted(ins,:,:))';
         yy  = squeeze(M.y{1}(:,ins,ins));
         
-        % Envelopes corresponding to 3 different levels of smooth....
-        %------------------------------------------------------------------
         for ie = 1:size(dat,2)
-            ev1(:,ie) = atcm.fun.aenvelope(dat(:,ie),20); % 20
-        end
-        for ie = 1:size(dat,2)
-            ev2(:,ie) = atcm.fun.aenvelope(dat(:,ie),10);
-        end
-        for ie = 1:size(dat,2)
-            ev3(:,ie) = atcm.fun.aenvelope(dat(:,ie),15);
+            ev(:,ie) = atcm.fun.aenvelope(dat(:,ie),30);
         end
         
-        %dev = dat - ev;
+        %dat = [dat ev-dat];
+        dev = dat - ev;
         
-        % this section builds a linear model of the response using the
-        % population series and their smoothed envelopes - i.e. the lm
-        % optimises the amount of smoothing necessary :)
-        %------------------------------------------------------------------
-        dev = [ev1 - dat ev2 - dat ev3 - dat];% envelope 'operator': dev = s(d) - d
-          
-        M = [dat dev]';      
-        b = pinv(M*M')*M*yy;
-      
-        Pf(:,ins,ins) = b'*M;  
-        Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+        f0= @(b) b(1) + b(2)*dat(:,1) + b(2)*dev(:,1) + ...
+                        b(4)*dat(:,2) + bdev(:,2) + ...
+                        b(5)*dat(:,3) +dev(:,3) + ...
+                        b(6)*dat(:,4) +dev(:,4) ;
         
-%         warning off;
-%         b  = glmfit(dat,yy);
-%         warning on;
-%         Pf(:,ins,ins) = b(1) + ( (b(2:end)'*dat')' ) * exp(P.L(ins));
-%         %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4);
+        g0 = @(b) sum( (yy - f0(b)).^2 );
+        
+        
+        warning off;
+        b  = glmfit(dat,yy);
+        warning on;
+        Pf(:,ins,ins) = b(1) + ( (b(2:end)'*dat')' ) * exp(P.L(ins));
+        %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4);
         
         if isfield(M,'EnvLFP') && M.EnvLFP
             Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),50); 
             %Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
         end
         
-        %Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
+        Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
     end
 
     for inx = 1:ns
