@@ -47,7 +47,7 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 % -------------------------------------
 % By default, the input is a constant (D.C).
 % Set M.InputType = 0 ... constant
-%                 = 1 ... an oscillation
+%                 = 1 ... a sine wave oscillation
 %                 = 2 ... an ERP (Guassian) bump
 %                 = 3 ... high frequency noise
 %
@@ -55,7 +55,7 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 % -------------------------------------
 % Default = 2s @ 600Hz.
 % Set M.sim.pst = vector of sample times
-%     M.sim.dt  = update set (1./fs)
+%     M.sim.dt  = update step (1./fs)
 %
 % Selecting Numerical Integration Method:
 % -------------------------------------
@@ -66,7 +66,7 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 %       ~~~~      = 'ode45'   ... built in matlab ode solver
 %                 = ' '       ... use a numerical method (default)
 %                 = 'linearise' ... local linearisation using
-%                 Eigendecomposition of the jacobian
+%                 eigendecomposition of the jacobian
 % 
 % If using a numerical method, switch the method type:
 % Set M.intmethod = 0  ... Euler no delays
@@ -97,7 +97,10 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 % M.IncDCS = flag to include a discrete cosine set (a semi-stochastic set
 % of neuronal fluctuations in frequency space).
 %
-% Include the data (DCM.xY.y) in M (i.e. DCM.M.y = 
+% Including the data (DCM.xY.y) in M (i.e. DCM.M.y = DCM.xY.y) will invoke
+% a linear model, formed by a combination of the raw fourier spectrum and
+% the corresponding smoothed (envelope) version (minus the spectrum). This 
+% is a way of 'optimising' the smoothing function.
 %
 % Also required: SPM12 w/ DCM,  
 %
@@ -109,7 +112,7 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 w     = M.Hz;                     % FoI (w)
 x     = M.x;                      % model (hidden) states
 Kx    = x;                        % pre-fp x, for kernel scheme
-dt    = 1/600;                   % hard-wired 1200 hz
+dt    = 1/600;                    % sample rate
 Fs    = 1/dt;                     % sampling frequency
 tn    = 2;                        % sample window length, in seconds
 pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
@@ -268,8 +271,11 @@ end
 % Prerequisits for integration with delays
 if WithDelays == 2 || WithDelays == 5 || WithDelays == 20 || WithDelays == 21 ...
         || WithDelays == 22 || WithDelays == 8 || WithDelays == 24 || WithDelays == 101
+    
+    % Call the function 
     [fx, dfdx,D] = f(M.x,0,P,M);
     
+    % debug instabilities
     if any(isnan(fx)) || any(isnan(dfdx(:)))
         fx   = zeros(size(fx));
         dfdx = zeros(size(dfdx));
@@ -289,9 +295,7 @@ if WithDelays == 2 || WithDelays == 5 || WithDelays == 20 || WithDelays == 21 ..
     % system delay operator, Q
     Q       = (spm_expm(dt*D*dfdx/N) - speye(n,n))*spm_inv(dfdx);
     QD      = Q;
-    
-    %Q = dt*D;
-        
+            
 elseif WithDelays == 3
     [fx,~,~,D] = f(M.x,0,P,M);
 else
@@ -868,22 +872,8 @@ for ins = 1:ns
 %                 Phi = X2*V*pinv(full(S))*W;
 %                 
 %                 Eigenvectors = Phi'*yx;
-                
-                %[u,s,v] = svd(yx);
-               % 
-               % for idmd = 1:4
-               %     Eigenvectors(idmd,:) = v(:,idmd)*s(idmd,:)*mean(v,1)';
-               % end
-                
-               %[Eigenvaluesi, Eigenvectorsi, ModeAmplitudesi, ModeFrequenciesi, ...
-               %    GrowthRatesi, POD_Mode_Energiesi] = atcm.fun.dmd(real(yx), length(Ji), dt);
-                
-               % Eigenvectors = Eigenvectors + Eigenvectorsi;
-                                
-                case 'instantaneous'
-                    %[Eigenvectors,s,v] = svd(yx);
-                    %Eigenvectors = Eigenvectors'*yx;
-                    
+                                                
+                case 'instantaneous'                    
                     yx(1,:) = yx(1,:)*0.2;
                     yx(2,:) = yx(2,:)*0.8;
                     yx(3,:) = yx(3,:)*0.1;
