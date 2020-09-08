@@ -1229,31 +1229,77 @@ if isfield(M,'y')
         dat = squeeze(layers.iweighted(ins,:,:))';
         yy  = squeeze(M.y{1}(:,ins,ins));
         
+        if all( (size(dat,1)==1) && size(dat,2)==length(w) )
+            dat = dat';
+        end
+        
         % Envelopes corresponding to 3 different levels of smooth....
         %------------------------------------------------------------------
         for ie = 1:size(dat,2)
             ev1(:,ie) = atcm.fun.aenvelope(dat(:,ie),20); % 20
         end
         for ie = 1:size(dat,2)
-            ev2(:,ie) = atcm.fun.aenvelope(dat(:,ie),10);
+            ev2(:,ie) = atcm.fun.aenvelope(dat(:,ie),10); % 10
         end
         for ie = 1:size(dat,2)
-            ev3(:,ie) = atcm.fun.aenvelope(dat(:,ie),15);
+            ev3(:,ie) = atcm.fun.aenvelope(dat(:,ie),15); % 15
         end
-        
+        for ie = 1:size(dat,2)
+            ev4(:,ie) = atcm.fun.aenvelope(dat(:,ie),3); % 60
+        end
         %dev = dat - ev;
         
         % this section builds a linear model of the response using the
         % population series and their smoothed envelopes - i.e. the lm
         % optimises the amount of smoothing necessary :)
         %------------------------------------------------------------------
-        dev = [ev1 - dat ev2 - dat ev3 - dat];% envelope 'operator': dev = s(d) - d
+        % envelope 'operator': dev = s(d) - d
+        dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
+        %dev = [ev1 - dat ev2 - dat ev3 - dat];
           
-        M = [dat dev]';      
-        b = pinv(M*M')*M*yy;
+        Mm = [dat dev]';      
+        b  = pinv(Mm*Mm')*Mm*yy;
       
-        Pf(:,ins,ins) = b'*M;  
+        Pf(:,ins,ins) = b'*Mm;  
         Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+        
+        layers.b(ins,:)   = b;
+        layers.M(ins,:,:) = Mm;
+        
+%         dev(1,:,:) = ev1 - dat;
+%         dev(2,:,:) = ev2 - dat;
+%         dev(3,:,:) = ev3 - dat;
+%         dev(4,:,:) = ev4 - dat;
+%         
+%         for ii = 1:size(dat,2)
+%             M = [dat(:,ii) squeeze(dev(:,:,ii))']';
+%             b = pinv(M*M')*M*yy;
+%             best(ii,:) = b'*M; 
+%         end
+%         
+%         Pf(:,ins,ins) = sum(best,1) * exp(P.L(ins));
+
+        
+%         % alternative, smoothing of the weighted sum
+%         dat = sum(dat,2);
+%        
+%         for ie = 1:size(dat,2)
+%             ev1(:,ie) = atcm.fun.aenvelope(dat(:,ie),20); % 20
+%         end
+%         for ie = 1:size(dat,2)
+%             ev2(:,ie) = atcm.fun.aenvelope(dat(:,ie),10);
+%         end
+%         for ie = 1:size(dat,2)
+%             ev3(:,ie) = atcm.fun.aenvelope(dat(:,ie),15);
+%         end
+%         dev = [ev1 - dat ev2 - dat ev3 - dat];
+%         M = [dat dev]';      
+%         b = pinv(M*M')*M*yy;       
+%         
+%         Pf(:,ins,ins) = (b'*M) * exp(P.L(ins));
+        
+        
+        
         
 %         warning off;
 %         b  = glmfit(dat,yy);

@@ -25,16 +25,14 @@ for i = 1:size(y,1)
     
     
     [ AlphaAmp(i), AlphaFreq(i) ] = GetPks( Y , w , w0 );
-    [ BetaAmp(i), BetaFreq(i) ]   = GetPks( Y , w , w1 );
-    [ GammaAmp(i), GammaFreq(i) ] = GetPks( Y , w , w2 );
+    [ GammaAmp(i), GammaFreq(i) ] = GetPks( Y , w , w1 );
+    
     
     Spec(i,:) = Y;
 end
 
 P.AlphaA = AlphaAmp;
 P.AlphaF = AlphaFreq;
-P.BetaF  = BetaFreq;
-P.BetaA  = BetaAmp;
 P.GammaA = GammaAmp;
 P.GammaF = GammaFreq;
 P.Spec   = Spec;
