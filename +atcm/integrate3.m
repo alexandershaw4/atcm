@@ -1238,15 +1238,18 @@ if isfield(M,'y')
         for ie = 1:size(dat,2)
             ev1(:,ie) = atcm.fun.aenvelope(dat(:,ie),20); % 20
         end
-%         for ie = 1:size(dat,2)
-%             ev2(:,ie) = atcm.fun.aenvelope(dat(:,ie),10); % 10
-%         end
-%         for ie = 1:size(dat,2)
-%             ev3(:,ie) = atcm.fun.aenvelope(dat(:,ie),15); % 15
-%         end
+        for ie = 1:size(dat,2)
+            ev2(:,ie) = atcm.fun.aenvelope(dat(:,ie),10); % 10
+        end
+        for ie = 1:size(dat,2)
+            ev3(:,ie) = atcm.fun.aenvelope(dat(:,ie),15); % 15
+        end
         for ie = 1:size(dat,2)
             ev4(:,ie) = atcm.fun.aenvelope(dat(:,ie),3); % 60
         end
+        %for ie = 1:size(dat,2)
+        %    ev5(:,ie) = atcm.fun.aenvelope(dat(:,ie),60); % 60
+        %end
         %dev = dat - ev;
         
         % this section builds a linear model of the response using the
@@ -1254,8 +1257,8 @@ if isfield(M,'y')
         % optimises the amount of smoothing necessary :)
         %------------------------------------------------------------------
         % envelope 'operator': dev = s(d) - d
-        %dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
-        dev = [ev1 - dat ev4 - dat];
+        dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
+        %dev = [ev1 - dat ev5 - dat];
         
         linmod = 1;
         if isfield(M,'linmod')
