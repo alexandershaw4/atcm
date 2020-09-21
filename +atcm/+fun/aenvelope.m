@@ -1,4 +1,4 @@
-function e = aenvelope(x,n)
+function [e,c,f] = aenvelope(x,n)
 % compute the envelope of x using local maxima, with bias toward the end of
 % x. (e.g. for spectra with inherent 1./f power law)
 %
@@ -12,9 +12,12 @@ w  = (1:length(x))'./length(x);
 % Whiten: 1d poly in log-log space
 %----------------------------------------------------
 warning off;
-lx = log(x); lx(isinf(lx))=log(1e-8);
+lx = log(x); lx(isinf(lx)) = log(1e-8);
 c  = fit(log(w), (lx),'poly1');
 wx = exp( log(x) - c(log(w)) );
+
+f  = c;
+c  = exp(c(log(w)));
 warning on;
 
 % Remove bottom 30% frequency content: assuming slow drifts

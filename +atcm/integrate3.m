@@ -1238,12 +1238,12 @@ if isfield(M,'y')
         for ie = 1:size(dat,2)
             ev1(:,ie) = atcm.fun.aenvelope(dat(:,ie),20); % 20
         end
-        for ie = 1:size(dat,2)
-            ev2(:,ie) = atcm.fun.aenvelope(dat(:,ie),10); % 10
-        end
-        for ie = 1:size(dat,2)
-            ev3(:,ie) = atcm.fun.aenvelope(dat(:,ie),15); % 15
-        end
+%         for ie = 1:size(dat,2)
+%             ev2(:,ie) = atcm.fun.aenvelope(dat(:,ie),10); % 10
+%         end
+%         for ie = 1:size(dat,2)
+%             ev3(:,ie) = atcm.fun.aenvelope(dat(:,ie),15); % 15
+%         end
         for ie = 1:size(dat,2)
             ev4(:,ie) = atcm.fun.aenvelope(dat(:,ie),3); % 60
         end
@@ -1254,31 +1254,45 @@ if isfield(M,'y')
         % optimises the amount of smoothing necessary :)
         %------------------------------------------------------------------
         % envelope 'operator': dev = s(d) - d
-        dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
-        %dev = [ev1 - dat ev2 - dat ev3 - dat];
-          
-        Mm = [dat dev]';      
-        b  = pinv(Mm*Mm')*Mm*yy;
-      
-        Pf(:,ins,ins) = b'*Mm;  
-        Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+        %dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
+        dev = [ev1 - dat ev4 - dat];
         
-        layers.b(ins,:)   = b;
-        layers.M(ins,:,:) = Mm;
+        linmod = 1;
+        if isfield(M,'linmod')
+            linmod = M.linmod;
+        end
         
-%         dev(1,:,:) = ev1 - dat;
-%         dev(2,:,:) = ev2 - dat;
-%         dev(3,:,:) = ev3 - dat;
-%         dev(4,:,:) = ev4 - dat;
-%         
-%         for ii = 1:size(dat,2)
-%             M = [dat(:,ii) squeeze(dev(:,:,ii))']';
-%             b = pinv(M*M')*M*yy;
-%             best(ii,:) = b'*M; 
-%         end
-%         
-%         Pf(:,ins,ins) = sum(best,1) * exp(P.L(ins));
+        if linmod == 1
+            Mm = [dat dev]';      
+            b  = pinv(Mm*Mm')*Mm*yy;
 
+            Pf(:,ins,ins) = b'*Mm;  
+            Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+
+            layers.b(ins,:)   = b;
+            layers.M(ins,:,:) = Mm;
+            
+        elseif linmod == 2
+            clear dev 
+            
+            dev(1,:,:) = ev1 - dat;
+            dev(2,:,:) = ev2 - dat;
+            dev(3,:,:) = ev3 - dat;
+            dev(4,:,:) = ev4 - dat;
+
+            for ii = 1:size(dat,2)
+                M = [dat(:,ii) squeeze(dev(:,:,ii))']';
+                b = pinv(M*M')*M*yy;
+                best(ii,:) = b'*M; 
+            end
+            
+            % Now best combo:
+            bb = pinv(best*best')*best*yy;
+            glbest = bb'*best;
+            
+            Pf(:,ins,ins) = glbest * exp(P.L(ins));
+            
+        end
         
 %         % alternative, smoothing of the weighted sum
 %         dat = sum(dat,2);
