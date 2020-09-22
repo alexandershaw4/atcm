@@ -113,7 +113,7 @@ else
     
     % Average Intrinsic Connectivity
     pE.H = repmat(pr.pE.H, [1 1 ns]);
-    pE.C = repmat(pr.pC.H, [1 1 ns]);
+    pC.H = repmat(pr.pC.H, [1 1 ns]);
              
     % Receptor Time Constants (Channel Open Times)
     pE.T = repmat(pr.pE.T,[ns,1]);
@@ -150,7 +150,7 @@ else
     pC.b = pr.pC.b;
     
     pE.c = repmat(pr.pE.c,[1 ns]);
-    pC.c = repmat(pr/pC.c,[1 ns]);
+    pC.c = repmat(pr.pC.c,[1 ns]);
           
     pE.d = pr.pE.d;
     pC.d = pr.pC.d;
