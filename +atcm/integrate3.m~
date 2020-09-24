@@ -99,7 +99,7 @@ function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargi
 %
 % Including the data (DCM.xY.y) in M (i.e. DCM.M.y = DCM.xY.y) will invoke
 % a linear model, formed by a combination of the raw fourier spectrum and
-% the corresponding smoothed (envelope) version. This 
+% the corresponding smoothed (envelope) version (minus the spectrum). This 
 % is a way of 'optimising' the smoothing function.
 %
 % Also required: SPM12 w/ DCM,  
@@ -1204,15 +1204,9 @@ Pf = abs(Pf)/length(w);
 % Incorporate noise components for auto (Gs) and cross (Gn) spectra
 %----------------------------------------------------------------------
 for i = 1:ns
+    %Pf(:,i,i) = Pf(:,i,i) + Gs(:,i);
     for j = 1:ns
-        % Autospectral noise / innovations
-        Pf(:,i,j) = Pf(:,i,j) + Gn;     
-        
-        if j ~= i
-            % Cross spectral noise / innovations
-            Pf(:,j,i) = Pf(:,j,i) + Gs(:,i);
-            Pf(:,i,j) = Pf(:,j,i);
-        end
+        Pf(:,i,j) = Pf(:,i,j) + Gn;                % TURN ON!!!!!!!
     end
 end
         
@@ -1227,13 +1221,6 @@ if DoHamming
     end
 end
 
-% if ns > 1 append ccf to csd in order to fit CSD
-% if ns > 1
-%     ccf  = spm_csd2ccf(Pf,M.Hz);
-%     Pf   = [Pf*8; ccf(1:8:end,:,:)];
-% end
-
-
 % If M.y contains the empirical data, fit it as a GLM of the contirbuting
 % populations
 if isfield(M,'y')
@@ -1241,7 +1228,7 @@ if isfield(M,'y')
     for ins = 1:ns
         dat = squeeze(layers.iweighted(ins,:,:))';
         yy  = squeeze(M.y{1}(:,ins,ins));
-                    
+        
         if all( (size(dat,1)==1) && size(dat,2)==length(w) )
             dat = dat';
         end
@@ -1354,24 +1341,16 @@ if isfield(M,'y')
         end
     end
     
-    % RE-Incorporate noise components for auto (Gs) and cross (Gn) spectra
-    %----------------------------------------------------------------------
-%     if ns > 1
-%         for i = 1:ns
-%             for j = 1:ns
-%                 % Autospectral noise / innovations
-%                 Pf(:,i,j) = Pf(:,i,j) + Gn;
-% 
-%                 if j ~= i
-%                     % Cross spectral noise / innovations
-%                     Pf(:,j,i) = Pf(:,j,i) + Gs(:,i);
-%                     Pf(:,i,j) = Pf(:,j,i);
-%                 end
-%             end
-%         end
-%     end
     
 end
+
+% if ns > 1 append ccf to csd in order to fit CSD
+if ns > 1
+    for ins = 1:ns
+    ccf  = spm_csd2ccf(y{i},M.Hz);
+    y{i} = [y{i}*8; ccf(1:8:end,:,:)];
+
+
 
 % returns for this trial - {g}
 %--------------------------------------------------------------------------

@@ -214,6 +214,9 @@ GEn = GEa;
 
 GEn = GEn + (eye(8)/8);
 
+% overwrite separate nmda matrix
+%Gn = G;
+
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
 %           ss  sp  si  dp  di  tp  rt  rl

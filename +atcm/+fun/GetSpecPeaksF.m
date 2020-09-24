@@ -7,9 +7,9 @@ function P = GetSpecPeaksF(w,y)
 
 %f = dir('TCM_VS*.mat'); f = {f.name}';
 
-a = [4 12];
+a = [4 13];
 b = [13 30];
-g = [40 80];
+g = [40 85];
 
 for i = 1:size(y,1)
     
