@@ -1260,9 +1260,9 @@ if isfield(M,'y')
         for ie = 1:size(dat,2)
             ev4(:,ie) = atcm.fun.aenvelope(dat(:,ie),3); % 60
         end
-        %for ie = 1:size(dat,2)
-        %    ev5(:,ie) = atcm.fun.aenvelope(dat(:,ie),60); % 60
-        %end
+        for ie = 1:size(dat,2)
+           ev5(:,ie) = atcm.fun.aenvelope(dat(:,ie),60); % 60
+        end
         %dev = dat - ev;
         
         % this section builds a linear model of the response using the
@@ -1307,6 +1307,20 @@ if isfield(M,'y')
             glbest = bb'*best;
             
             Pf(:,ins,ins) = glbest * exp(P.L(ins));
+            
+        elseif linmod == 3
+            
+            % 20 10 15 3 60
+            dev = [ev5 - dat ev4 - dat];
+            
+            Mm = [dat dev]';      
+            b  = pinv(Mm*Mm')*Mm*yy;
+
+            Pf(:,ins,ins) = b'*Mm;  
+            Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+
+            layers.b(ins,:)   = b;
+            layers.M(ins,:,:) = Mm;
             
         end
         
