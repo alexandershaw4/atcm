@@ -60,11 +60,16 @@ for s1 = 1:size(signal,1)
         Pxy    = data1 .* conj(data2);
         Pyx    = data2 .* conj(data1);
 
+%         data1  = abs(data1/L);
+%         data2  = abs(data2/L);
+%         Pxy    = abs(Pxy  /L);
+%         Pyx    = abs(Pyx  /L);
+        
         data1  = abs(data1/L);
         data2  = abs(data2/L);
         Pxy    = abs(Pxy  /L);
         Pyx    = abs(Pyx  /L);
-
+        
         L2          = floor(L/2);
         Pf(:,s1,s1) = data1(1:L2+1);
         Pf(:,s2,s2) = data2(1:L2+1);
