@@ -356,7 +356,7 @@ for i = 1:Ne;
             end
             
         else
-            Pfull = squeeze(spm_robust_average(Pfull,1));
+            Pfull = squeeze(spm_robust_average(Pfull));
             
             if DOBASE
                 Pfullbase = squeeze(spm_robust_average(Pfullbase));

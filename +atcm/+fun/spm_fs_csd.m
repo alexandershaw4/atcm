@@ -23,9 +23,9 @@ for i = 1:length(y);
     %gwe  = spm_csd2gew(y{i},M.Hz,32); % lots of regularisation!
     [coh,fsd] = spm_csd2coh(y{i},M.Hz);
     
-    y{i} = [y{i}*8; ccf(1:8:end,:,:); coh(1:8:end,:,:)];
+    %y{i} = [y{i}*8; ccf(1:8:end,:,:); coh(1:8:end,:,:)*(mean(spm_vec(y{i}))/8)];
     
-    %y{i} = [y{i}(1:2:end,:,:)*8; ccf(1:4:end,:,:)];
+    y{i} = [y{i}(1:2:end,:,:)*8; ccf(1:4:end,:,:)];
     
 %     f = M.Hz.^-2;
 %     f = (f/sum(f)) * max(spm_vec(y{i}));
