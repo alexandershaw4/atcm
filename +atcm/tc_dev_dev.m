@@ -192,7 +192,7 @@ GEa(3,:) = [4   4   0   0   0   0   0   0]/1;
 GEa(4,:) = [0   4   0   0   0   0   0   0]/1;
 GEa(5,:) = [0   0   0   4   0   0   0   0]/1;
 GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
-GEa(7,:) = [0   0   0   0   0   2   0   2]/1; 
+GEa(7,:) = [0   0   0   0   0   0   0   2]/1; 
 GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
 
 % Trying out some additional synapses - RL->SP&DP, TP->RT & DP->RL/RT
