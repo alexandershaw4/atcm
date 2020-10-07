@@ -1267,7 +1267,8 @@ if isfield(M,'y')
         %------------------------------------------------------------------
         % envelope 'operator': dev = s(d) - d
         dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
-        dev = [ev1 - dat ev2 - dat ev3 - dat];
+        %dev = [ev1 ev2 ev3 ev4];
+        dev = [ev1 - dat ev2 - dat];
         
         linmod = 1;
         if isfield(M,'linmod')
@@ -1278,7 +1279,7 @@ if isfield(M,'y')
             %Mm = [ones(size(dat(:,1))) dat dev]';  
             Mm = [dat dev]';  
             b  = pinv(Mm*Mm')*Mm*yy;
-                        
+            
             Pf(:,ins,ins) = b'*Mm;  
             Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
 

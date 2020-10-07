@@ -169,22 +169,33 @@ for s = 1:length(Data.Datasets)
     DCM.M.DoEnv   = 0;
     
     % Fit the model using DCM inversion routine:
+    %-----------------------------------------------------
     %DCM = atcm.optim.dcminvert(DCM);
     %close; drawnow;
     
-    % Invert (optimise) using aoptim (AO.m) - works better!
-    [EP1,F1,CP1,PP1,History1] = AO_DCM(DCM.M.pE,DCM,4,'fe',1);
+    % Or, invert (optimise) using aoptim (AO.m) - works better!
+    %-----------------------------------------------------
+    M = AODCM(DCM);
+    M.default_optimise();
+    
+    % Extract the things we need from the optimisation object
+    EP = M.Ep;
+    F  = M.F;
+    CP = M.CP;
+    History = M.history;
 
+    EP = spm_unvec( spm_vec(EP), DCM.M.pE);
+    
     % re-embed the reduced covariance matrix into full-model space
     CP1 = atcm.fun.reembedreducedcovariancematrix(DCM,CP1);
     
     % save outputs when using AO.m
-    save(DCM.name,'DCM','EP1','F1','CP1','PP1','History1');
+    save(DCM.name,'DCM','EP','F','CP','History','M');
 
     
     % n.b. 
     % EP = posteriors, F = (sign flipped) F-value, CP = coviarance of
-    % (active_ parameters, PP = posterior probabilities, History = history
+    % (active_ parameters), History = history
     % structure from the optimisation routine
     
     
