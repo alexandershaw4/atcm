@@ -1258,7 +1258,7 @@ if isfield(M,'y')
             [ev3(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),15); % 15
         end
         for ie = 1:size(dat,2)
-            [ev4(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),3); % 60
+            [ev4(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),6); % 3
         end
         
         % this section builds a linear model of the response using the
@@ -1267,7 +1267,7 @@ if isfield(M,'y')
         %------------------------------------------------------------------
         % envelope 'operator': dev = s(d) - d
         dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
-        dev = [ev1 - dat ev2 - dat ev3 - dat];
+        %dev = [ev1 - dat ev2 - dat ev3 - dat];
         
         linmod = 1;
         if isfield(M,'linmod')
