@@ -274,9 +274,10 @@ KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
 % now using faster AMPA and GABA-A dynamics based on this book:
 % https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
 
-KE  = exp(-P.T(:,1))*1000/5;            % excitatory rate constants (AMPA)
+%KE  = exp(-P.T(:,1))*1000/5;            % excitatory rate constants (AMPA)
 %KN  = exp(-P.T(:,3))*1000/150;          % excitatory rate constants (NMDA)
-KI  = exp(-P.T(:,2))*1000/6;           % inhibitory rate constants (GABAa)
+KI  = exp(-P.T(:,2))*1000/8;           % inhibitory rate constants (GABAa)
+
 
 % Trial effects on time constants: AMPA & NMDA only
 if isfield(P,'T1')
