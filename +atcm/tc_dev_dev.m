@@ -276,7 +276,7 @@ KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
 
 %KE  = exp(-P.T(:,1))*1000/5;            % excitatory rate constants (AMPA)
 %KN  = exp(-P.T(:,3))*1000/150;          % excitatory rate constants (NMDA)
-KI  = exp(-P.T(:,2))*1000/10;           % inhibitory rate constants (GABAa)
+%KI  = exp(-P.T(:,2))*1000/12;           % inhibitory rate constants (GABAa)
 
 
 % Trial effects on time constants: AMPA & NMDA only
