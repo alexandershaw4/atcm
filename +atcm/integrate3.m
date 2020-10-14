@@ -950,8 +950,8 @@ for ins = 1:ns
                             Pf = ((Pf))';
                             
                             % offset 1./f nature of slope
-                            %w0 = linspace(1.5,8,length(w)).^2;
-                            %Pf = Pf.*w0(:);                             
+                            w0 = linspace(1.5,8,length(w)).^2;
+                            Pf = Pf.*w0(:);                             
                             
                             DoEnv = 1;
                             if isfield(M,'DoEnv')
@@ -1260,7 +1260,9 @@ if isfield(M,'y')
         for ie = 1:size(dat,2)
             [ev4(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),6); % 3
         end
-        
+        for ie = 1:size(dat,2)
+            [ev5(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),50); % 3
+        end        
         % this section builds a linear model of the response using the
         % population series and their smoothed envelopes - i.e. the lm
         % optimises the amount of smoothing necessary :)
@@ -1268,7 +1270,7 @@ if isfield(M,'y')
         % envelope 'operator': dev = s(d) - d
         dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
         %dev = [ev1 - dat ev2 - dat ev3 - dat];
-        dev = [ev1 ev2 ev3 ev4];
+        dev = ev2;
         
         linmod = 1;
         if isfield(M,'linmod')
@@ -1278,7 +1280,7 @@ if isfield(M,'y')
         if linmod == 1
             %Mm = [ones(size(dat(:,1))) dat dev]';  
             Mm = [dat dev]';
-            Mm = [ dev]';
+            %Mm = [ dev]';
             b  = pinv(Mm*Mm')*Mm*yy;
                         
             Pf(:,ins,ins) = b'*Mm;  

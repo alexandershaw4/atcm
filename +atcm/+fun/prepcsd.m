@@ -318,7 +318,7 @@ for i = 1:Ne;
                         end
                     end
                 end
-                if isfield(DCM.options,'envelope') && ~isempty(DCM.options.envelope)
+                if isfield(DCM.options,'envelope') && ~isempty(DCM.options.envelope) && DCM.options.envelope>0
                    for nchanx = 1:size(Pf,2)
                        for nchany = 1:size(Pf,3)
                            Pf(:,nchanx,nchany) = atcm.fun.aenvelope(Pf(:,nchanx,nchany),DCM.options.envelope);
