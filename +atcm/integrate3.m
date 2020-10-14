@@ -967,7 +967,7 @@ for ins = 1:ns
 
                                 % compute the envelope of this spiky spectrum
                                 % using local maxima and cubic spline
-                                Pf = atcm.fun.aenvelope(Pf,ncompe);
+                                [Pf,c] = atcm.fun.aenvelope(Pf,ncompe);
 
                             end
                             
@@ -1268,6 +1268,7 @@ if isfield(M,'y')
         % envelope 'operator': dev = s(d) - d
         dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
         %dev = [ev1 - dat ev2 - dat ev3 - dat];
+        dev = [ev1 ev2 ev3 ev4];
         
         linmod = 1;
         if isfield(M,'linmod')
@@ -1276,7 +1277,8 @@ if isfield(M,'y')
         
         if linmod == 1
             %Mm = [ones(size(dat(:,1))) dat dev]';  
-            Mm = [dat dev]';  
+            Mm = [dat dev]';
+            Mm = [ dev]';
             b  = pinv(Mm*Mm')*Mm*yy;
                         
             Pf(:,ins,ins) = b'*Mm;  

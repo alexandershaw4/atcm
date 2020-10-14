@@ -13,7 +13,7 @@ w  = (1:length(x))'./length(x);
 %----------------------------------------------------
 warning off;
 lx = log(x); lx(isinf(lx)) = log(1e-8);
-c  = fit(log(w), (lx),'poly1');
+c  = fit(log(w), (lx),'poly2');
 wx = exp( log(x) - c(log(w)) );
 
 f  = c;
