@@ -1270,7 +1270,7 @@ if isfield(M,'y')
         % envelope 'operator': dev = s(d) - d
         dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
         %dev = [ev1 - dat ev2 - dat ev3 - dat];
-        dev = ev2;
+        %dev = ev2;
         
         linmod = 1;
         if isfield(M,'linmod')
