@@ -12,17 +12,33 @@ w  = (1:length(x))'./length(x);
 % Whiten: 1d poly in log-log space
 %----------------------------------------------------
 warning off;
+
+% 1D poly model:
 lx = log(x); lx(isinf(lx)) = log(1e-8);
-c  = fit(log(w), (lx),'poly2');
+c  = fit( log(w), (lx),'poly1');
 wx = exp( log(x) - c(log(w)) );
+
+% Robust linear model:
+%c=robustfit(log(w),lx,'welsch');
+%wx=exp((c(1)+c(2)*log(w)));
+%wx = exp( log(x) - wx );
+
+% Custom  1./f terms model:
+% weq = 'a*( 1./x.^-b )';
+% startPoints = [1 1];
+% c = fit(w,x,weq,'Start', startPoints);
+% wx = x - c(w);
 
 f  = c;
 c  = exp(c(log(w)));
+%c = c(w);
 warning on;
+
 
 % Remove bottom 30% frequency content: assuming slow drifts
 %----------------------------------------------------
-wx = atcm.fun.bandpassfilter(wx,2*(1./(w(2)-w(1))),[.3 1]*length(x));
+%wx = atcm.fun.bandpassfilter(wx,2*(1./(w(2)-w(1))),[.3 1]*length(x));
+%wx = fft( atcm.fun.bandpassfilter(ifft(wx),2*(1./(w(2)-w(1))),[.3 1]*length(x)) );
 
 % Find local maxima
 %----------------------------------------------------
