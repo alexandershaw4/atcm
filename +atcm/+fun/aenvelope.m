@@ -1,4 +1,4 @@
-function [e,c,f] = aenvelope(x,n)
+function [e,c,f] = aenvelope(x,n,dolog)
 % compute the envelope of x using local maxima, with bias toward the end of
 % x. (e.g. for spectra with inherent 1./f power law)
 %
@@ -13,10 +13,22 @@ w  = (1:length(x))'./length(x);
 %----------------------------------------------------
 warning off;
 
-% 1D poly model:
-lx = log(x); lx(isinf(lx)) = log(1e-8);
-c  = fit( log(w), (lx),'poly1');
-wx = exp( log(x) - c(log(w)) );
+if nargin < 3 || isempty(dolog)
+    dolog = 1;
+else
+    dolog;
+end
+
+if dolog
+    % 1D poly model:
+    lx = log(x); lx(isinf(lx)) = log(1e-8);
+    c  = fit( log(w), (lx),'poly1');
+    wx = exp( log(x) - c(log(w)) );
+else
+    lx = log(x); lx(isinf(lx)) = log(1e-8);
+    c  = fit(  (w), (lx),'poly1');
+    wx = exp( log(x) - c( (w)) );
+end
 
 % Robust linear model:
 %c=robustfit(log(w),lx,'welsch');
@@ -26,12 +38,12 @@ wx = exp( log(x) - c(log(w)) );
 % Custom  1./f terms model:
 % weq = 'a*( 1./x.^-b )';
 % startPoints = [1 1];
-% c = fit(w,x,weq,'Start', startPoints);
-% wx = x - c(w);
+% c = fit(w,wx,weq,'Start', startPoints);
+% wx = wx - c(w);
 
 f  = c;
-c  = exp(c(log(w)));
-%c = c(w);
+%c  = exp(c(log(w)));
+c = c(w);
 warning on;
 
 

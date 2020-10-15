@@ -702,7 +702,7 @@ noise.Gs = Gs;
     
 % Optional burn in - i.e. take transform of n:end ms instead of 0:end...
 burn = findthenearest(300,t); 
-%burn=1;
+burn=1;
 
 % Generate weighted (principal cells) signal - g & fft(g)i
 %--------------------------------------------------------------------------
@@ -968,7 +968,7 @@ for ins = 1:ns
 
                                 % compute the envelope of this spiky spectrum
                                 % using local maxima and cubic spline
-                                [Pf,c] = atcm.fun.aenvelope(Pf,ncompe);
+                                [Pf,c] = atcm.fun.aenvelope(Pf,ncompe,1);
 
                             end
                             
@@ -1070,55 +1070,6 @@ switch lower(fmethod)
         clear Pf
 end
 
-% Do a PCA of the frequency space response
-%--------------------------------------------------------------
-DoPCA = isfield(P,'pca');
-if DoPCA 
-    layers.iweighted = [];
-    layers.weighted = [];
-    for ins = 1:ns
-        
-       Pfa   = squeeze( (Pf0(ins,:,:)));    
-       Q = Pfa';
-               
-        for im = 1:min([size(Q,2) length(P.pca)])
-            WC(im,:) = exp(P.pca(im))*(Q(:,im))';
-            
-            if DoHamming
-                WC(im,:) = WC(im,:).*H(:)';
-            end
-            if isfield(P,'psmooth')
-                warning off
-                %[WC(im,:),~] = envelope(WC(im,:), 200,'analytic');
-                  
-                %w0 = linspace(1.5,8,length(w)).^2;
-                %WC(im,:) = WC(im,:).*w0(:)';
-
-                
-                %WC(im,:) = atcm.fun.bandpassfilter(WC(im,:),1./dt,[w(1) w(end)]);
-                %WC(im,:) = atcm.fun.HighResMeanFilt(WC(im,:)',1,2);
-                %WC(im,:) = smooth( WC(im,:) , exp(P.psmooth(im))*4 ,'moving' );
-                %WC(im,:) = smooth( WC(im,:) , .05*exp(P.psmooth(im)) ,'moving' );
-                %WC(im,:) = smooth( WC(im,:) , .05*exp(P.psmooth(im)) ,'rlowess' );
-                
-                warning on
-            end
-            %if DoHamming
-            %    WC(im,:) = WC(im,:).*H(:)';
-            %end
-            %Multiply in the semi-stochastic neuronal fluctuations
-            WC(im,:) = WC(im,:).*Gu(:,ins)';
-
-        end
-                        
-        % store
-        layers.iweighted(ins,:,:) = WC * exp(P.L(ins));
-        layers.weighted = layers.iweighted;
-        
-    end
-end
-
-
 % Now compute node proper CSDs from sum of weighted cells/modes per region
 %----------------------------------------------------------------------
 for inx = 1:ns
@@ -1142,59 +1093,6 @@ for inx = 1:ns
 end
 
 
-% % Smooth the CSDs
-% %----------------------------------------------------------------------
-% DoSmth = 1;
-% if isfield(M,'DoSmth')
-%     DoSmth=M.DoSmth;
-% end
-% 
-% if isfield(M,'supersmooth')
-%     supersmooth = M.supersmooth;
-% else
-%     supersmooth = 0;
-% end
-% 
-% if DoSmth
-%     for ins = 1:ns
-%         dat = Pf(:,ins,ins);
-%         %dat = envelope(dat, 1,'peak') ;%+ (.1*Pf);
-%         
-%         %dat = atcm.fun.aenvelope(dat,30);
-%         %dat = atcm.fun.aenvelope(dat,10);
-%         
-%         %dat = dat.*H(:);
-%         %dat = smooth( dat , 16*exp(P.psmooth(1)) ,'moving' ); % 16
-%         %dat = smooth( dat , 2*exp(P.psmooth(1)) ,'moving' ); % 16
-%         
-%         %dat = smooth( dat , 12*exp(P.psmooth(1)) ,'moving' ); % 16
-%         
-% %         yy = squeeze(M.y{1}(:,ins,ins));
-% %         fe = @(x) atcm.fun.aenvelope(dat,x);
-% %         ge = @(x) sum( (yy-fe(x)).^2 );
-% %         
-% %         [XX,FF] = fminsearch(ge,30);
-% %         
-% %         dat = atcm.fun.aenvelope(dat,XX); 
-%         
-%         %if supersmooth
-%         %    dat = smooth( dat , 4*exp(P.psmooth(1)) ,'moving' ); % 16
-%         %end
-%         
-%         Pf(:,ins,ins) = dat;
-%     end
-% 
-%     % recompute CSDs 
-%     for inx = 1:ns
-%         for iny = 1:ns
-%             if inx ~= iny
-%                 Pf(:,inx,iny) = squeeze( Pf(:,inx,inx) ) .* ...
-%                                    conj( Pf(:,iny,iny) ) ;
-%             end
-%         end
-%     end
-%     
-% end
 
 
 % Take the absolute (magnitude) of the cross spectra
@@ -1237,7 +1135,9 @@ if isfield(M,'y')
     for ins = 1:ns
         dat = squeeze(layers.iweighted(ins,:,:))';
         yy  = squeeze(M.y{1}(:,ins,ins));
-                    
+                 
+        %yy = yy.*(w'./w(end));
+        
         if all( (size(dat,1)==1) && size(dat,2)==length(w) )
             dat = dat';
         end
@@ -1254,7 +1154,7 @@ if isfield(M,'y')
             [ev3(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),15); % 15
         end
         for ie = 1:size(dat,2)
-            [ev4(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),6); % 3
+            [ev4(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),3); % 3
         end
         %for ie = 1:size(dat,2)
         %    [ev5(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),50); % 3
@@ -1358,7 +1258,7 @@ if isfield(M,'y')
 %         %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4);
         
         if isfield(M,'EnvLFP') && M.EnvLFP
-            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),50); 
+            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),60); 
             %Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
         end
         
