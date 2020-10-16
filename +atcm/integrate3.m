@@ -1,4 +1,4 @@
-function [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate3(P,M,U,varargin)
+function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 % Numerical integration and spectral response of a neural mass model.
 % This is the NETWORK version, which handles networks of connected models,
 % and with different trial types. This version (atcm.integrate3) has a number 
@@ -172,7 +172,7 @@ switch InputType
         %------------------------------------------------------------------
         delay  = 60 + P.R(1);             % bump
         scale1 = 8  * exp(P.R(2));
-        drive  = afit.makef(pst,delay,scale1,16);
+        drive  = atcm.fun.makef(pst,delay,scale1,16);
         
     case 3
         
@@ -180,8 +180,8 @@ switch InputType
         %------------------------------------------------------------------
         rng default;
         mu    = exp(P.R(1));              % mean amplitude
-        hfn   = randn(length(pst),1);
-        hfn   = bandpassfilter(hfn,1/dt,[100 300]);
+        hfn   = randn(length(pst),1) + (sqrt(-1)*randn(length(pst),1)*1/32);
+        hfn   = atcm.fun.bandpassfilter(hfn,1/dt,[100 .5./dt]);
         drive = hfn*mu;   % amplitude (constant) over time
         
     case 4
@@ -233,7 +233,11 @@ for  c = 1:size(U.X,1)
 
 end
 
-
+other.noise = noise;
+other.firing = firing;
+other.QD = QD;
+other.Spike = Spike;
+other.drive = drive;
 
 end
 
@@ -575,9 +579,12 @@ end
 
 warning on;
 
-DoBilinear = 0;
+DoBilinear = 1;
 if DoBilinear
-
+    
+    origy = y;
+    M.D   = Q;
+    
     % reduce to a (bi)linear form: operators M0, M1{c}
     %----------------------------------------------------------------------
     [M0,M1,L1,L2] = spm_bireduce(M,P);
@@ -806,49 +813,6 @@ for ins = 1:ns
         
     switch lower(fmethod)
         
-%         case 'isvd'
-%             % this is basically the transfer function from spm12
-%             yx = reshape( squeeze(y(ins,:,:,:)), [npp*nk,length(t)]); 
-%             [v,s] = eig(full(yx*yx'),'nobalance');
-%             
-%             %[Eigenvectors,s,v] = svd(yx);
-%             %Eigenvectors = Eigenvectors'*yx;
-%             warning on;
-% 
-%             s  = diag(s);
-%             %Pf = -(Eigenvectors'*(1./(1j*2*pi*w - s)));
-%             
-%             dgdx  = spm_diff(M.g,M.x,M.u,P,M,1);
-%             dfdu  = spm_diff(M.f,M.x,M.u,P,M,2);
-%             dgdv  = dgdx*v;
-%             dvdu  = pinv(v)*dfdu;
-%             
-%             ng    = size(dgdx,1);         % number of outputs
-%             nu    = size(dfdu,2);         % number of inputs
-%             nk    = size(v,2);            % number of modes
-% 
-%             S = zeros(length(w),nk,ng,nu);
-%             for j = 1:nu
-%                 for i = 1:ng
-%                     for k = 1:nk
-%                         %if ismember(k,Ji)
-%                         
-%                             % transfer functions (FFT of kernel)
-%                             %--------------------------------------------------------------
-%                             Sk       = 1./(1j*2*pi*w - s(k));
-%                             S(:,k,i,j) = S(:,k,i,j) + spm_vec( dgdv(i,k)*dvdu(k,j)*Sk );
-%                         %end                          
-%                     end
-%                 end
-%             end
-% 
-%             Pf = squeeze(S)';
-%                         
-%             for ij = 1:length(Ji)
-%                 layers.iweighted (ins,ij,:) = ( Pf(ij,:) * J(ij) ) * exp(P.L(ins));
-%             end
-%             
-%             layers.weighted(ins,:,:) = layers.iweighted(ins,:,:);
             
         case {'dmd' 'instantaneous' 'svd' 'none' 'glm' 'fooof' 'timefreq'}
             
