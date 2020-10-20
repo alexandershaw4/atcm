@@ -1140,8 +1140,13 @@ if isfield(M,'y')
         
         if linmod == 1
             %Mm = [ones(size(dat(:,1))) dat dev]';  
+            
             Mm = [dat dev]';
-            %Mm = [ dev]';
+            
+            if isfield(M,'envonly') && M.envonly
+              Mm = [ dev]';
+            end
+            
             b  = pinv(Mm*Mm')*Mm*yy;
                         
             Pf(:,ins,ins) = b'*Mm;  
