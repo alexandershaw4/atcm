@@ -1162,7 +1162,7 @@ if isfield(M,'y')
                 for ii = 1:size(dat,2)
                     these = [dat(:,ii) squeeze(dev(:,:,ii))']';
                     cx    = corr(these').^2;
-                    [~,I] = maxpoints(cx(2:end,1),2);
+                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),2);
 
                     Mm(ii,:) = these(I(1)+1,:);                
                 end
