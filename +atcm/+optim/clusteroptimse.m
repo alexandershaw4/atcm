@@ -157,6 +157,10 @@ for i = 1:nr
         LB  = (Px-(c'*sf));
         UB  = (Px+(c'*sf));  
         
+        c   = constr(Px');
+        LB  = (Px-(c'*sf));
+        UB  = (Px+(c'*sf));  
+
         %[X,F(i)] = ga(@optimi,length(Px),[],[],[],[],LB,UB);
         gaopts = optimoptions('ga','MaxTime', 86400/2); % 12hours
         

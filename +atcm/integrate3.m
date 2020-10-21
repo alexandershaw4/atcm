@@ -579,7 +579,7 @@ end
 
 warning on;
 
-DoBilinear = 1;
+DoBilinear = 0;
 if DoBilinear
     
     origy = y;
@@ -909,10 +909,15 @@ for ins = 1:ns
                             % just a smoothed fft of the (contributing)
                             % states
                             this = Eigenvectors(Ji(ij),burn:end);
-                                                                                                                
+                                                                    
                             % splined fft
                             [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             Pf = ((Pf))';
+                            
+                            %prior = spm_mar_prior(1,56,'silly');
+                            %[mar,y,y_pred] = spm_mar(this',56,prior);
+                            %marspec = spm_mar_spectra(mar,w,1/dt);
+                            %Pf = marspec.P;
                             
                             % offset 1./f nature of slope
                             %w0 = linspace(1.5,8,length(w)).^2;
@@ -1106,32 +1111,40 @@ if isfield(M,'y')
             dat = dat';
         end
         
-        % Envelopes corresponding to 3 different levels of smooth....
-        %------------------------------------------------------------------
-        for ie = 1:size(dat,2)
-            [ev1(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),20); % 20
-        end
-        for ie = 1:size(dat,2)
-            [ev2(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),10); % 10
-        end
-        for ie = 1:size(dat,2)
-            [ev3(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),15); % 15
-        end
-        for ie = 1:size(dat,2)
-            [ev4(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),3); % 3
-        end
-        %for ie = 1:size(dat,2)
-        %    [ev5(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),50); % 3
-        %end
+%         % Envelopes corresponding to 3 different levels of smooth....
+%         %------------------------------------------------------------------
+%         for ie = 1:size(dat,2)
+%             [ev1(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),20); % 20
+%         end
+%         for ie = 1:size(dat,2)
+%             [ev2(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),10); % 10
+%         end
+%         for ie = 1:size(dat,2)
+%             [ev3(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),15); % 15
+%         end
+%         for ie = 1:size(dat,2)
+%             [ev4(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),3); % 3
+%         end
+%         for ie = 1:size(dat,2)
+%             [ev5(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),50); % 3
+%         end
+%         
+%         % this section builds a linear model of the response using the
+%         % population series and their smoothed envelopes - i.e. the lm
+%         % optimises the amount of smoothing necessary :)
+%         %------------------------------------------------------------------
+%         % envelope 'operator': dev = s(d) - d
+%         dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
+%         dev = [ev1  ev2  ev3  ev4 ev5];
         
-        % this section builds a linear model of the response using the
-        % population series and their smoothed envelopes - i.e. the lm
-        % optimises the amount of smoothing necessary :)
-        %------------------------------------------------------------------
-        % envelope 'operator': dev = s(d) - d
-        dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
-        dev = [ev1  ev2  ev3  ev4];
-        
+          Sk = [3 6 10 20 30 35 40 50 55];
+          for j = 1:length(Sk)
+              for i = 1:size(dat,2)
+                dev(j,:,i) = atcm.fun.aenvelope(dat(:,i),Sk(j)); 
+              end
+          end
+
+
         %dev = [ev1 - dat ev2 - dat ev3 - dat];
         %dev = ev2;
         %dev = [ev1 ev4];
@@ -1152,12 +1165,13 @@ if isfield(M,'y')
               
             else
                 
-                clear dev 
-
-                dev(1,:,:) = ev1;
-                dev(2,:,:) = ev2;
-                dev(3,:,:) = ev3;
-                dev(4,:,:) = ev4;
+%                 clear dev 
+% 
+%                 dev(1,:,:) = ev1;
+%                 dev(2,:,:) = ev2;
+%                 dev(3,:,:) = ev3;
+%                 dev(4,:,:) = ev4;
+%                 dev(5,:,:) = ev5;
 
                 for ii = 1:size(dat,2)
                     these = [dat(:,ii) squeeze(dev(:,:,ii))']';
@@ -1168,6 +1182,7 @@ if isfield(M,'y')
                 end
             end
             
+            Mm = [Mm;dat'];
             
             b  = pinv(Mm*Mm')*Mm*yy;
                         

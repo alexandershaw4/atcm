@@ -434,16 +434,18 @@ for i = 1:ns
         DV       = 1./[2 1 1 2.2 1 2 1 2]; 
         DV       = 1./[1 1 1 1   1 1 1 1]; 
         %DV       = 1./[1 .2 .2 2 .2 2 .5 .9];
-        DV       = DV.*exp(P.TV);
-        f(i,:,2) = f(i,:,2) .* DV;  % AMPA
-        f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
-        f(i,:,4) = f(i,:,4) .* DV;  % NMDA
-        f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
-        
-        if IncludeMH
-            f(i,:,6) = f(i,:,6) .* DV;  % M
-            f(i,:,7) = f(i,:,7) .* DV;  % H
-        end 
+        if isfield(P,'TV')
+            DV       = DV.*exp(P.TV);
+            f(i,:,2) = f(i,:,2) .* DV;  % AMPA
+            f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
+            f(i,:,4) = f(i,:,4) .* DV;  % NMDA
+            f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
+
+            if IncludeMH
+                f(i,:,6) = f(i,:,6) .* DV;  % M
+                f(i,:,7) = f(i,:,7) .* DV;  % H
+            end 
+        end
         
                 
 end
