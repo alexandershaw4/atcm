@@ -360,13 +360,21 @@ for i = 1:ns
             dU = 0;
         end
         
+         % Thalamo-Cortical Delays
+        TC  = exp(-P.D0(2))*1000/3;            
+        CT  = exp(-P.D0(1))*1000/8;        
+        
+        TCM = ones(8)*.6;
+        TCM([1 6],8) = TC;
+        TCM(8,6)     = CT;
+        TCM = 1./TCM;
         
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------
-        E      = ( G(:,:,i).*GEa)*m(i,:)'; % AMPA currents
-        ENMDA  = (Gn(:,:,i).*GEn)*m(i,:)'; % NMDA currents
-        I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
-        IB     = ( G(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
+        E      = (( G(:,:,i).*GEa).*TCM)*m(i,:)'; % AMPA currents
+        ENMDA  = (( Gn(:,:,i).*GEn).*TCM)*m(i,:)'; % NMDA currents
+        I      = (( G(:,:,i).*GIa).*TCM)*m(i,:)'; % GABA-A currents
+        IB     = (( G(:,:,i).*GIb).*TCM)*m(i,:)'; % GABA-B currents
         
         if IncludeMH
             

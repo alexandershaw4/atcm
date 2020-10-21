@@ -302,6 +302,9 @@ if WithDelays == 2 || WithDelays == 5 || WithDelays == 20 || WithDelays == 21 ..
             
 elseif WithDelays == 3
     [fx,~,~,D] = f(M.x,0,P,M);
+elseif WithDelays == 0
+    [fx,~,~,D] = f(M.x,0,P,M);
+    QD = D;
 else
     [fx, dfdx,Q] = f(M.x,0,P,M);
     QD           = Q;
@@ -418,7 +421,7 @@ switch IntMethod
                 % Use a Euler integration scheme
                 % y(i+1) = y(i) + dt*f(x,P)
                 dxdt   = f(v,drive(i),P,M);
-                v      = v + dt*dxdt;                
+                v      = v + dt*dxdt;  
                 y(:,i) = v;
                                                
             elseif WithDelays == 2 %           [ I RECOMMEND THIS METHOD ]
@@ -439,7 +442,8 @@ switch IntMethod
                     % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
                     %[fx,dfdx] = f(v,drive(i),P,M);
                     %v = v + spm_dx(D*dfdx,D*fx,dt);
-                                        
+                     
+                    
                 end   
                 % Expansion point - i.e. deviation around fixed point
                 if ~IsStochastic
@@ -1177,8 +1181,8 @@ if isfield(M,'y')
                     these = [dat(:,ii) squeeze(dev(:,:,ii))']';
                     cx    = corr(these').^2;
                     [~,I] = atcm.fun.maxpoints(cx(2:end,1),2);
-
-                    Mm(ii,:) = these(I(1)+1,:);                
+                    
+                    Mm(ii,:) = mean(these(I+1,:),1);                
                 end
             end
             
@@ -1191,6 +1195,24 @@ if isfield(M,'y')
 
             layers.b(ins,:)   = b;
             layers.M(ins,:,:) = Mm;
+            
+        elseif linmod == 4
+           clear dev;
+           
+           Sk = [55 35 20 40];
+           for i = 1:size(dat,2)
+                dev(:,i) = atcm.fun.aenvelope(dat(:,i),Sk(i)); 
+           end
+            
+            Mm = [dat dev]';
+            b  = pinv(Mm*Mm')*Mm*yy;
+                        
+            Pf(:,ins,ins) = b'*Mm;  
+            Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+
+            layers.b(ins,:)   = b;
+            layers.M(ins,:,:) = Mm;            
+            
             
         elseif linmod == 2
             clear dev 
