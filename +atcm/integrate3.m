@@ -1142,6 +1142,7 @@ if isfield(M,'y')
 %         dev = [ev1  ev2  ev3  ev4 ev5];
         
           Sk = [3 6 10 20 30 35 40 50 55];
+          %Sk = [20 10 15 3];
           for j = 1:length(Sk)
               for i = 1:size(dat,2)
                 dev(j,:,i) = atcm.fun.aenvelope(dat(:,i),Sk(j)); 
@@ -1176,13 +1177,13 @@ if isfield(M,'y')
 %                 dev(3,:,:) = ev3;
 %                 dev(4,:,:) = ev4;
 %                 dev(5,:,:) = ev5;
-
+                
+                 Mm = [];
                 for ii = 1:size(dat,2)
                     these = [dat(:,ii) squeeze(dev(:,:,ii))']';
                     cx    = corr(these').^2;
-                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),2);
-                    
-                    Mm(ii,:) = mean(these(I+1,:),1);                
+                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),4);
+                    Mm = [Mm; these(I+1,:)];
                 end
             end
             
@@ -1196,6 +1197,11 @@ if isfield(M,'y')
             layers.b(ins,:)   = b;
             layers.M(ins,:,:) = Mm;
             
+            layers.iweighted(ins,1,:) = abs([b(17); b(1:4)]'*[dat(:,1)' ; Mm(1:4,:)]);
+            layers.iweighted(ins,2,:) = abs([b(18); b(5:8)]'*[dat(:,2)' ; Mm(5:8,:)]);
+            layers.iweighted(ins,3,:) = abs([b(19); b(9:12)]'*[dat(:,3)' ; Mm(9:12,:)]);
+            layers.iweighted(ins,4,:) = abs([b(20); b(13:16)]'*[dat(:,4)' ; Mm(13:16,:)]);
+            layers.weighted = layers.iweighted;
         elseif linmod == 4
            clear dev;
            

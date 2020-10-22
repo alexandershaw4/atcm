@@ -304,6 +304,7 @@ elseif WithDelays == 3
     [fx,~,~,D] = f(M.x,0,P,M);
 elseif WithDelays == 0
     [fx,~,~,D] = f(M.x,0,P,M);
+    QD = D;
 else
     [fx, dfdx,Q] = f(M.x,0,P,M);
     QD           = Q;
@@ -421,25 +422,7 @@ switch IntMethod
                 % y(i+1) = y(i) + dt*f(x,P)
                 dxdt   = f(v,drive(i),P,M);
                 v      = v + dt*dxdt;  
-                
-                
-                % manually apply delays
-                D     = real(D) ;
-                Dstep = round(-D/dt);
-                
-                for xd = 1:length(D) % to
-                    for yd = 1:length(D) % from
-                        if i > Dstep(xd,yd) && Dstep(xd,yd) ~= >0
-                            y(yd,i) = y(yd,i) + yd(xd,i-Dstep(xd,yd));
-                        end
-                    end
-                end
-                
-                
-                
-                
                 y(:,i) = v;
-                
                                                
             elseif WithDelays == 2 %           [ I RECOMMEND THIS METHOD ]
                 
@@ -1159,6 +1142,7 @@ if isfield(M,'y')
 %         dev = [ev1  ev2  ev3  ev4 ev5];
         
           Sk = [3 6 10 20 30 35 40 50 55];
+          %Sk = [20 10 15 3];
           for j = 1:length(Sk)
               for i = 1:size(dat,2)
                 dev(j,:,i) = atcm.fun.aenvelope(dat(:,i),Sk(j)); 
@@ -1193,13 +1177,13 @@ if isfield(M,'y')
 %                 dev(3,:,:) = ev3;
 %                 dev(4,:,:) = ev4;
 %                 dev(5,:,:) = ev5;
-
+                
+                 Mm = [];
                 for ii = 1:size(dat,2)
                     these = [dat(:,ii) squeeze(dev(:,:,ii))']';
                     cx    = corr(these').^2;
-                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),2);
-
-                    Mm(ii,:) = these(I(1)+1,:);                
+                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),4);
+                    Mm = [Mm; these(I+1,:)];
                 end
             end
             
@@ -1212,6 +1196,29 @@ if isfield(M,'y')
 
             layers.b(ins,:)   = b;
             layers.M(ins,:,:) = Mm;
+            
+            layers.iweighted(ins,:,1) = [dat(:,1) ; Mm(1:4,:)];
+            layers.iweighted(ins,:,1) = [dat(:,1) ; Mm(1:4,:)];
+            layers.iweighted(ins,:,1) = [dat(:,1) ; Mm(1:4,:)];
+            layers.iweighted(ins,:,1) = [dat(:,1) ; Mm(1:4,:)];
+            
+        elseif linmod == 4
+           clear dev;
+           
+           Sk = [55 35 20 40];
+           for i = 1:size(dat,2)
+                dev(:,i) = atcm.fun.aenvelope(dat(:,i),Sk(i)); 
+           end
+            
+            Mm = [dat dev]';
+            b  = pinv(Mm*Mm')*Mm*yy;
+                        
+            Pf(:,ins,ins) = b'*Mm;  
+            Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+
+            layers.b(ins,:)   = b;
+            layers.M(ins,:,:) = Mm;            
+            
             
         elseif linmod == 2
             clear dev 

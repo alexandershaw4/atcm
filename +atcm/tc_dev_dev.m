@@ -251,6 +251,7 @@ if IncludeMH
     %GIm  = eye(8)*4/10;                    % local TP & RL expression only
     %GIm  = sparse([6 8],[6 8],1/10,8,8);
     GIm  = sparse([6 8],[6 8],1/4,8,8);
+    %GIm = full(sparse([6 8 3 5 7],[6 8 3 5 7],1/4,8,8));
     Mh   = diag(exp(P.Mh));
 
     %GIh      = full(sparse([6 8],[6 8],1/10,8,8));
@@ -353,9 +354,8 @@ for i = 1:ns
             
         % input scaling: 
         %------------------------------------------------------------------
-        if any(full(U(:))) ; %&& size(U,1) >= i
-            %dU = u(1)*( C(i,:).*[1 1/64 1/128 1/128] );                  % CHANGE BACK
-            dU = u(1)*C(i,1);%1
+        if any(full(U(:))) ;
+            dU = u(1)*C(i,1);
         else
             dU = 0;
         end
@@ -383,8 +383,7 @@ for i = 1:ns
       
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = 8;%[8 1 2 4];8;%[8 1 2 4];                   % CHANGE BACK
-                
+        input_cell        = 8;
         E(input_cell)     = E(input_cell)         +dU';
         ENMDA(input_cell) = ENMDA(input_cell)     +dU';
                 
@@ -411,38 +410,39 @@ for i = 1:ns
                    
         % Conductance equations
         %==================================================================   
-        %pop_rates = [1 1 2 1 2 1 1 1];
-        %pop_rates = pop_rates.*exp(P.pr);
+        pop_rates = [1 1 2 1 1 1 1 1];
+        pop_rates = pop_rates.*exp(P.TV);
         
-        f(i,:,2) = (E'     - x(i,:,2)).* KE(i,:);%*pop_rates);
-        f(i,:,3) = (I'     - x(i,:,3)).* KI(i,:);%*pop_rates);
-        f(i,:,5) = (IB'    - x(i,:,5)).* KB(i,:);%*pop_rates);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* KN(i,:);%*pop_rates);
+        f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
+        f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*pop_rates);
+        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)*pop_rates);
+        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)*pop_rates);
         
         if IncludeMH
-            f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );
-            f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );
+            f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:)*pop_rates );
+            f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:)*pop_rates );
         end
         
         
         % c.f. synaptic delays + conduction delays
         %------------------------------------------------------------------
-        DV       = 1./[1 1 1 2.2 1 2 8 8]; 
-        DV       = 1./[2 1 1 2.2 1 2 1 2]; 
-        DV       = 1./[1 1 1 1   1 1 1 1]; 
-        %DV       = 1./[1 .2 .2 2 .2 2 .5 .9];
-        if isfield(P,'TV')
-            DV       = DV.*exp(P.TV);
-            f(i,:,2) = f(i,:,2) .* DV;  % AMPA
-            f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
-            f(i,:,4) = f(i,:,4) .* DV;  % NMDA
-            f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
-
-            if IncludeMH
-                f(i,:,6) = f(i,:,6) .* DV;  % M
-                f(i,:,7) = f(i,:,7) .* DV;  % H
-            end 
-        end
+%         DV       = 1./[1 1 1 2.2 1 2 8 8]; 
+%         DV       = 1./[2 1 1 2.2 1 2 1 2]; 
+%         DV       = 1./[1 1 1 1   1 1 1 1]; 
+        
+        %DV       = 1./[1 .2 .2 2 .4 2 .8 1];
+%         if isfield(P,'TV')
+%             DV       = DV.*exp(P.TV);
+%             f(i,:,2) = f(i,:,2) .* DV;  % AMPA
+%             f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
+%             f(i,:,4) = f(i,:,4) .* DV;  % NMDA
+%             f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
+% 
+%             if IncludeMH
+%                 f(i,:,6) = f(i,:,6) .* DV;  % M
+%                 f(i,:,7) = f(i,:,7) .* DV;  % H
+%             end 
+%         end
         
                 
 end
@@ -494,35 +494,33 @@ Tc([7 8],[1:6]) = CT  * exp(P.D0(1)); % L6->thal
 Tc([1:6],[7 8]) = TC  * exp(P.D0(2)); % thal->ss
 
 Tc = -Tc / 1000;
-%Tc = Tc .* ~~(GEa | GIa);
-
 Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
 
-if isfield(P,'ID')
-    % ignore..... doesn't trigger  unless you have an entry in P 'ID'
-    %-----------------------------------------------------------------
-    % intrisc delays
-    ID = [0 0 0 1 0 1 1 1];
-    ID = [1 .2 .1 1 .2 1 .4 1];
-    ID = [2 1  .1 2 .2 2 .4 2]; % this 
-    
-    %ID = double(~~GEa | ~~GIa);
-    %ID = (repmat(ID,[8 1]).*~eye(8)+diag(ID)).* double(~~GEa | ~~GIa);
-    
-    %ID = (repmat(ID,[8 1])).* double(~~GEa | ~~GIa);
-    
-    %ID = diag(ID) + 1e-2*double(~~GEa | ~~GIa);
-    
-    ID = -ID.*exp(P.ID)/1000;
-    %ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
-    %IDm = ID+ID';
-    %IDm = IDm.*~eye(8);
-    %IDm = IDm + diag(ID);
-    IDm=ID;
-    ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
-    Tc = Tc + ID;
-end
-
+% if isfield(P,'ID')
+%     % ignore..... doesn't trigger  unless you have an entry in P 'ID'
+%     %-----------------------------------------------------------------
+%     % intrisc delays
+%     ID = [0 0 0 1 0 1 1 1];
+%     ID = [1 .2 .1 1 .2 1 .4 1];
+%     ID = [2 1  .1 2 .2 2 .4 2]; % this 
+%         
+%     %ID = double(~~GEa | ~~GIa);
+%     %ID = (repmat(ID,[8 1]).*~eye(8)+diag(ID)).* double(~~GEa | ~~GIa);
+%     
+%     %ID = (repmat(ID,[8 1])).* double(~~GEa | ~~GIa);
+%     
+%     %ID = diag(ID) + 1e-2*double(~~GEa | ~~GIa);
+%     
+%     ID = -ID.*exp(P.ID)/1000;
+%     %ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
+%     %IDm = ID+ID';
+%     %IDm = IDm.*~eye(8);
+%     %IDm = IDm + diag(ID);
+%     IDm=ID;
+%     ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
+%     Tc = Tc + ID;
+% end
+% 
 
 % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
 %--------------------------------------------------------------------------

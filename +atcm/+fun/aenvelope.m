@@ -49,7 +49,7 @@ warning on;
 
 % Remove bottom 30% frequency content: assuming slow drifts
 %----------------------------------------------------
-wx = atcm.fun.bandpassfilter(wx,2*(1./(w(2)-w(1))),[.2 1]*length(x));
+%wx = atcm.fun.bandpassfilter(wx,2*(1./(w(2)-w(1))),[.2 1]*length(x));
 %wx = fft( atcm.fun.bandpassfilter(ifft(wx),2*(1./(w(2)-w(1))),[.3 1]*length(x)) );
 
 %wx = (abs(hilbert(wx)));
