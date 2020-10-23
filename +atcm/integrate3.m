@@ -1127,6 +1127,7 @@ if isfield(M,'y')
                 b = J(Ji);
                 b  = pinv(Mm*Mm')*Mm*yy;
                 Pf(:,ins,ins) = b'*Mm; 
+                Pf(:,ins,ins) = smooth(Pf(:,ins,ins),3);
                 Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
                 
             else

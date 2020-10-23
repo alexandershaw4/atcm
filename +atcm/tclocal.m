@@ -416,7 +416,7 @@ for i = 1:ns
                    
         % Conductance equations
         %==================================================================   
-        pop_rates = [1 1 2 1 1 1 1 1];
+        pop_rates = [1 1 2 1 1 1 1/8 1/8];
         pop_rates = pop_rates.*exp(P.TV);
         
         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
