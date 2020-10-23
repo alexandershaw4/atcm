@@ -909,11 +909,17 @@ for ins = 1:ns
                             Pf = atcm.fun.aenvelope(Pf,80);
                             Pf0(ins,ij,:) = Pf;
                         
-                        case {'none'}
+                        case {'none','dmd'}
                             % just a smoothed fft of the (contributing)
                             % states
-                            this = Eigenvectors(Ji(ij),burn:end);
-                                                                    
+                            
+                            switch fmethod
+                                case 'none'
+                                this = Eigenvectors(Ji(ij),burn:end);
+                                case 'dmd'
+                                this = y0(burn:end);
+                            end
+                            
                             % splined fft
                             [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             Pf = ((Pf))';
@@ -948,16 +954,17 @@ for ins = 1:ns
                             % store 
                             Pf0(ins,ij,:) = Pf;
                             
-                        case {'dmd' 'svd' 'glm'}
-                            % just a smoothed fft of the dmd series
-                            [Pf,Hz]  = atcm.fun.AfftSmooth(y0(burn:end),1/dt,w,60);          % 60 FOR DEXPRO
-                    
-                            %[Pf,Hz]  = atcm.fun.Afft(y0(burn:end),1/dt,w);
-                            %Pf = atcm.fun.HighResMeanFilt(Pf',1,4);
-                            
-                            %[Pf,Hz]  = atcm.fun.Affti(y0(burn:end),1/dt,w); %*
-                            %Pf = Pf';
-                            Pf0(ins,ij,:) = Pf;
+%                         case {'dmd' 'svd' 'glm'}
+%                             % just a smoothed fft of the dmd series
+%                             %[Pf,Hz]  = atcm.fun.AfftSmooth(y0(burn:end),1/dt,w,60);          % 60 FOR DEXPRO
+%                     
+%                             %[Pf,Hz]  = atcm.fun.Afft(y0(burn:end),1/dt,w);
+%                             %Pf=Pf';
+%                             %Pf = atcm.fun.HighResMeanFilt(Pf',1,4);
+%                             
+%                             %[Pf,Hz]  = atcm.fun.Affti(y0(burn:end),1/dt,w); %*
+%                             %Pf = Pf';
+%                             Pf0(ins,ij,:) = Pf;
                             
                         case {'fooof'}
                             
@@ -1125,7 +1132,7 @@ if isfield(M,'y')
             if isfield(M,'envonly') && M.envonly
                 Mm = dat';
                 b = J(Ji);
-                b  = pinv(Mm*Mm')*Mm*yy;
+                %b  = pinv(Mm*Mm')*Mm*yy;
                 Pf(:,ins,ins) = b'*Mm; 
                 Pf(:,ins,ins) = smooth(Pf(:,ins,ins),3);
                 Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
@@ -1133,7 +1140,7 @@ if isfield(M,'y')
             else
                 % For a refined smoothing topimised spectrum - works best
                 % when the spiky spectrum is already close to optimal
-                Sk = [3 6 10 20 30 35 40 50 55];
+                Sk = [3 6 10 20 30];% 35 40 50 55];
                 for j = 1:length(Sk)
                     for i = 1:size(dat,2)
                         dev(j,:,i) = atcm.fun.aenvelope(dat(:,i),Sk(j));
@@ -1144,11 +1151,11 @@ if isfield(M,'y')
                 for ii = 1:size(dat,2)
                     these = [dat(:,ii) squeeze(dev(:,:,ii))']';
                     cx    = corr(these').^2;
-                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),1);
+                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),4);
                     Mm = [Mm; these(I+1,:)];
                 end
 
-                Mm = [Mm];%;dat'];
+                Mm = [Mm;dat'];
                 b  = pinv(Mm*Mm')*Mm*yy;
 
                 Pf(:,ins,ins) = b'*Mm;

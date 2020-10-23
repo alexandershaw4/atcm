@@ -1,5 +1,4 @@
 function [f,J,Q,D] = tclocal(x,u,P,M,m)
-persistent Ghist Gnhist
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -278,7 +277,7 @@ KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
 
 %KE  = exp(-P.T(:,1))*1000/5;            % excitatory rate constants (AMPA)
 %KN  = exp(-P.T(:,3))*1000/150;          % excitatory rate constants (NMDA)
-%KI  = exp(-P.T(:,2))*1000/12;           % inhibitory rate constants (GABAa)
+%KI  = exp(-P.T(:,2))*1000/6;           % inhibitory rate constants (GABAa)
 
 
 % Trial effects on time constants: AMPA & NMDA only
