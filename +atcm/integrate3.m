@@ -1109,50 +1109,10 @@ if isfield(M,'y')
         dat = squeeze(layers.iweighted(ins,:,:))';
         yy  = squeeze(M.y{1}(:,ins,ins));
                  
-        %yy = yy.*(w'./w(end));
-        
         if all( (size(dat,1)==1) && size(dat,2)==length(w) )
             dat = dat';
         end
         
-%         % Envelopes corresponding to 3 different levels of smooth....
-%         %------------------------------------------------------------------
-%         for ie = 1:size(dat,2)
-%             [ev1(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),20); % 20
-%         end
-%         for ie = 1:size(dat,2)
-%             [ev2(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),10); % 10
-%         end
-%         for ie = 1:size(dat,2)
-%             [ev3(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),15); % 15
-%         end
-%         for ie = 1:size(dat,2)
-%             [ev4(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),3); % 3
-%         end
-%         for ie = 1:size(dat,2)
-%             [ev5(:,ie),c] = atcm.fun.aenvelope(dat(:,ie),50); % 3
-%         end
-%         
-%         % this section builds a linear model of the response using the
-%         % population series and their smoothed envelopes - i.e. the lm
-%         % optimises the amount of smoothing necessary :)
-%         %------------------------------------------------------------------
-%         % envelope 'operator': dev = s(d) - d
-%         dev = [ev1 - dat ev2 - dat ev3 - dat ev4 - dat];
-%         dev = [ev1  ev2  ev3  ev4 ev5];
-        
-          Sk = [3 6 10 20 30 35 40 50 55];
-          %Sk = [20 10 15 3];
-          for j = 1:length(Sk)
-              for i = 1:size(dat,2)
-                dev(j,:,i) = atcm.fun.aenvelope(dat(:,i),Sk(j)); 
-              end
-          end
-
-
-        %dev = [ev1 - dat ev2 - dat ev3 - dat];
-        %dev = ev2;
-        %dev = [ev1 ev4];
         
         linmod = 1;
         if isfield(M,'linmod')
@@ -1160,47 +1120,53 @@ if isfield(M,'y')
         end
         
         if linmod == 1
-            %Mm = [ones(size(dat(:,1))) dat dev]';  
-            
-            %Mm = [dat dev]';
-            
-            if ~isfield(M,'envonly') || ~M.envonly
-              %Mm = [ dev]';
-              Mm = [dat dev]';
-              
+
+
+            if isfield(M,'envonly') && M.envonly
+                Mm = dat';
+                b = J(Ji);
+                Pf(:,ins,ins) = b'*Mm; 
+                Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+                
             else
-                
-%                 clear dev 
-% 
-%                 dev(1,:,:) = ev1;
-%                 dev(2,:,:) = ev2;
-%                 dev(3,:,:) = ev3;
-%                 dev(4,:,:) = ev4;
-%                 dev(5,:,:) = ev5;
-                
-                 Mm = [];
+                Sk = [3 6 10 20 30 35 40 50 55];
+                for j = 1:length(Sk)
+                    for i = 1:size(dat,2)
+                        dev(j,:,i) = atcm.fun.aenvelope(dat(:,i),Sk(j));
+                    end
+                end
+
+                Mm = [];
                 for ii = 1:size(dat,2)
                     these = [dat(:,ii) squeeze(dev(:,:,ii))']';
                     cx    = corr(these').^2;
-                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),4);
+                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),1);
                     Mm = [Mm; these(I+1,:)];
                 end
             end
             
-            Mm = [Mm;dat'];
-            
+                
+            Mm = [Mm];%;dat'];
             b  = pinv(Mm*Mm')*Mm*yy;
-                        
-            Pf(:,ins,ins) = b'*Mm;  
+            
+            Pf(:,ins,ins) = b'*Mm;
             Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+            
 
             layers.b(ins,:)   = b;
             layers.M(ins,:,:) = Mm;
             
-            layers.iweighted(ins,1,:) = abs([b(17); b(1:4)]'*[dat(:,1)' ; Mm(1:4,:)]);
-            layers.iweighted(ins,2,:) = abs([b(18); b(5:8)]'*[dat(:,2)' ; Mm(5:8,:)]);
-            layers.iweighted(ins,3,:) = abs([b(19); b(9:12)]'*[dat(:,3)' ; Mm(9:12,:)]);
-            layers.iweighted(ins,4,:) = abs([b(20); b(13:16)]'*[dat(:,4)' ; Mm(13:16,:)]);
+            %layers.iweighted(ins,1,:) = abs([b(17); b(1:4)]'*[dat(:,1)' ; Mm(1:4,:)]);
+            %layers.iweighted(ins,2,:) = abs([b(18); b(5:8)]'*[dat(:,2)' ; Mm(5:8,:)]);
+            %layers.iweighted(ins,3,:) = abs([b(19); b(9:12)]'*[dat(:,3)' ; Mm(9:12,:)]);
+            %layers.iweighted(ins,4,:) = abs([b(20); b(13:16)]'*[dat(:,4)' ; Mm(13:16,:)]);
+            
+            %layers.iweighted(ins,1,:) = abs([ b(1:4)]'*[ Mm(1:4,:)]);
+            %layers.iweighted(ins,2,:) = abs([ b(5:8)]'*[ Mm(5:8,:)]);
+            %layers.iweighted(ins,3,:) = abs([ b(9:12)]'*[ Mm(9:12,:)]);
+            %layers.iweighted(ins,4,:) = abs([ b(13:16)]'*[ Mm(13:16,:)]);
+
+            
             layers.weighted = layers.iweighted;
         elseif linmod == 4
            clear dev;
