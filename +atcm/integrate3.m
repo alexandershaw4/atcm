@@ -25,7 +25,7 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 % time responses of the system. Channel noise (exponetial decay functions)
 % are computed and returned.
 %
-% Set DCM.M.IS = @atcm.integrate to use this function with DCM as a 
+% Set DCM.M.IS = @atcm.integrate3 to use this function with DCM as a 
 % replacement for spm_csd_mtf. 
 %
 % Outputs: y = full model prediction (for comparison to data in DCM.xY.y/csd)
