@@ -1130,6 +1130,8 @@ if isfield(M,'y')
                 Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
                 
             else
+                % For a refined smoothing topimised spectrum - works best
+                % when the spiky spectrum is already close to optimal
                 Sk = [3 6 10 20 30 35 40 50 55];
                 for j = 1:length(Sk)
                     for i = 1:size(dat,2)
