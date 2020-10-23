@@ -1125,6 +1125,7 @@ if isfield(M,'y')
             if isfield(M,'envonly') && M.envonly
                 Mm = dat';
                 b = J(Ji);
+                b  = pinv(Mm*Mm')*Mm*yy;
                 Pf(:,ins,ins) = b'*Mm; 
                 Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
                 
@@ -1143,18 +1144,18 @@ if isfield(M,'y')
                     [~,I] = atcm.fun.maxpoints(cx(2:end,1),1);
                     Mm = [Mm; these(I+1,:)];
                 end
+
+                Mm = [Mm];%;dat'];
+                b  = pinv(Mm*Mm')*Mm*yy;
+
+                Pf(:,ins,ins) = b'*Mm;
+                Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+
+
+                layers.b(ins,:)   = b;
+                layers.M(ins,:,:) = Mm;
             end
             
-                
-            Mm = [Mm];%;dat'];
-            b  = pinv(Mm*Mm')*Mm*yy;
-            
-            Pf(:,ins,ins) = b'*Mm;
-            Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
-            
-
-            layers.b(ins,:)   = b;
-            layers.M(ins,:,:) = Mm;
             
             %layers.iweighted(ins,1,:) = abs([b(17); b(1:4)]'*[dat(:,1)' ; Mm(1:4,:)]);
             %layers.iweighted(ins,2,:) = abs([b(18); b(5:8)]'*[dat(:,2)' ; Mm(5:8,:)]);
