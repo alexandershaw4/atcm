@@ -1152,29 +1152,22 @@ if isfield(M,'y')
                     these = [dat(:,ii) squeeze(dev(:,:,ii))']';
                     cx    = corr(these').^2;
                     [~,I] = atcm.fun.maxpoints(cx(2:end,1),4);
-                    
-                    if ~isfield(M,'I') && isfield(M,'train');
-                        fprintf('Returning glm comps\n');
-                        layers.I{ii} = I;
-                    end
-                    
                     Mm = [Mm; these(I+1,:)];
                 end
 
                 Mm = [Mm;dat'];
                 
-                % if already computed/fixed
                 if isfield(M,'I') && isfield(M,'b');
-                    fprintf('Using fixed values\n');
                    I = M.I;
-                   b = M.b';
-                   Mm = [];
+                   b = M.b;
                     for ii = 1:size(dat,2)
                         these = [dat(:,ii) squeeze(dev(:,:,ii))']';
-                        II = I{ii};
-                        Mm = [Mm; these(II+1,:)];
+                        cx    = corr(these').^2;
+                        [~,I] = atcm.fun.maxpoints(cx(2:end,1),4);
+                        Mm = [Mm; these(I+1,:)];
                     end
-                    Mm = [Mm;dat'];
+                   
+                   
                    
                 else
                     b  = pinv(Mm*Mm')*Mm*yy;
