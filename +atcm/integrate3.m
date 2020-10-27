@@ -713,7 +713,10 @@ noise.Gs = Gs;
     
 % Optional burn in - i.e. take transform of n:end ms instead of 0:end...
 burn = findthenearest(300,t); 
-%burn=1;
+
+if isfield(M,'burnin')
+    burn = findthenearest(M.burnin,t); 
+end
 
 % Generate weighted (principal cells) signal - g & fft(g)i
 %--------------------------------------------------------------------------
