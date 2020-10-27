@@ -64,8 +64,8 @@ warning on;
 %wx = (abs(hilbert(wx)));
 % wx = wx.*h;
 
-H  = (1 - cos(2*pi*[1:length(x)]'/(length(x) + 1)))/2;
-wx = wx.*H.^2;
+%H  = (1 - cos(2*pi*[1:length(x)]'/(length(x) + 1)))/2;
+%wx = wx.*H.^2;
 
 % Find local maxima
 %----------------------------------------------------

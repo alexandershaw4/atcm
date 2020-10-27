@@ -1295,13 +1295,13 @@ if isfield(M,'y')
 %         %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4);
         
         if isfield(M,'EnvLFP') && M.EnvLFP
-            %smth = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30); 
+            %smth = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),20); 
             
             %Pf(:,ins,ins) = (exp(P.psmooth)*Pf(:,ins,ins)) + ((1-exp(P.psmooth))*smth );
              
             %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),5);
             
-            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),40);    
+            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
         end
         
         %Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
