@@ -1,4 +1,4 @@
-function [e,c,f] = aenvelope(x,n,dolog,type,fixgap)
+function [e,c,f] = aenvelope(x,n,dolog,type)
 % compute the envelope of x using local maxima, with bias toward the end of
 % x. (e.g. for spectra with inherent 1./f power law)
 %
@@ -12,11 +12,6 @@ w  = (1:length(x))'./length(x);
 % Whiten: 1d poly in log-log space
 %----------------------------------------------------
 warning off;
-
-
-if nargin < 5 || isempty(fixgap);
-    fixgap = 1;
-end
 
 if nargin < 4 || isempty(type);
     type = 'spline';
@@ -64,9 +59,6 @@ warning on;
 %wx = (abs(hilbert(wx)));
 % wx = wx.*h;
 
-H  = (1 - cos(2*pi*[1:length(x)]'/(length(x) + 1)))/2;
-wx = wx.*H.^2;
-
 % Find local maxima
 %----------------------------------------------------
 if nx > n+1
@@ -83,48 +75,19 @@ iLocs = [1; iPk; nx];
 iLocs = unique(iLocs);
 
 % Fill in gaps where there are no peaks
-nst = 3;
 gr   = [iLocs(2:end); iLocs(end)] - iLocs;
-pnts = find(gr>nst*std(gr));
-n    = 0;
+pnts = find(gr>3*std(gr));
 
-if fixgap
-    while any(pnts)
-        n = n + 1;
-        this = pnts(1);
-        
-        if this ~= 1 && this ~= nx
-            gaps = iLocs(this-1:this+1);
-            if diff(gaps(1:2)) > diff(gaps(2:3))
-                newpnt = round( median(gaps(1:2)) );
-                iLocs = [iLocs; newpnt];
-            else
-                newpnt = round( median(gaps(2:3)) );
-                iLocs = [iLocs; newpnt];
-            end
-        elseif this == 1
-            gaps = iLocs(this:this+1);
-            newpnt = round( median(gaps(1:2)) );
-            iLocs = [iLocs; newpnt];
-            
-        elseif this == nx
-            gaps = iLocs(this-1:this);
-            newpnt = round( median(gaps(1:2)) );
-            iLocs = [iLocs; newpnt];
-        end
-        
-        iLocs = sort(iLocs,'ascend');
-        gr    = [iLocs(2:end); iLocs(end)] - iLocs;
-        pnts  = find(gr>nst*std(gr));
-        
-    end
+for i = 1:length(pnts)
+    this = pnts(i);
+    gaps = iLocs(this-1:this+1);
     
-    iLocs = unique(iLocs);
-end
+    if diff(gaps(1:2)) <
+    
 
 % smoothly connect the maxima via a spline
 %----------------------------------------------------
-e = interp1(iLocs,x(iLocs),(1:nx)',type); % 'spline'
+e = interp1(iLocs,x(iLocs),(1:nx)',type,'extrap'); % 'spline'
 e = abs(e);
 
 

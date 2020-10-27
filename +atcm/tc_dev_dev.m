@@ -1,4 +1,4 @@
-function [f,J,Q,D] = tc_dev_dev(x,u,P,M,m)
+function [f,J,Q] = tc_dev_dev(x,u,P,M,m)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -410,8 +410,9 @@ for i = 1:ns
                    
         % Conductance equations
         %==================================================================   
-        pop_rates = [1 1 2 1 1 1 1 1];
-        pop_rates = pop_rates.*exp(P.TV);
+        %pop_rates = [1 1 2 1 1 1 1/8 1/8];
+        pop_rates = [1 1 1 1 1 1 1 1];
+        %pop_rates = pop_rates.*exp(P.TV);
         
         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
         f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*pop_rates);
@@ -426,23 +427,23 @@ for i = 1:ns
         
         % c.f. synaptic delays + conduction delays
         %------------------------------------------------------------------
-%         DV       = 1./[1 1 1 2.2 1 2 8 8]; 
-%         DV       = 1./[2 1 1 2.2 1 2 1 2]; 
-%         DV       = 1./[1 1 1 1   1 1 1 1]; 
+        DV       = 1./[1 1 1 2.2 1 2 8 8]; 
+        DV       = 1./[2 1 1 2.2 1 2 1 2]; 
+        DV       = 1./[1 1 1 1   1 1 1 1]; 
         
-        %DV       = 1./[1 .2 .2 2 .4 2 .8 1];
-%         if isfield(P,'TV')
-%             DV       = DV.*exp(P.TV);
-%             f(i,:,2) = f(i,:,2) .* DV;  % AMPA
-%             f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
-%             f(i,:,4) = f(i,:,4) .* DV;  % NMDA
-%             f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
-% 
-%             if IncludeMH
-%                 f(i,:,6) = f(i,:,6) .* DV;  % M
-%                 f(i,:,7) = f(i,:,7) .* DV;  % H
-%             end 
-%         end
+        %DV       = 1./[1 1 .2 2 .4 2 .8 1];
+        if isfield(P,'TV')
+            DV       = DV.*exp(P.TV);
+            f(i,:,2) = f(i,:,2) .* DV;  % AMPA
+            f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
+            f(i,:,4) = f(i,:,4) .* DV;  % NMDA
+            f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
+
+            if IncludeMH
+                f(i,:,6) = f(i,:,6) .* DV;  % M
+                f(i,:,7) = f(i,:,7) .* DV;  % H
+            end 
+        end
         
                 
 end

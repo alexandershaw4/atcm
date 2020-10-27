@@ -17,10 +17,10 @@ end
 for i = 1:length(bins) / 2
     chunk  = signal(: , bins(i):bins(i+2) );    
     if nargin > 2
-        [Pfm(:,:,:,i),f] = atcm.fun.Affti(chunk,fs,varargin{1});
+        [Pfm(:,:,:,i),f] = atcm.fun.Afft(chunk,fs,varargin{1});
     else
         w = linspace(1 , size(signal,2)/2 , size(signal,2) );
-        [Pfm(:,:,:,i),f] = atcm.fun.Affti(chunk,fs,w);
+        [Pfm(:,:,:,i),f] = atcm.fun.Afft(chunk,fs,w);
     end
 end
 

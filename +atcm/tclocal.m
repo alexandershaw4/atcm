@@ -1,4 +1,4 @@
-function [f,J,Q,D] = tclocal(x,u,P,M,m)
+function [f,J,Q] = tclocal(x,u,P,M,m)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -186,14 +186,14 @@ GIa = zeros(8,8);
 %--------------------------------------------------------------------------
 % This is a simplified, predictive-coding friendly excitatory architecture
 %           ss  sp  si  dp  di  tp  rt  rl   
-GEa(1,:) = [0   0   0   0   0   2   0   2]/1;
+GEa(1,:) = [0   0   0   0   0   2   0   4]/1;
 GEa(2,:) = [4   0   0   0   0   0   0   0]/1;
 GEa(3,:) = [4   4   0   0   0   0   0   0]/1; 
 GEa(4,:) = [0   4   0   0   0   0   0   0]/1;
 GEa(5,:) = [0   0   0   4   0   0   0   0]/1;
 GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
 GEa(7,:) = [0   0   0   0   0   0   0   2]/1; 
-GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
+GEa(8,:) = [0   0   0   0   0   4   0   0]/1;
 
 % Trying out some additional synapses - RL->SP&DP, TP->RT & DP->RL/RT
 % GEa(1,:) = [0   0   0   0   0   2   0   2]/1;
@@ -416,7 +416,7 @@ for i = 1:ns
         % Conductance equations
         %==================================================================   
         pop_rates = [1 1 2 1 1 1 1/8 1/8];
-        pop_rates = pop_rates.*exp(P.TV);
+        pop_rates = pop_rates;%.*exp(P.TV);
         
         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
         f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*pop_rates);
@@ -427,7 +427,33 @@ for i = 1:ns
             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:)*pop_rates );
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:)*pop_rates );
         end
-                
+          
+        
+        % c.f. synaptic delays + conduction delays
+        %------------------------------------------------------------------
+%         DV       = 1./[1 1 1 2.2 1 2 8 8]; 
+%         DV       = 1./[2 1 1 2.2 1 2 1 2]; 
+         DV       = 1./[1 1 1 1   1 1 1 1]; 
+        
+        %DV       = 1./[1 .2 .2 2 .4 2 .8 1];
+        if isfield(P,'TV')
+            DV       = DV.*exp(P.TV);
+            f(i,:,2) = f(i,:,2) .* DV;  % AMPA
+            f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
+            f(i,:,4) = f(i,:,4) .* DV;  % NMDA
+            f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
+
+            if IncludeMH
+                f(i,:,6) = f(i,:,6) .* DV;  % M
+                f(i,:,7) = f(i,:,7) .* DV;  % H
+            end 
+        end        
+        
+        
+        
+        
+        
+        
 end
 
 
@@ -456,17 +482,43 @@ if nargout < 3, return, end
 %--------------------------------------------------------------------------
 % [specified] fixed parameters
 %--------------------------------------------------------------------------
-D  = [.6 16];
+D  = [.1 16];
 d  = -D.*full(exp(P.D(1:2)))/1000;
 Sp = kron(ones(nk,nk),kron( eye(np,np),eye(ns,ns)));  % states: same pop.
 Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
+
+if isfield(P,'ID')
+    % ignore..... doesn't trigger  unless you have an entry in P 'ID'
+    %-----------------------------------------------------------------
+    % intrisc delays
+    ID = [0 0 0 1 0 1 1 1];
+    ID = [1 .2 .1 1 .2 1 .4 1];
+    ID = [2 1  .1 2 .2 2 .4 2]; % this 
+        
+    %ID = double(~~GEa | ~~GIa);
+    %ID = (repmat(ID,[8 1]).*~eye(8)+diag(ID)).* double(~~GEa | ~~GIa);
+    
+    %ID = (repmat(ID,[8 1])).* double(~~GEa | ~~GIa);
+    
+    %ID = diag(ID) + 1e-2*double(~~GEa | ~~GIa);
+    
+    ID = -ID.*exp(P.ID)/1000;
+    %ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
+    %IDm = ID+ID';
+    %IDm = IDm.*~eye(8);
+    %IDm = IDm + diag(ID);
+    IDm=ID;
+    ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
+    Tc = ID;
+end
+
 
 % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
 %--------------------------------------------------------------------------
 Dp = ~Ss;                            % states: different sources
 Ds = ~Sp & Ss;                       % states: same source different pop.
 %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
-D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;       %+ Dself;% Complete delay matrix
+D  = d(2)*Dp + d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
 
 % Implement: dx(t)/dt = f(x(t - d)) = inv(1 - D.*dfdx)*f(x(t))
 %                     = Q*f = Q*J*x(t)
