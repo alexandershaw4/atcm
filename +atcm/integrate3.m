@@ -949,8 +949,8 @@ for ins = 1:ns
                             %Pf = marspec.P;
                             
                             % offset 1./f nature of slope
-                            %w0 = linspace(1.5,8,length(w)).^2;
-                            %Pf = Pf.*w0(:);                             
+                            w0 = linspace(1.5,8,length(w)).^2;
+                            Pf = Pf.*w0(:);                             
                             
                             DoEnv = 1;
                             if isfield(M,'DoEnv')
