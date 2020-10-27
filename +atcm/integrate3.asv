@@ -713,7 +713,10 @@ noise.Gs = Gs;
     
 % Optional burn in - i.e. take transform of n:end ms instead of 0:end...
 burn = findthenearest(300,t); 
-burn=1;
+
+if isfield(M,'burnin')
+    burn = findthenearest(M.burnin,t); 
+end
 
 % Generate weighted (principal cells) signal - g & fft(g)i
 %--------------------------------------------------------------------------
@@ -938,9 +941,9 @@ for ins = 1:ns
                             end
                             
                             % splined fft
-                            [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w,10);
+                            [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             %Pf=abs(Pf)';
-                            [Pf,F] = pyulear(this,100,w,./dt);
+                            %[Pf,F] = pyulear(this,100,w,2./dt);
                             Pf = ((Pf))';
                             
                             %prior = spm_mar_prior(1,56,'silly');
@@ -949,8 +952,8 @@ for ins = 1:ns
                             %Pf = marspec.P;
                             
                             % offset 1./f nature of slope
-                            %w0 = linspace(1.5,8,length(w)).^2;
-                            %Pf = Pf.*w0(:);                             
+                            w0 = linspace(1.5,8,length(w)).^2;
+                            Pf = Pf.*w0(:);                             
                             
                             DoEnv = 1;
                             if isfield(M,'DoEnv')
@@ -966,6 +969,7 @@ for ins = 1:ns
 
                                 % compute the envelope of this spiky spectrum
                                 % using local maxima and cubic spline
+                                Pf0 = Pf;
                                 [Pf,c] = atcm.fun.aenvelope(Pf,ncompe,1);
 
                             end
@@ -1288,7 +1292,7 @@ if isfield(M,'y')
              
             %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),5);
             
-            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
+            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),40);    
         end
         
         %Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );

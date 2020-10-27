@@ -969,7 +969,13 @@ for ins = 1:ns
 
                                 % compute the envelope of this spiky spectrum
                                 % using local maxima and cubic spline
-                                [Pf,c] = atcm.fun.aenvelope(Pf,ncompe,1);
+                                Pf1 = Pf;
+                                [Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
+                                
+                                while all(Pf1==Pf)
+                                    [Pf] = atcm.fun.aenvelope(Pf,ncompe-10,1);
+                                end
+                                    
 
                             end
                             
