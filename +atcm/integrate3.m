@@ -971,9 +971,13 @@ for ins = 1:ns
                                 % using local maxima and cubic spline
                                 Pf1 = Pf;
                                 [Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
+                                n    = 0;
                                 
-                                while all(Pf1==Pf)
-                                    [Pf] = atcm.fun.aenvelope(Pf,ncompe-10,1);
+                                % reapply recursively if the smoothing
+                                % didn't do anything...
+                                while all(Pf1==Pf) && n > 5
+                                    n = n + 1;
+                                    [Pf] = atcm.fun.aenvelope(Pf,ncompe-(10*n),1);
                                 end
                                     
 
