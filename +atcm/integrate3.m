@@ -1288,7 +1288,7 @@ if isfield(M,'y')
              
             %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),5);
             
-            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),20);    
+            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),40);    
         end
         
         %Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
