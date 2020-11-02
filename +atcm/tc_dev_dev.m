@@ -255,7 +255,7 @@ if IncludeMH
     Mh   = diag(exp(P.Mh));
 
     %GIh      = full(sparse([6 8],[6 8],1/10,8,8));
-    GIh      = full(sparse([6 8],[6 8],1/4   ,8,8));
+    GIh      = full(sparse([6 8],[6 8],1/4   ,8,8)); % 1/4
     Hh       = exp(P.Hh);
     GIh(6,6) = GIh(6,6)*Hh(1);
     GIh(8,8) = GIh(8,8)*Hh(2);
@@ -355,7 +355,7 @@ for i = 1:ns
         % input scaling: 
         %------------------------------------------------------------------
         if any(full(U(:))) ;
-            dU = u(1)*C(i,1);
+            dU = u(1)*C(i,1) ;
         else
             dU = 0;
         end
@@ -429,9 +429,9 @@ for i = 1:ns
         %------------------------------------------------------------------
         DV       = 1./[1 1 1 2.2 1 2 8 8]; 
         DV       = 1./[2 1 1 2.2 1 2 1 2]; 
-        DV       = 1./[1 1 1 1   1 1 1 1]; 
+        DV       = 1./[1 1 2 1   2 1 1 1]; 
         
-        %DV       = 1./[1 1 .2 2 .4 2 .8 1];
+        DV       = 1./[1 1 .2 2 .4 2 .8 1];
         if isfield(P,'TV')
             DV       = DV.*exp(P.TV);
             f(i,:,2) = f(i,:,2) .* DV;  % AMPA
@@ -497,31 +497,31 @@ Tc([1:6],[7 8]) = TC  * exp(P.D0(2)); % thal->ss
 Tc = -Tc / 1000;
 Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
 
-% if isfield(P,'ID')
-%     % ignore..... doesn't trigger  unless you have an entry in P 'ID'
-%     %-----------------------------------------------------------------
-%     % intrisc delays
-%     ID = [0 0 0 1 0 1 1 1];
-%     ID = [1 .2 .1 1 .2 1 .4 1];
-%     ID = [2 1  .1 2 .2 2 .4 2]; % this 
-%         
-%     %ID = double(~~GEa | ~~GIa);
-%     %ID = (repmat(ID,[8 1]).*~eye(8)+diag(ID)).* double(~~GEa | ~~GIa);
-%     
-%     %ID = (repmat(ID,[8 1])).* double(~~GEa | ~~GIa);
-%     
-%     %ID = diag(ID) + 1e-2*double(~~GEa | ~~GIa);
-%     
-%     ID = -ID.*exp(P.ID)/1000;
-%     %ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
-%     %IDm = ID+ID';
-%     %IDm = IDm.*~eye(8);
-%     %IDm = IDm + diag(ID);
-%     IDm=ID;
-%     ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
-%     Tc = Tc + ID;
-% end
-% 
+if isfield(P,'ID')
+    % ignore..... doesn't trigger  unless you have an entry in P 'ID'
+    %-----------------------------------------------------------------
+    % intrisc delays
+    ID = [0 0 0 1 0 1 1 1];
+    ID = [1 .2 .1 1 .2 1 .4 1];
+    ID = [2 1  .1 2 .2 2 .4 2]; % this 
+        
+    %ID = double(~~GEa | ~~GIa);
+    %ID = (repmat(ID,[8 1]).*~eye(8)+diag(ID)).* double(~~GEa | ~~GIa);
+    
+    %ID = (repmat(ID,[8 1])).* double(~~GEa | ~~GIa);
+    
+    %ID = diag(ID) + 1e-2*double(~~GEa | ~~GIa);
+    
+    ID = -ID.*exp(P.ID)/1000;
+    %ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
+    %IDm = ID+ID';
+    %IDm = IDm.*~eye(8);
+    %IDm = IDm + diag(ID);
+    IDm=ID;
+    ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
+    Tc = Tc + ID;
+end
+
 
 % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
 %--------------------------------------------------------------------------
@@ -534,4 +534,5 @@ D  = d(2)*Dp + d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
 %                     = Q*f = Q*J*x(t)
 %--------------------------------------------------------------------------
 Q  = spm_inv(speye(length(J)) - D.*J);
+
 

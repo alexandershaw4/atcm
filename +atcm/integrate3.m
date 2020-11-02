@@ -112,7 +112,7 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 w     = M.Hz;                     % FoI (w)
 x     = M.x;                      % model (hidden) states
 Kx    = x;                        % pre-fp x, for kernel scheme
-dt    = 1/600;                    % sample rate
+dt    = 1/1200;                    % sample rate
 Fs    = 1/dt;                     % sampling frequency
 tn    = 2;                        % sample window length, in seconds
 pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
@@ -303,7 +303,7 @@ if WithDelays == 2 || WithDelays == 5 || WithDelays == 20 || WithDelays == 21 ..
 elseif WithDelays == 3
     [fx,~,~,D] = f(M.x,0,P,M);
 elseif WithDelays == 0
-    [fx,~,~,D] = f(M.x,0,P,M);
+    [fx,~,D] = f(M.x,0,P,M);
     QD = D;
 else
     [fx, dfdx,Q] = f(M.x,0,P,M);
@@ -942,9 +942,11 @@ for ins = 1:ns
                             
                             % splined fft
                             [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
-                            %Pf=abs(Pf)';
-                            %[Pf,F] = pyulear(this,100,w,2./dt);
+                            % %Pf=abs(Pf)';
+                            % %[Pf,F] = pyulear(this,100,w,2./dt);
                             Pf = ((Pf))';
+                            
+                            %[Pf,Hz]  = atcm.fun.AfftSmooth(this,1/dt,w,20); 
                             
                             %prior = spm_mar_prior(1,56,'silly');
                             %[mar,y,y_pred] = spm_mar(this',56,prior);
@@ -952,8 +954,12 @@ for ins = 1:ns
                             %Pf = marspec.P;
                             
                             % offset 1./f nature of slope
-                            w0 = linspace(1.5,8,length(w)).^2;
-                            Pf = Pf.*w0(:);                             
+                            %w0 = linspace(1.5,8,length(w)).^2;
+                            %Pf = Pf.*w0(:);    
+                            %h  = ( (1 - cos(2*pi*[1:length(w)]'/(length(w) + 1)))/2 );
+                            %h  = full(rescale(atcm.fun.HighResMeanFilt(atcm.fun.HighResMeanFilt(h,1,70),1,20)));
+                            %Pf = Pf.*h;
+                            Pf = Pf.*Hz(:);
                             
                             DoEnv = 1;
                             if isfield(M,'DoEnv')
@@ -970,7 +976,11 @@ for ins = 1:ns
                                 % compute the envelope of this spiky spectrum
                                 % using local maxima and cubic spline
                                 %Pf1 = Pf;
+                                %[Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
+                                
+                                %Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
                                 [Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
+                                
                                 %n    = 0;
                                 
                                 % reapply recursively if the smoothing
@@ -1048,12 +1058,12 @@ for ins = 1:ns
                 %Pf = Pf .* Hz';                % PUT BACK!                               % PUT BACK!
                 %Pf = abs(Pf);
                 
-                % Multiply in the semi-stochastic neuronal fluctuations
-                for i = 1:length(Hz)
-                    %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
-                    Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
-                end
-
+%                 % Multiply in the semi-stochastic neuronal fluctuations
+%                 for i = 1:length(Hz)
+%                     %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
+%                     Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
+%                 end
+% 
                 J  = full(J);
 
                 if DoHamming
@@ -1071,7 +1081,7 @@ for ins = 1:ns
 
                 layers.unweighted(ins,ij,:) = ( Pf             )      * exp(P.L(ins));
                 layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) ) * exp(P.L(ins));
-                layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) ) * exp(P.L(ins));
+                layers.iweighted (ins,ij,:) = Pf* exp(P.L(ins));% ( Pf * abs(J(Ji(ij))) ) * exp(P.L(ins));
                 layers.DMD(ins,ij,:)        = y0;               % retain DMD series
              end
     end
@@ -1139,7 +1149,6 @@ if DoHamming
 end
 
 
-
 % If M.y contains the empirical data, fit it as a GLM of the contirbuting
 % populations
 if isfield(M,'y')
@@ -1205,6 +1214,19 @@ if isfield(M,'y')
             end
             
             layers.weighted = layers.iweighted;
+        elseif linmod == 5
+            
+            acc = Pf(:,ins,ins)*0;
+            for i = 1:size(dat,2)
+                smth = full(atcm.fun.HighResMeanFilt(dat(:,i),1,16));
+                Mm   = [dat(:,i) smth]';
+                b    = pinv(Mm*Mm')*Mm*yy;
+                this = J(Ji(i)) * (b'*Mm);
+                acc(:,ins,ins) =  acc(:,ins,ins) + this(:);
+            end
+            Pf(:,ins,ins) = acc(:,ins,ins) * exp(P.L(ins));
+            
+            
         elseif linmod == 4
            clear dev;
            
@@ -1301,7 +1323,14 @@ if isfield(M,'y')
              
             %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),5);
             
-            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
+            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4));
+            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),20);    
+        end
+        
+        % Multiply in the semi-stochastic neuronal fluctuations
+        for i = 1:length(Hz)
+            %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
+            Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
         end
         
         %Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
