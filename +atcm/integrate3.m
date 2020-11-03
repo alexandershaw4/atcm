@@ -1323,7 +1323,7 @@ if isfield(M,'y')
              
             %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),5);
             
-            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4));
+            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,8));
             Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),20);    
         end
         
