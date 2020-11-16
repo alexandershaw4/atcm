@@ -152,7 +152,7 @@ SA   = [1   0   0   0   0;   %  SS
         0   0   0   1   1;   %  rt % 0 in ket study
         0   0   0   1   1]/8;%  rc % 0 in ket study
     
-    %SA(:,[3 4 5]) = 0; % For ket study
+    SA(:,[3 4 5]) = 0; % For ket study
     
     
 % % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
@@ -166,7 +166,7 @@ SNMDA = [1   0   0   0   0;   %  SS
          0   0   0   1   1;   %  rt % 0 in ket study
          0   0   0   1   1]/8;%  rc % 0 in ket study
 
-     %SNMDA(:,[3 4 5]) = 0; % For ket study
+     SNMDA(:,[3 4 5]) = 0; % For ket study
      
 % intrinsic connectivity switches
 %--------------------------------------------------------------------------    
@@ -196,15 +196,16 @@ GEa(7,:) = [0   0   0   0   0   0   0   2]/1;
 GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
 
 % Trying out some additional synapses - RL->SP&DP, TP->RT & DP->RL/RT
-% GEa(1,:) = [0   0   0   0   0   2   0   2]/1;
-% GEa(2,:) = [4   0   0   0   0   0   0   2]/1;
-% GEa(3,:) = [4   4   0   0   0   0   0   0]/1; 
-% GEa(4,:) = [0   4   0   0   0   0   0   1]/1;
-% GEa(5,:) = [0   0   0   4   0   0   0   0]/1;
-% GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
-% GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
-% GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
+GEa(1,:) = [0   0   0   0   0   2   0   2]/1;
+GEa(2,:) = [4   0   0   0   0   0   0   2]/1;
+GEa(3,:) = [4   4   0   0   0   0   0   0]/1; 
+GEa(4,:) = [0   4   0   0   0   0   0   1]/1;
+GEa(5,:) = [0   0   0   4   0   0   0   0]/1;
+GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
+GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
+GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
+GEa = GEa*2;
 
 GEa = GEa .* ~eye(np);
 %GEa = GEa * .8;
@@ -220,15 +221,6 @@ GEn = GEn + (eye(8)/8);
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
 %           ss  sp  si  dp  di  tp  rt  rl
-GIa(1,:) = [8   0   2   0   0   0   0   0 ];
-GIa(2,:) = [0   16  16  0   0   0   0   0 ];
-GIa(3,:) = [0   0   32  0   0   0   0   0 ];
-GIa(4,:) = [0   0   0   8   8   0   0   0 ];
-GIa(5,:) = [0   0   0   0   16  0   0   0 ];
-GIa(6,:) = [0   0   0   0   8   8   0   0 ];
-GIa(7,:) = [0   0   0   0   0   0   32  0 ];
-GIa(8,:) = [0   0   0   0   0   0   8   32]; % 32!! SEPT
-
 GIa(1,:) = [8   0   8   0   0   0   0   0 ];
 GIa(2,:) = [0   16  32  0   0   0   0   0 ];
 GIa(3,:) = [0   0   32  0   0   0   0   0 ];
@@ -238,6 +230,7 @@ GIa(6,:) = [0   0   0   0   8   8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   32]; % 32!! SEPT
 
+GIa = GIa*3;
 
 GIb      = GIa;
 
@@ -250,12 +243,12 @@ if IncludeMH
 
     %GIm  = eye(8)*4/10;                    % local TP & RL expression only
     %GIm  = sparse([6 8],[6 8],1/10,8,8);
-    GIm  = sparse([6 8],[6 8],1/4,8,8);
+    GIm  = sparse([6 8],[6 8],4,8,8);
     %GIm = full(sparse([6 8 3 5 7],[6 8 3 5 7],1/4,8,8));
     Mh   = diag(exp(P.Mh));
 
     %GIh      = full(sparse([6 8],[6 8],1/10,8,8));
-    GIh      = full(sparse([6 8],[6 8],1/4   ,8,8)); % 1/4
+    GIh      = full(sparse([6 8],[6 8],4   ,8,8)); % 1/4
     Hh       = exp(P.Hh);
     GIh(6,6) = GIh(6,6)*Hh(1);
     GIh(8,8) = GIh(8,8)*Hh(2);
@@ -412,7 +405,7 @@ for i = 1:ns
         %==================================================================   
         %pop_rates = [1 1 2 1 1 1 1/8 1/8];
         pop_rates = [1 1 1 1 1 1 1 1];
-        %pop_rates = pop_rates.*exp(P.TV);
+        pop_rates = pop_rates.*exp(P.pr);
         
         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
         f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*pop_rates);
@@ -427,11 +420,12 @@ for i = 1:ns
         
         % c.f. synaptic delays + conduction delays
         %------------------------------------------------------------------
-        DV       = 1./[1 1 1 2.2 1 2 8 8]; 
-        DV       = 1./[2 1 1 2.2 1 2 1 2]; 
-        DV       = 1./[1 1 2 1   2 1 1 1]; 
+        %DV       = 1./[1 1 1 2.2 1 2 8 8]; 
+        %DV       = 1./[2 1 1 2.2 1 2 1 2]; 
+        %DV       = 1./[1 1 2 1   2 1 1 1]; 
         
-        DV       = 1./[1 1 .2 2 .4 2 .8 1];
+        %DV       = 1./[1 1 .2 2 .4 2 .8 1];
+        DV = 1./[1 1 1 1 1 1 1 1];
         if isfield(P,'TV')
             DV       = DV.*exp(P.TV);
             f(i,:,2) = f(i,:,2) .* DV;  % AMPA
@@ -504,7 +498,9 @@ if isfield(P,'ID')
     ID = [0 0 0 1 0 1 1 1];
     ID = [1 .2 .1 1 .2 1 .4 1];
     ID = [2 1  .1 2 .2 2 .4 2]; % this 
-        
+       
+    ID = [1 1 .5 1 .5 1 .5 1]*(.6); % this 
+    
     %ID = double(~~GEa | ~~GIa);
     %ID = (repmat(ID,[8 1]).*~eye(8)+diag(ID)).* double(~~GEa | ~~GIa);
     
@@ -528,7 +524,9 @@ end
 Dp = ~Ss;                            % states: different sources
 Ds = ~Sp & Ss;                       % states: same source different pop.
 %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
-D  = d(2)*Dp + d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
+%D  = d(2)*Dp + d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
+
+D = d(2)*Dp + Tc; %%%%%!!!!!!
 
 % Implement: dx(t)/dt = f(x(t - d)) = inv(1 - D.*dfdx)*f(x(t))
 %                     = Q*f = Q*J*x(t)

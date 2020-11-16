@@ -181,7 +181,8 @@ switch InputType
         rng default;
         mu    = exp(P.R(1));              % mean amplitude
         hfn   = randn(length(pst),1) + (sqrt(-1)*randn(length(pst),1)*1/32);
-        hfn   = atcm.fun.bandpassfilter(hfn,1/dt,[100 .5./dt]);
+        %hfn   = atcm.fun.bandpassfilter(hfn,1/dt,[100 .5./dt]);
+        %hfn   = atcm.fun.bandpassfilter(hfn,1./dt,[50 100]);
         drive = hfn*mu;   % amplitude (constant) over time
         
     case 4
@@ -656,7 +657,8 @@ end
 
 % Spectrum of channel noise (non-specific): added to spectrum
 %--------------------------------------------------------------------------
-Gn = P.b(1)*(w.^0)';                                 % P.b = constant
+%Gn = P.b(1)*(w.^0)';                                 % P.b = constant
+Gn = exp(P.b(1,i) )+w.^(-exp(P.b(2,1))); 
 
 % Spectrum of channel noise (specific): added to spectrum
 %--------------------------------------------------------------------------
@@ -686,10 +688,10 @@ if IncDCS
     else
         Mu = ones(nf,1);
     end
-    %if size(Mu,2) == 1, Mu = Mu*ones(1,ns); end       
-    %Gu = Gu.*Mu;
-    %Gu = exp(P.a(1))*Mu;
-    Gu = repmat( (exp(P.a(1))*Mu) , [1 ns]);
+    if size(Mu,2) == 1, Mu = Mu*ones(1,ns); end       
+    Gu = Gu.*Mu;
+    Gu = exp(P.a(1))*Mu;
+    %Gu = repmat( (exp(P.a(1))*Mu) , [1 ns]);
 end
 
 %[Gu,Gs,Gn] = spm_csd_mtf_gu(P,M.Hz);
@@ -761,40 +763,40 @@ if isfield(M,'fmethod')
     fmethod = M.fmethod;
 end
 
-% try
-% switch fmethod            % UNCOMMENT FOR KET PAPER
-%     case {'dmd'};
+try
+switch fmethod            % UNCOMMENT FOR KET PAPER
+    case {'dmd'};
+        for ins = 1:ns
+            % remove principal [dominant] eigenmode(s) from states series
+            x = squeeze( y(ins,:,:,:) );
+            x = reshape( x , [npp*nk, length(t)] );
+            [u0,s0,v0] = spm_svd((x));
+            %ipc = find( (cumsum(diag(full(s0)))./sum(diag(full(s0))) > .8) );
+            p1 = u0(:,1)*s0(1,1)*v0(:,1)';
+            x = x - p1 ;%- p2;
+            %x = full(p1);
+            y(ins,:,:,:) = reshape(x,[npp,nk,length(t)]);
+        end
+        timeseries=y;
+%     case 'none'
 %         for ins = 1:ns
 %             % remove principal [dominant] eigenmode(s) from states series
 %             x = squeeze( y(ins,:,:,:) );
 %             x = reshape( x , [npp*nk, length(t)] );
 %             [u0,s0,v0] = spm_svd((x));
 %             %ipc = find( (cumsum(diag(full(s0)))./sum(diag(full(s0))) > .8) );
-%             p1 = u0(:,1)*s0(1,1)*v0(:,1)';
-%             x = x - p1 ;%- p2;
+%             %p1 = u0(:,1)*s0(1,1)*v0(:,1)';
+%             %x = x - p1 ;%- p2;
 %             %x = full(p1);
+%             nx = 1:3;
+%             x = u0(:,nx)*(s0(1,1)*eye(length(nx)))*v0(:,nx)';
+%             %x = u0(:,1:nx)*s0(1:nx,1:nx)*v0(:,1:nx)';
 %             y(ins,:,:,:) = reshape(x,[npp,nk,length(t)]);
-%         end
-%         timeseries=y;
-% %     case 'none'
-% %         for ins = 1:ns
-% %             % remove principal [dominant] eigenmode(s) from states series
-% %             x = squeeze( y(ins,:,:,:) );
-% %             x = reshape( x , [npp*nk, length(t)] );
-% %             [u0,s0,v0] = spm_svd((x));
-% %             %ipc = find( (cumsum(diag(full(s0)))./sum(diag(full(s0))) > .8) );
-% %             %p1 = u0(:,1)*s0(1,1)*v0(:,1)';
-% %             %x = x - p1 ;%- p2;
-% %             %x = full(p1);
-% %             nx = 1:3;
-% %             x = u0(:,nx)*(s0(1,1)*eye(length(nx)))*v0(:,nx)';
-% %             %x = u0(:,1:nx)*s0(1:nx,1:nx)*v0(:,1:nx)';
-% %             y(ins,:,:,:) = reshape(x,[npp,nk,length(t)]);
-% %         end        
-%         
-%         
-% end
-% end
+%         end        
+        
+        
+end
+end
 
 
 % for ins = 1:ns
@@ -812,7 +814,8 @@ for ins = 1:ns
     % extract time series of all states from this region
     %----------------------------------------------------------------------
     yx = reshape( squeeze(y(ins,:,:,:)), [npp*nk,length(t)]); 
-    yx = yx(1:size(y,2),:);        % limit to membrane potentials                    % 1:8 FOR DEXPRO
+    
+    %yx = yx(1:size(y,2),:);        % limit to membrane potentials                    % 1:8 FOR DEXPRO
     %yx = yx([1 2 4 6],:);
     %yx = yx(9:end,:);     % limit to post synaptic currents
     %yx = yx([1 2 4 6],:);    
@@ -874,7 +877,8 @@ for ins = 1:ns
                     [Eigenvectors,s,v] = svd(yx);
                     Eigenvectors = Eigenvectors'*yx;       
                 case 'svd'
-                    [Eigenvectors,s,v] = svd(cov(real(yx)'));
+                   % [Eigenvectors,s,v] = svd(cov(real(yx)'));
+                    [Eigenvectors,s,v] = svd(real(yx));
                     Eigenvectors = Eigenvectors'*yx; 
                     
                 case {'none' 'fooof' 'timefreq'}
@@ -929,7 +933,7 @@ for ins = 1:ns
                             Pf = atcm.fun.aenvelope(Pf,80);
                             Pf0(ins,ij,:) = Pf;
                         
-                        case {'none','dmd'}
+                        case {'none','dmd','svd'}
                             % just a smoothed fft of the (contributing)
                             % states
                             
@@ -938,12 +942,14 @@ for ins = 1:ns
                                 this = Eigenvectors(Ji(ij),burn:end);
                                 case 'dmd'
                                 this = y0(burn:end);
+                                case 'svd'
+                                this = Eigenvectors(ij,burn:end);
                             end
                             
                             % splined fft
                             [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             % %Pf=abs(Pf)';
-                            % %[Pf,F] = pyulear(this,100,w,2./dt);
+                            [Pf,F] = pyulear(this,100,w,1./dt);
                             Pf = ((Pf))';
                             
                             %[Pf,Hz]  = atcm.fun.AfftSmooth(this,1/dt,w,20); 
@@ -996,17 +1002,17 @@ for ins = 1:ns
                             % store 
                             Pf0(ins,ij,:) = Pf;
                             
-%                         case {'dmd' 'svd' 'glm'}
-%                             % just a smoothed fft of the dmd series
-%                             %[Pf,Hz]  = atcm.fun.AfftSmooth(y0(burn:end),1/dt,w,60);          % 60 FOR DEXPRO
-%                     
-%                             %[Pf,Hz]  = atcm.fun.Afft(y0(burn:end),1/dt,w);
-%                             %Pf=Pf';
-%                             %Pf = atcm.fun.HighResMeanFilt(Pf',1,4);
-%                             
-%                             %[Pf,Hz]  = atcm.fun.Affti(y0(burn:end),1/dt,w); %*
-%                             %Pf = Pf';
-%                             Pf0(ins,ij,:) = Pf;
+                      %  case 'svd' %{'dmd' 'svd' 'glm'}
+                            % just a smoothed fft of the dmd series
+                            %[Pf,Hz]  = atcm.fun.AfftSmooth(y0(burn:end),1/dt,w,60);          % 60 FOR DEXPRO
+                    
+                            %[Pf,Hz]  = atcm.fun.Afft(y0(burn:end),1/dt,w);
+                            %Pf=Pf';
+                            %Pf = atcm.fun.HighResMeanFilt(Pf',1,4);
+                            
+                            %[Pf,Hz]  = atcm.fun.Affti(y0(burn:end),1/dt,w); %*
+                            %Pf = Pf';
+                            Pf0(ins,ij,:) = Pf;
                             
                         case {'fooof'}
                             
@@ -1059,10 +1065,10 @@ for ins = 1:ns
                 %Pf = abs(Pf);
                 
 %                 % Multiply in the semi-stochastic neuronal fluctuations
-%                 for i = 1:length(Hz)
-%                     %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
-%                     Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
-%                 end
+                for i = 1:length(Hz)
+                    Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
+                    %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
+                end
 % 
                 J  = full(J);
 
@@ -1081,14 +1087,15 @@ for ins = 1:ns
 
                 layers.unweighted(ins,ij,:) = ( Pf             )      * exp(P.L(ins));
                 layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) ) * exp(P.L(ins));
-                layers.iweighted (ins,ij,:) = Pf* exp(P.L(ins));% ( Pf * abs(J(Ji(ij))) ) * exp(P.L(ins));
+                %layers.iweighted (ins,ij,:) = Pf* exp(P.L(ins));% ( Pf * abs(J(Ji(ij))) ) * exp(P.L(ins));
+                layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) ) * exp(P.L(ins));
                 layers.DMD(ins,ij,:)        = y0;               % retain DMD series
              end
     end
 end
 
 switch lower(fmethod)
-    case 'svd'
+    case {'svd','dmd'};
         clear Pf
 end
 
@@ -1124,18 +1131,18 @@ Pf = abs(Pf)/length(w);
 
 % Incorporate noise components for auto (Gs) and cross (Gn) spectra
 %----------------------------------------------------------------------
-for i = 1:ns
-    for j = 1:ns
-        % Autospectral noise / innovations
-        Pf(:,i,j) = Pf(:,i,j) + Gn;     
-        
-        if j ~= i
-            % Cross spectral noise / innovations
-            Pf(:,j,i) = Pf(:,j,i) + Gs(:,i);
-            Pf(:,i,j) = Pf(:,j,i);
-        end
-    end
-end
+% for i = 1:ns
+%     for j = 1:ns
+%         % Autospectral noise / innovations
+%         Pf(:,i,j) = Pf(:,i,j) + Gn;     
+%         
+%         if j ~= i
+%             % Cross spectral noise / innovations
+%             Pf(:,j,i) = Pf(:,j,i) + Gs(:,i);
+%             Pf(:,i,j) = Pf(:,j,i);
+%         end
+%     end
+% end
         
 if DoHamming
     for i = 1:ns
@@ -1220,7 +1227,8 @@ if isfield(M,'y')
             for i = 1:size(dat,2)
                 smth = full(atcm.fun.HighResMeanFilt(dat(:,i),1,16));
                 Mm   = [dat(:,i) smth]';
-                b    = pinv(Mm*Mm')*Mm*yy;
+                %b    = pinv(Mm*Mm')*Mm*yy;
+                b = [1 1]'/2;
                 this = J(Ji(i)) * (b'*Mm);
                 acc(:,ins,ins) =  acc(:,ins,ins) + this(:);
             end
@@ -1323,8 +1331,8 @@ if isfield(M,'y')
              
             %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),5);
             
-            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,8));
-            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),20);    
+            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4));
+            %Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),20);    
         end
         
         % Multiply in the semi-stochastic neuronal fluctuations
@@ -1347,11 +1355,11 @@ if isfield(M,'y')
     
     % RE-Incorporate noise components for auto (Gs) and cross (Gn) spectra
     %----------------------------------------------------------------------
-%     if ns > 1
+    %if ns > 1
 %         for i = 1:ns
 %             for j = 1:ns
 %                 % Autospectral noise / innovations
-%                 Pf(:,i,j) = Pf(:,i,j) + Gn;
+%                 Pf(:,i,j) = Pf(:,i,j) + Gn(:);
 % 
 %                 if j ~= i
 %                     % Cross spectral noise / innovations
@@ -1360,7 +1368,7 @@ if isfield(M,'y')
 %                 end
 %             end
 %         end
-%     end
+    %end
     
 end
 
