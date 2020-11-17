@@ -947,7 +947,7 @@ for ins = 1:ns
                             end
                             
                             % splined fft
-                            [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
+                            %[Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             % %Pf=abs(Pf)';
                             [Pf,F] = pyulear(this,100,w,1./dt);
                             Pf = ((Pf))';
@@ -1331,7 +1331,7 @@ if isfield(M,'y')
              
             %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),5);
             
-            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4));
+            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,2));
             %Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),20);    
         end
         
@@ -1356,21 +1356,33 @@ if isfield(M,'y')
     % RE-Incorporate noise components for auto (Gs) and cross (Gn) spectra
     %----------------------------------------------------------------------
     %if ns > 1
-%         for i = 1:ns
-%             for j = 1:ns
-%                 % Autospectral noise / innovations
-%                 Pf(:,i,j) = Pf(:,i,j) + Gn(:);
-% 
-%                 if j ~= i
-%                     % Cross spectral noise / innovations
-%                     Pf(:,j,i) = Pf(:,j,i) + Gs(:,i);
-%                     Pf(:,i,j) = Pf(:,j,i);
-%                 end
-%             end
-%         end
+        for i = 1:ns
+            for j = 1:ns
+                % Autospectral noise / innovations
+                Pf(:,i,j) = Pf(:,i,j) + Gn(:);
+
+                if j ~= i
+                    % Cross spectral noise / innovations
+                    Pf(:,j,i) = Pf(:,j,i) + Gs(:,i);
+                    Pf(:,i,j) = Pf(:,j,i);
+                end
+            end
+        end
     %end
     
 end
+
+if DoHamming
+    for i = 1:ns
+        for j = 1:ns
+            H  = (1 - cos(2*pi*[1:nf]'/(nf + 1)))/2;
+            H  = kaiser(nf,2.5);
+            %H(1:round(nf/2)) = 1;
+            Pf(:,i,j) = Pf(:,i,j).*H;
+        end
+    end
+end
+
 
 % returns for this trial - {g}
 %--------------------------------------------------------------------------
