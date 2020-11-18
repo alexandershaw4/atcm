@@ -949,7 +949,13 @@ for ins = 1:ns
                             % splined fft
                             %[Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             % %Pf=abs(Pf)';
-                            [Pf,F] = pyulear(this,100,w,1./dt);
+                            
+                            ncompe = 100;
+                            if isfield(M,'ncompe')
+                                ncompe = M.ncompe;
+                            end
+                                
+                            [Pf,F] = pyulear(this,ncompe,w,1./dt);
                             Pf = ((Pf))';
                             
                             %[Pf,Hz]  = atcm.fun.AfftSmooth(this,1/dt,w,20); 
@@ -974,10 +980,10 @@ for ins = 1:ns
                             
                             if DoEnv
 
-                                ncompe = 30;
-                                if isfield(M,'ncompe')
-                                    ncompe = M.ncompe;
-                                end
+%                                 ncompe = 30;
+%                                 if isfield(M,'ncompe')
+%                                     ncompe = M.ncompe;
+%                                 end
 
                                 % compute the envelope of this spiky spectrum
                                 % using local maxima and cubic spline
