@@ -1183,16 +1183,10 @@ if isfield(M,'y')
         if linmod == 1
 
 
-            if isfield(M,'envonly') && M.envonly == 1
+            if isfield(M,'envonly') && M.envonly
                 Mm = dat';
                 b = J(Ji);
                 %b  = pinv(Mm*Mm')*Mm*yy;
-                Pf(:,ins,ins) = b'*Mm; 
-                %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),3);
-                Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
-            elseif isfield(M,'envonly') && M.envonly == 2
-                Mm = dat';
-                b  = pinv(Mm*Mm')*Mm*yy;
                 Pf(:,ins,ins) = b'*Mm; 
                 %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),3);
                 Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
