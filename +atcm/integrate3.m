@@ -1179,6 +1179,7 @@ if isfield(M,'y')
         if isfield(M,'linmod')
             linmod = M.linmod;
         end
+        addnoise = 1;
         
         if linmod == 1
 
@@ -1191,7 +1192,9 @@ if isfield(M,'y')
                 %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),3);
                 Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
             elseif isfield(M,'envonly') && M.envonly == 2
+                addnoise = 0;
                 Mm = dat';
+                Mm = [Mm; Gu'; Gn]; % put the noise in the glm, not added aftwrwards
                 b  = pinv(Mm*Mm')*Mm*yy;
                 Pf(:,ins,ins) = b'*Mm; 
                 %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),3);
@@ -1348,10 +1351,13 @@ if isfield(M,'y')
             %Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),20);    
         end
         
-        % Multiply in the semi-stochastic neuronal fluctuations
-        for i = 1:length(Hz)
-            %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
-            Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
+        
+        if addnoise
+            % Multiply in the semi-stochastic neuronal fluctuations
+            for i = 1:length(Hz)
+                %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
+                Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
+            end
         end
         
         %Pf(:,ins,ins) = smooth( squeeze(Pf(:,ins,ins)) , 4*exp(P.psmooth(1)) ,'moving' );
@@ -1369,6 +1375,7 @@ if isfield(M,'y')
     % RE-Incorporate noise components for auto (Gs) and cross (Gn) spectra
     %----------------------------------------------------------------------
     %if ns > 1
+    if addnoise
         for i = 1:ns
             for j = 1:ns
                 % Autospectral noise / innovations
@@ -1381,7 +1388,7 @@ if isfield(M,'y')
                 end
             end
         end
-    %end
+    end
     
 end
 
