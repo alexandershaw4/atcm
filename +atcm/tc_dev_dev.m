@@ -260,10 +260,15 @@ end
 
 % Channel rate constants [decay times]
 %--------------------------------------------------------------------------
-KE  = exp(-P.T(:,1))*1000/4;            % excitatory rate constants (AMPA)
-KI  = exp(-P.T(:,2))*1000/16;           % inhibitory rate constants (GABAa)
-KN  = exp(-P.T(:,3))*1000/100;          % excitatory rate constants (NMDA)
-KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
+%KE  = exp(-P.T(:,1))*1000/4;            % excitatory rate constants (AMPA)
+%KI  = exp(-P.T(:,2))*1000/16;           % inhibitory rate constants (GABAa)
+%KN  = exp(-P.T(:,3))*1000/100;          % excitatory rate constants (NMDA)
+%KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
+
+KE  = exp(-P.T(:,:,1))*1000/4;            % excitatory rate constants (AMPA)
+KI  = exp(-P.T(:,:,2))*1000/16;           % inhibitory rate constants (GABAa)
+KN  = exp(-P.T(:,:,3))*1000/100;          % excitatory rate constants (NMDA)
+KB  = exp(-P.T(:,:,4))*1000/200;          % excitatory rate constants (NMDA)
 
 % now using faster AMPA and GABA-A dynamics based on this book:
 % https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
@@ -407,10 +412,15 @@ for i = 1:ns
         pop_rates = [1 1 1 1 1 1 1 1];
         pop_rates = pop_rates.*exp(P.pr);
         
-        f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
-        f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*pop_rates);
-        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)*pop_rates);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)*pop_rates);
+%         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
+%         f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*pop_rates);
+%         f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)*pop_rates);
+%         f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)*pop_rates);
+
+        f(i,:,2) = (E'     - x(i,:,2)).* (KE(:,:));
+        f(i,:,3) = (I'     - x(i,:,3)).* (KI(:,:));
+        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(:,:));
+        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(:,:));
         
         if IncludeMH
             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:)*pop_rates );
