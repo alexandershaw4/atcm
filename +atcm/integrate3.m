@@ -964,6 +964,9 @@ for ins = 1:ns
                             
                             [Pf,Hz]  = atcm.fun.AfftSmooth(this,1/dt,w,ncompe); 
                             
+                            %[Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
+                            %Pf=Pf(:);
+                            
                             %prior = spm_mar_prior(1,56,'silly');
                             %[mar,y,y_pred] = spm_mar(this',56,prior);
                             %marspec = spm_mar_spectra(mar,w,1/dt);
@@ -1074,7 +1077,7 @@ for ins = 1:ns
                 %Pf = Pf .* Hz';                % PUT BACK!                               % PUT BACK!
                 %Pf = abs(Pf);
                 
-%                 % Multiply in the semi-stochastic neuronal fluctuations
+                % Multiply in the semi-stochastic neuronal fluctuations
                 for i = 1:length(Hz)
                     Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
                     %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
@@ -1351,8 +1354,8 @@ if isfield(M,'y')
              
             %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),5);
             
-            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,2));
-            %Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),20);    
+            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,8));
+            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
         end
         
         
@@ -1392,7 +1395,7 @@ if isfield(M,'y')
                 end
             end
         end
-    end
+     end
     
 end
 

@@ -205,7 +205,7 @@ GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
 GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
 GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
-GEa = GEa*(3*exp(P.ex));
+%GEa = GEa*(3*exp(P.ex));
 
 GEa = GEa .* ~eye(np);
 %GEa = GEa * .8;
@@ -230,7 +230,8 @@ GIa(6,:) = [0   0   0   0   8   8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   32]; % 32!! SEPT
 
-GIa = GIa*(4*exp(P.in));
+%GIa = GIa*(4*exp(P.in));
+GIa = GIa*2;
 
 GIb      = GIa;
 
@@ -260,15 +261,15 @@ end
 
 % Channel rate constants [decay times]
 %--------------------------------------------------------------------------
-%KE  = exp(-P.T(:,1))*1000/4;            % excitatory rate constants (AMPA)
-%KI  = exp(-P.T(:,2))*1000/16;           % inhibitory rate constants (GABAa)
-%KN  = exp(-P.T(:,3))*1000/100;          % excitatory rate constants (NMDA)
-%KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
+KE  = exp(-P.T(:,1))*1000/4;            % excitatory rate constants (AMPA)
+KI  = exp(-P.T(:,2))*1000/16;           % inhibitory rate constants (GABAa)
+KN  = exp(-P.T(:,3))*1000/100;          % excitatory rate constants (NMDA)
+KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
 
-KE  = exp(-P.T(:,:,1))*1000/4;            % excitatory rate constants (AMPA)
-KI  = exp(-P.T(:,:,2))*1000/16;           % inhibitory rate constants (GABAa)
-KN  = exp(-P.T(:,:,3))*1000/100;          % excitatory rate constants (NMDA)
-KB  = exp(-P.T(:,:,4))*1000/200;          % excitatory rate constants (NMDA)
+% KE  = exp(-P.T(:,:,1))*1000/4;            % excitatory rate constants (AMPA)
+% KI  = exp(-P.T(:,:,2))*1000/16;           % inhibitory rate constants (GABAa)
+% KN  = exp(-P.T(:,:,3))*1000/100;          % excitatory rate constants (NMDA)
+% KB  = exp(-P.T(:,:,4))*1000/200;          % excitatory rate constants (NMDA)
 
 % now using faster AMPA and GABA-A dynamics based on this book:
 % https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
@@ -497,6 +498,8 @@ TC = 3; %20;
 Tc              = zeros(np,np);
 Tc([7 8],[1:6]) = CT  * exp(P.D0(1)); % L6->thal
 Tc([1:6],[7 8]) = TC  * exp(P.D0(2)); % thal->ss
+
+%Tc = Tc.*~~(GEa | GIa);
 
 Tc = -Tc / 1000;
 Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
