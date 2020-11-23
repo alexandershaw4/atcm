@@ -12,9 +12,9 @@ function X = makef(w,Fq,Amp,Wid)
 if length(Fq) > 1
     for i = 1:length(Fq)
         try
-            X0 = X0 + afit.makef(w,Fq(i),Amp(i),Wid(i));
+            X0 = X0 + atcm.fun.makef(w,Fq(i),Amp(i),Wid(i));
         catch
-            X0 =      afit.makef(w,Fq(i),Amp(i),Wid(i));
+            X0 =      atcm.fun.makef(w,Fq(i),Amp(i),Wid(i));
         end
         %X0(i,:) = afit.makef(w,Fq(i),Amp(i),Wid(i));
 
