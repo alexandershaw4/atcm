@@ -955,14 +955,12 @@ for ins = 1:ns
                                 ncompe = M.ncompe;
                             end
                                 
-                            %this= atcm.fun.bandpassfilter(this,1./dt,[3 90]);
+                            [Pf,F] = pyulear(this,ncompe,w,1./dt);
+                            Pf = ((Pf))';
                             
-                            %[Pf,F] = pyulear(this,ncompe,w,1./dt);
-                            %Pf = ((Pf))';
+                            [Pf,W] = peig(this,12,w,1./dt);
                             
-                            %[Pf,w]=peig(this,ncompe,w,1./dt);
-                            
-                            [Pf,Hz]  = atcm.fun.AfftSmooth(this,1/dt,w,ncompe); 
+                            %[Pf,Hz]  = atcm.fun.AfftSmooth(this,1/dt,w,20); 
                             
                             %prior = spm_mar_prior(1,56,'silly');
                             %[mar,y,y_pred] = spm_mar(this',56,prior);
