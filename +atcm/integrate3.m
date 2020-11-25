@@ -765,15 +765,16 @@ end
 
 try
 switch fmethod            % UNCOMMENT FOR KET PAPER
-    case {'dmd'};
+    case {'dmd' };
         for ins = 1:ns
             % remove principal [dominant] eigenmode(s) from states series
             x = squeeze( y(ins,:,:,:) );
             x = reshape( x , [npp*nk, length(t)] );
-            [u0,s0,v0] = spm_svd((x));
+            [u0,s0,v0] = spm_svd(((x)));
             %ipc = find( (cumsum(diag(full(s0)))./sum(diag(full(s0))) > .8) );
             p1 = u0(:,1)*s0(1,1)*v0(:,1)';
-            x = x - p1 ;%- p2;
+            p2 = u0(:,2)*s0(2,2)*v0(:,2)';
+            x = x - (p1 + p2);
             %x = full(p1);
             y(ins,:,:,:) = reshape(x,[npp,nk,length(t)]);
         end
@@ -839,8 +840,7 @@ for ins = 1:ns
     %    GrowthRates, POD_Mode_Energies] = atcm.fun.dmd(yx, 4, dt);
         
     switch lower(fmethod)
-        
-            
+                    
         case {'dmd' 'instantaneous' 'svd' 'none' 'glm' 'fooof' 'timefreq'}
             
             switch fmethod
@@ -933,6 +933,7 @@ for ins = 1:ns
                             Pf = atcm.fun.aenvelope(Pf,80);
                             Pf0(ins,ij,:) = Pf;
                         
+                            
                         case {'none','dmd','svd'}
                             % just a smoothed fft of the (contributing)
                             % states
@@ -962,7 +963,10 @@ for ins = 1:ns
                             
                             %[Pf,w]=peig(this,ncompe,w,1./dt);
                             
-                            [Pf,Hz]  = atcm.fun.AfftSmooth(this,1/dt,w,ncompe); 
+                            [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,1/dt,w,ncompe); 
+                            
+                            Pfmean = squeeze(Pfmean);
+                            Pf = spm_vec(max(Pfmean'));
                             
                             %[Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
                             %Pf=Pf(:);
@@ -1355,7 +1359,7 @@ if isfield(M,'y')
             %Pf(:,ins,ins) = smooth(Pf(:,ins,ins),5);
             
             Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,8));
-            Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
+            %Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
         end
         
         
