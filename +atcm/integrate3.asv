@@ -1367,15 +1367,10 @@ if isfield(M,'y')
                 smthk = 12;
             end
             
-            SmthPf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+            Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
             %Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
             
-            if isfield(P,'psmooth') && ~isempty(P.psmooth)
-                Pf(:,ins,ins) = (    exp(P.psmooth) * Pf(:,ins,ins) ) + ...
-                                ( 1./exp(P.psmooth) * SmthPf(:,ins,ins) );
-            else
-                Pf(:,ins,ins) = SmthPf(:,ins,ins);
-            end
+            
             
             
         end
