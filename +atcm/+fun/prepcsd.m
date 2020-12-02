@@ -335,7 +335,7 @@ for i = 1:Ne;
                 
                 [Pfb, F] = atcm.fun.Afft(Ybase',  1/DCM.xY.dt, DCM.xY.Hz) ;
                 if FFTSmooth > 0;
-                    [dPfb,in] = padtimeseries(Pfb);
+                    [dPfb,in] = atcm.fun.padtimeseries(Pfb);
                     dPfb = atcm.fun.HighResMeanFilt(dPfb,1,FFTSmooth);
                     Pfb  = dPfb(in);
                 end
