@@ -49,6 +49,10 @@ function [MA,MF] = GetPks(y,w,iw)
 if isempty(MA)
     [MA,MF] = pksmax(y,w,@detrend,iw);
 end
+if isempty(MA)
+    MA=nan;
+    MF=nan;
+end
 
 end
 

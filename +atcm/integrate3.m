@@ -112,7 +112,7 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 w     = M.Hz;                     % FoI (w)
 x     = M.x;                      % model (hidden) states
 Kx    = x;                        % pre-fp x, for kernel scheme
-dt    = 1/1200;                    % sample rate
+dt    = 1/600;                    % sample rate
 Fs    = 1/dt;                     % sampling frequency
 tn    = 2;                        % sample window length, in seconds
 pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
@@ -168,7 +168,7 @@ switch InputType
         
         drive = mu * ( (sin(2*pi*mf*(pst/1000))) ...
                         + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
-        
+                    
     case 2
         
         % For ERP inputs...
@@ -187,6 +187,9 @@ switch InputType
         %hfn   = atcm.fun.bandpassfilter(hfn,1/dt,[100 .5./dt]);
         %hfn   = atcm.fun.bandpassfilter(hfn,1./dt,[50 100]);
         drive = hfn*mu;   % amplitude (constant) over time
+        
+        drive = mu.*anoise(w,2*length(pst));
+        drive = drive(1:length(pst));
         
     case 4
         
@@ -320,6 +323,7 @@ try
    %N = min([N 4]);
 end
 
+
 % initial firing rate
 Curfire = zeros(size(M.x,2),1)';
 firings = [];
@@ -436,6 +440,7 @@ switch IntMethod
                 for j = 1:N
                     %v = v + Q*f(v,drive(i),P,M,Curfire);
                     
+                    %v = v + Q*f(spm_unvec(v,M.x),drive(i,:),P,M,Curfire);
                     v = v + Q*f(spm_unvec(v,M.x),drive(i,:),P,M);           % CHANGE ME BACK   
                                         
                     
@@ -576,12 +581,14 @@ switch IntMethod
                 VR       = -40;
                 Vx       = exp(P.S)*32;
                 V        = spm_unvec(v,M.x);
-                Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);    
+                Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);  
+                %Curfire  = Curfire.*[1 1.2 2 1 2 1 1 1];
                 S(:,:,i) = Curfire;
-                %fired     = find(squeeze(V(:,:,1)) >= VR); 
-                %firings   = [firings; [i+0*fired',fired'] ];
-                fired=[];
-                firings=[];
+                                
+                fired     = find(squeeze(V(:,:,1)) >= VR); 
+                firings   = [firings; [i+0*fired',fired'] ];
+                %fired=[];
+                %firings=[];
         end
 end
 
@@ -886,6 +893,10 @@ for ins = 1:ns
                     
                 case {'none' 'fooof' 'timefreq'}
                     Eigenvectors = yx;
+                    
+                    %[uu,ss,vv]=svd(Eigenvectors);
+                    %Eigenvectors = uu(:,1:5)'*Eigenvectors;
+                    
                 case 'glm'
                     % project 8 series onto 4 components, onto 1
                     W = ones(8,4)/(8*4);
@@ -958,7 +969,7 @@ for ins = 1:ns
                             if isfield(M,'ncompe')
                                 ncompe = M.ncompe;
                             end
-                                
+                            
                             %this= atcm.fun.bandpassfilter(this,1./dt,[3 90]);
                             
                             %[Pf,F] = pyulear(this,ncompe,w,1./dt);
@@ -966,8 +977,7 @@ for ins = 1:ns
                             
                             %[Pf,w]=peig(this,ncompe,w,1./dt);
                             
-                            [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,1/dt,w,ncompe); 
-                            
+                            [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,1/dt,w,ncompe);                             
                             Pfmean = squeeze(Pfmean);
                             Pf = spm_vec(max(Pfmean'));
                             
@@ -985,6 +995,7 @@ for ins = 1:ns
                             %h  = ( (1 - cos(2*pi*[1:length(w)]'/(length(w) + 1)))/2 );
                             %h  = full(rescale(atcm.fun.HighResMeanFilt(atcm.fun.HighResMeanFilt(h,1,70),1,20)));
                             %Pf = Pf.*h;
+                            
                             Pf = Pf.*Hz(:);
                             
                             DoEnv = 1;
@@ -1005,7 +1016,7 @@ for ins = 1:ns
                                 %[Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
                                 
                                 %Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
-                                [Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
+                                [Pf] = atcm.fun.aenvelope(Pf,30,1);
                                 
                                 %n    = 0;
                                 
@@ -1217,7 +1228,7 @@ if isfield(M,'y')
             else
                 % For a refined smoothing topimised spectrum - works best
                 % when the spiky spectrum is already close to optimal
-                Sk = [3 6 10 20 30];% 35 40 50 55];
+                Sk = [1 2 3 6 10 20 30 40];% 35 40 50 55];
                 for j = 1:length(Sk)
                     for i = 1:size(dat,2)
                         dev(j,:,i) = atcm.fun.aenvelope(dat(:,i),Sk(j));
@@ -1367,16 +1378,22 @@ if isfield(M,'y')
                 smthk = 12;
             end
             
+            if isfield(P,'LFPsmooth') && ~isempty(P.LFPsmooth)
+                smthk = round(exp(P.LFPsmooth));
+            end
+            
             Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+            %SmthPf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
             %Pf(:,ins,ins) = atcm.fun.aenvelope(squeeze(Pf(:,ins,ins)),30);    
             
 %             if isfield(P,'psmooth') && ~isempty(P.psmooth)
-%                 Pf(:,ins,ins) = (    exp(P.psmooth) * Pf(:,ins,ins) ) + ...
-%                                 ( 1./exp(P.psmooth) * SmthPf(:,ins,ins) );
+%                 k = (1./(1+exp(P.psmooth)));
+%                 
+%                 Pf(:,ins,ins) = (    k  * Pf(:,ins,ins) ) + ...
+%                                 (  (1-k)* SmthPf(:,ins,ins) );
 %             else
 %                 Pf(:,ins,ins) = SmthPf(:,ins,ins);
 %             end
-            
             
         end
 
