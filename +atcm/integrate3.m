@@ -1016,7 +1016,10 @@ for ins = 1:ns
                                 %[Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
                                 
                                 %Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
-                                [Pf] = atcm.fun.aenvelope(Pf,30,1);
+                                
+                              %  [Pf] = atcm.fun.aenvelope(Pf,30,1);
+                                Pf = atcm.fun.moving_average(Pf,4);
+                                
                                 
                                 %n    = 0;
                                 

@@ -59,6 +59,7 @@ warning on;
 % Remove bottom and top freq content - slow drifts and smoothing
 %----------------------------------------------------
 wx = atcm.fun.bandpassfilter(wx,2*(1./(w(2)-w(1))),[.1 .8]*length(x));
+
 %wx = fft( atcm.fun.bandpassfilter(ifft(wx),2*(1./(w(2)-w(1))),[.1 .8]*length(x)) );
 
 %wx = (abs(hilbert(wx)));
@@ -71,7 +72,7 @@ wx = atcm.fun.bandpassfilter(wx,2*(1./(w(2)-w(1))),[.1 .8]*length(x));
 %----------------------------------------------------
 if nx > n+1
     %[~,iPk] = atcm.fun.maxpoints(double(x.*w),n,'max');
-    [~,iPk] = atcm.fun.maxpoints(double(wx),n,'max');
+    [~,iPk] = atcm.fun.maxpoints(double(wx),n,'max');    
     iPk = sort(iPk,'ascend')'; 
 else
     iPk = [];
