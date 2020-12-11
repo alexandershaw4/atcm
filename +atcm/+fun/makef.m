@@ -9,6 +9,12 @@ function X = makef(w,Fq,Amp,Wid)
 %
 % AS
 
+if isstruct(Fq)
+    Amp = Fq.Amp;
+    Wid = Fq.Wid;
+    Fq  = Fq.Freq;
+end
+
 if length(Fq) > 1
     for i = 1:length(Fq)
         try

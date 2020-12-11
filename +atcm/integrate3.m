@@ -977,12 +977,12 @@ for ins = 1:ns
                             
                             %[Pf,w]=peig(this,ncompe,w,1./dt);
                             
-                            [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,1/dt,w,ncompe);                             
-                            Pfmean = squeeze(Pfmean);
-                            Pf = spm_vec(max(Pfmean'));
+                            %[Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,1/dt,w,ncompe);                             
+                            %Pfmean = squeeze(Pfmean);
+                            %Pf = spm_vec(max(Pfmean'));
                             
-                            %[Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
-                            %Pf=Pf(:);
+                            [Pf,Hz]  = atcm.fun.Afft(this,1/dt,w);
+                            Pf=Pf(:);
                             
                             %prior = spm_mar_prior(1,56,'silly');
                             %[mar,y,y_pred] = spm_mar(this',56,prior);
@@ -1024,7 +1024,9 @@ for ins = 1:ns
                                 %in = find(isnan(Pf));
                                 %Pf(in)=bpf(in);
                                 
-                                [Pf] = atcm.fun.aenvelope(Pf,30,1);
+                                %[Pf] = atcm.fun.aenvelope(Pf,3,1);
+                                
+                                Pf = atcm.fun.tightenvelope(Pf,3,w);
                                 
                                 %Pf=mean([ filter(ones(1,6)/6, 1, Pf),flipud(filter(ones(1,6)/6, 1, flipud(Pf)))],2);
                                 
