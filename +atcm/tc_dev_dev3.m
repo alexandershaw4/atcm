@@ -487,6 +487,7 @@ Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
 CT = 8; %60;
 TC = 3; %20;
 
+
 Tc              = zeros(np,np);
 Tc([7 8],[1:6]) = CT  * exp(P.D0(1)); % L6->thal
 Tc([1:6],[7 8]) = TC  * exp(P.D0(2)); % thal->ss

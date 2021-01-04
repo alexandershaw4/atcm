@@ -2,8 +2,12 @@ function [Pf,f] = Afft(signal,fs,varargin)
 % Return cross spectral density of continuous time signal sampled at fs.
 % Include desired frequency vector to return spline interpolated F and Pf.
 %
-% Use:  [Pf,f] = Afft(signal,fs)          % signal at fs (1/dt)
-%       [Pf,f] = Afft(signal,fs,[1:100]); % spline interp'd FoI
+% Use:  [Pf,f] = Afft(signal,fs)           % signal at fs (1/dt)
+%       [Pf,f] = Afft(signal,fs,w);        % spline interp'd FoI
+%                               w = 1:100; % Freq range of interest
+%
+% Note - if your frequency range is not integer spaced then your
+% effective fs is not 1./dt but dw./dt.   (where dw = 1./(w(2)-w(1) )
 %
 % AS
 

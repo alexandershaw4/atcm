@@ -489,9 +489,9 @@ switch IntMethod
                 end
                 if any(Delays)
                     Delays = Delays./size(Df,1).^2;
-                    y(:,i) = y(:,i) + dt*f(v-abs(Delays),drive(i),P,M);
+                    %y(:,i) = y(:,i) + dt*f(v-abs(Delays),drive(i),P,M);
                     
-                    %y(:,i) = (y(:,i) + dt*f(v-abs(Delays),drive(i),P,M))./2;
+                    y(:,i) = y(:,i) +
                     
                 end
                 
@@ -1097,14 +1097,14 @@ for ins = 1:ns
 %                            Pf = mean(Sk,1)';
                            
                            
-                            [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
-                            Pfmean = squeeze(Pfmean);
-                            Pf = spm_vec(max(Pfmean'));
+                            %[Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
+                            %Pfmean = squeeze(Pfmean);
+                            %Pf = spm_vec(max(Pfmean'));
                             
                             
 %                             Pf2 = Pf(:);
-                             %Pf1 = spm_vec(atcm.fun.Afft(this,dw/dt,w));
-                             %Pf = Pf1(:);
+                             Pf1 = spm_vec(atcm.fun.Afft(this,dw/dt,w));
+                             Pf = Pf1(:);
 %                             Pf1 = spm_vec(atcm.fun.AfftSmooth(this,dw/dt,w,3));    
 %                             
 %                             for ik = 1:length(Pf2)

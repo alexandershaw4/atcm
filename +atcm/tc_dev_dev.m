@@ -1,4 +1,4 @@
-function [f,J,Q] = tc_dev_dev(x,u,P,M,m)
+function [f,J,Q,D] = tc_dev_dev(x,u,P,M,m)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -434,15 +434,15 @@ for i = 1:ns
         pop_rates = [1 1 1 1 1 1 1 1];
         pop_rates = pop_rates.*exp(P.pr);
         
-%         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
-%         f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*pop_rates);
-%         f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)*pop_rates);
-%         f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)*pop_rates);
+        f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
+        f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*pop_rates);
+        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)*pop_rates);
+        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)*pop_rates);
 
-        f(i,:,2) = (E'     - x(i,:,2)).* (KE(:,:));
-        f(i,:,3) = (I'     - x(i,:,3)).* (KI(:,:));
-        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(:,:));
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(:,:));
+%         f(i,:,2) = (E'     - x(i,:,2)).* (KE(:,:));
+%         f(i,:,3) = (I'     - x(i,:,3)).* (KI(:,:));
+%         f(i,:,5) = (IB'    - x(i,:,5)).* (KB(:,:));
+%         f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(:,:));
         
         if IncludeMH
             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:)*pop_rates );
