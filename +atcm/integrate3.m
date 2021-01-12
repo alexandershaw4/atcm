@@ -1635,6 +1635,8 @@ if isfield(M,'y')
                 end
                 Pf = out;
                 
+                Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,2));
+                
                 %Pf(:,ins,ins)=filter(ones(1,6)/6, 1, Pf(:,ins,ins));
                 
                %Pf(:,ins,ins) = exp(P.L) * atcm.fun.tightenvelope(Pf(:,ins,ins),[],w,P);
