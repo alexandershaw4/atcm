@@ -363,6 +363,7 @@ end
  
  del = exp(P.ID).*[2 1/4 1/2 4 1/2 4 2 2]/2;
  
+ 
  del = repmat(del,[1 nk]);
  
  del=1./del;
@@ -1220,7 +1221,7 @@ for ins = 1:ns
                                 %Pf1 = Pf;
                                 %[Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
                                 
-                               % Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
+                               Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
                                 
                                 %bpf = Pf;
                                 
@@ -1229,7 +1230,7 @@ for ins = 1:ns
                                 %in = find(isnan(Pf));
                                 %Pf(in)=bpf(in);
                                 
-                                [Pf] = atcm.fun.aenvelope(Pf,20);
+                                %[Pf] = atcm.fun.aenvelope(Pf,20);
                                 
                                 %P0.w = P.w(ij,:);
                                 

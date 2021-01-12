@@ -18,11 +18,12 @@ end
 M = imresize(full(mIn),n);
 y = smoothmat(M,m,m);
 
-
+warning off;
 try mOut;
     % reinstate orginal dimentions
     y = spm_unvec(y, ones([mOut(1)*(n) mOut(2)*(n) mOut(3)]));
 end
+warning on;
 
 end
 
