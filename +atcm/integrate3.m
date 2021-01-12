@@ -1612,7 +1612,28 @@ if isfield(M,'y')
                 %c=conv2(Pf(:,ins,ins),tpf');
                 %Pf(:,ins,ins) = Pf.*tpf;
                 
-                Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+                %Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+                
+                
+                % linearly inteprolated between spiky and smooth - find
+                % best fit
+                i0 = Pf(:,ins,ins);
+                yy ;
+                
+                i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,12));
+                
+                for ik = 1:length(i0)
+                    opts(ik,:) = linspace(i0(ik),i1(ik),10);
+                end
+                
+                for ik = 1:length(i0)
+                    this = yy(ik);
+                    opi  = opts(ik,:);
+                    ind  = atcm.fun.findthenearest(this,opi);
+                    ind  = ind(1);
+                    out(ik,ins,ins)=opi(ind);
+                end
+                Pf = out;
                 
                 %Pf(:,ins,ins)=filter(ones(1,6)/6, 1, Pf(:,ins,ins));
                 

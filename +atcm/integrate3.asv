@@ -357,7 +357,11 @@ end
   
  del = exp(P.ID).*[2 1/2 1/2 1 2 1/2 1 1]/2;
 
- del = exp(P.ID).*[2 1/2 1/2 2 1/2 2 1 ]/2;
+ del = exp(P.ID).*[2 1/2 1/2 2 1/2 2 1 1]/2;
+ 
+ del = exp(P.ID).*[2 1/2 1/2 2 1/2 2 2 2]/2;
+ 
+ del = exp(P.ID).*[2 1/4 1/2 4 1/2 4 2 2]/2;
  
  del = repmat(del,[1 nk]);
  
@@ -541,6 +545,8 @@ switch IntMethod
                 
                 for j = 1:N
 
+                    %v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M,Curfire));  
+                    
                     v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));           
                                          
                     % Ozaki 1992 numerical method:
@@ -681,7 +687,7 @@ switch IntMethod
                 Vx       = exp(P.S)*32;
                 V        = spm_unvec(v,M.x);
                 Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);  
-                %Curfire  = Curfire.*[1 1.2 2 1 2 1 1 1];
+                %Curfire  = Curfire.*[1 1 2 1 2 1 1 1];
                 S(:,:,i) = Curfire;
                                 
                 fired     = find(squeeze(V(:,:,1)) >= VR); 
@@ -737,11 +743,11 @@ nf          = length(w);
 spike       = firings;
 t = drive;
 
-[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt);
+[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx);
 
 end
 
-function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt)
+function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx)
 
 
 % Spectral Response Options
@@ -1127,8 +1133,8 @@ for ins = 1:ns
                             
                             %this= atcm.fun.bandpassfilter(this,1./dt,[3 90]);
                             
-                           % [Pf,F] = pyulear(this,ncompe,w,dw./dt);
-                           % Pf = ((Pf))';
+                            %[Pf,F] = pyulear(this,ncompe,w,dw./dt);
+                            %Pf = ((Pf))';
                             
                           % [Pf,w]=peig(this,ncompe,w,dw./dt);
                             
@@ -1149,14 +1155,14 @@ for ins = 1:ns
 %                            Pf = mean(Sk,1)';
                            
                            
-                           %[Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
-                           %Pfmean = squeeze(Pfmean);
-                           %Pf = spm_vec(max(Pfmean'));
+                           [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
+                           Pfmean = squeeze(Pfmean);
+                           Pf = spm_vec(max(Pfmean'));
                             
                             
 %                            Pf2 = Pf(:);
-                             Pf1 = spm_vec(atcm.fun.Afft(this,dw/dt,w));
-                             Pf = Pf1(:);
+                            % Pf1 = spm_vec(atcm.fun.Afft(this,dw/dt,w));
+                            % Pf = Pf1(:);
 %                             Pf1 = spm_vec(atcm.fun.AfftSmooth(this,dw/dt,w,3));    
 %                             
 %                             for ik = 1:length(Pf2)
@@ -1214,7 +1220,7 @@ for ins = 1:ns
                                 %Pf1 = Pf;
                                 %[Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
                                 
-                                Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
+                               % Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
                                 
                                 %bpf = Pf;
                                 
@@ -1223,11 +1229,11 @@ for ins = 1:ns
                                 %in = find(isnan(Pf));
                                 %Pf(in)=bpf(in);
                                 
-                                %[Pf] = atcm.fun.aenvelope(Pf,20);
+                                [Pf] = atcm.fun.aenvelope(Pf,20);
                                 
                                 %P0.w = P.w(ij,:);
                                 
-                                %Pf = atcm.fun.tightenvelope(Pf,3,w);
+                               % Pf = atcm.fun.tightenvelope(Pf,3,w);
                                 
                                 %Pf=mean([ filter(ones(1,6)/6, 1, Pf),flipud(filter(ones(1,6)/6, 1, flipud(Pf)))],2);
                                 
@@ -1606,7 +1612,23 @@ if isfield(M,'y')
                 %c=conv2(Pf(:,ins,ins),tpf');
                 %Pf(:,ins,ins) = Pf.*tpf;
                 
-                Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+                %Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+                
+                
+                % linearly inteprolated between spiky and smooth - find
+                % best fit
+                i0 = Pf(:,ins,ins);
+                yy ;
+                
+                i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,12));
+                
+                for ik = 1:length(i0)
+                    opts(ik,:) = linspace(i0(ik),i1(ik),10);
+                end
+                
+                for ik = 1:length(i0)
+                    this ==
+                
                 
                 %Pf(:,ins,ins)=filter(ones(1,6)/6, 1, Pf(:,ins,ins));
                 
