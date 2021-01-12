@@ -175,7 +175,7 @@ switch InputType
         %------------------------------------------------------------------
         delay  = 60 + P.R(1);             % bump
         scale1 = 8  * exp(P.R(2));
-        drive  = atcm.fun.makef(pst,delay,scale1,16);
+        drive  = atcm.fun.makef(pst,delay,scale1,16*exp(P.R(3)));
         
     case 3
         
@@ -304,7 +304,7 @@ if WithDelays == 2 || WithDelays == 5 || WithDelays == 20 || WithDelays == 21 ..
         || WithDelays == 22 || WithDelays == 8 || WithDelays == 24 || WithDelays == 101 
     
     % Call the function 
-    [fx, dfdx,D] = f(M.x,0,P,M);
+    [fx, dfdx,D] = f(M.x,4,P,M);
     
     % debug instabilities
     if any(isnan(fx)) || any(isnan(dfdx(:)))
@@ -342,6 +342,41 @@ try
    %N = min([N 4]);
 end
 
+ %warning off;
+ %N=8*exp(P.psmooth);
+ %warning on;
+
+ % Delays
+ del = exp(P.ID).*[1/4 2 2 1/2 2 1/2 1 1]/2;
+ 
+ del = exp(P.ID).*[2 1/4 2 1/2 2 1/2 1 1]/2;
+
+ del = exp(P.ID).*[2 1 2 1/2 2 1/2 1 1]/2;
+
+  %del = exp(P.ID).*[1 1/2 1 1/4 1 1/4 1/2 1/2];
+  
+ del = exp(P.ID).*[2 1/2 1/2 1 2 1/2 1 1]/2;
+
+ del = exp(P.ID).*[2 1/2 1/2 2 1/2 2 1 1]/2;
+ 
+ del = exp(P.ID).*[2 1/2 1/2 2 1/2 2 2 2]/2;
+ 
+ del = exp(P.ID).*[2 1/4 1/2 4 1/2 4 2 2]/2;
+ 
+ del = repmat(del,[1 nk]);
+ 
+ del=1./del;
+ 
+ %del = repmat(del,[npp*nk,1])';
+ 
+ %del = diag(del);
+ 
+ %del = del + del';
+ %del = (del(:)*del(:)');
+ %Q = Q ./ del;
+ %Q = Q + (Q.*del);
+ 
+ 
 % initial firing rate
 Curfire = zeros(size(M.x,2),1)';
 firings = [];
@@ -373,7 +408,9 @@ else
 end
 
 % Prespecify matrix & allow the integration to return complex values
-y = complex(zeros(ns*npp*nk,length(t)));
+%y = complex(zeros(ns*npp*nk,length(t)));
+
+dw = 1./(w(2)-w(1));
 
 switch IntMethod
 
@@ -382,25 +419,26 @@ switch IntMethod
         % Just use the kernels approach?
         %------------------------------------------------------------------
         [K0,K1,K2,H1] = spm_kernels(M,P,length(t),dt);
-        y             = H1(:,2:end)';
+        %y             = H1(:,2:end)';
+        y = H1(:,1:end-1)';
         S             = [];
 
         % Transfer functions (FFT of kernel)
         %------------------------------------------------------------------
-        S1 = atcm.fun.Afft(K1(:)',1/dt,w);
-        DoSpecResp = 0;
+        %S1 = atcm.fun.Afft(K1(:)',dw/dt,w);
+        %DoSpecResp = 0;
         
         % Also compute layer-specific spectra from kernel approach
         %------------------------------------------------------------------
-        J  = exp(P.J);
-        Ji = find(J);
-        for ij = 1:length(Ji)
-            P0   = P;
-            P0.J = zeros(size(P0.J))-1000;
-            P0.J(Ji(ij)) = P.J(Ji(ij));
-            [Kj,K1j,Kj,Hj] = spm_kernels(M,P0,length(t),dt);
-            Sj(ij,:) = atcm.fun.Afft(K1j(:)',1/dt,w);
-        end
+%         J  = exp(P.J);
+%         Ji = find(J);
+%         for ij = 1:length(Ji)
+%             P0   = P;
+%             P0.J = zeros(size(P0.J))-1000;
+%             P0.J(Ji(ij)) = P.J(Ji(ij));
+%             [Kj,K1j,Kj,Hj] = spm_kernels(M,P0,length(t),dt);
+%             Sj(ij,:) = atcm.fun.Afft(K1j(:)',dw/dt,w);
+%         end
         
     case 'ode45'
         
@@ -433,12 +471,12 @@ switch IntMethod
         
         % integrate: x(t) = T*exp(D*t)*iT*x0        
         for i = 1:length(t)
-            y(:,i) = T*exp(D*(t(i)./1000))*iT*x0;
+            y(:,i) =  T*exp(D*(t(i)./1000))*iT*x0;
         end
         S=[];
         
     otherwise
-                
+                        
         % Do an actual numerical integration for a discrete epoch, if not using kernel approach
         %------------------------------------------------------------------
         for i   = 1:length(t) % begin time-stepping loop
@@ -477,19 +515,21 @@ switch IntMethod
 %                 end
                 
                 
-                Df = real(full(D)./dt);
+                Df = real(full(-D)./dt);
                 Df = ceil(Df);
-                Delays = v*0;
+                %Delays = v*0;
+                Delays=D*0;
                 for ix = 1:size(Df,1)
                     for iy = 1:size(Df,1)
                         if i > abs(Df(ix,iy)) && Df(ix,iy)~=0
-                            Delays = Delays + y(iy,i-abs(Df(ix,iy)));
+                            Delays(ix,iy) = Delays(ix,iy) + y(iy,i-abs(Df(ix,iy)));
                         end
                     end
                 end
-                if any(Delays)
-                    Delays = Delays./size(Df,1).^2;
-                    y(:,i) = y(:,i) + dt*f(v-abs(Delays),drive(i),P,M);
+                if any(Delays(:))
+                    Delays = sum(Delays,2)./size(Df,1).^2;
+                    y(:,i) = y(:,i) + Delays;
+                    %y(:,i) = y(:,i) + ( y(:,i) + dt*f(v-abs(Delays),drive(i),P,M) )/2;
                     
                     %y(:,i) = (y(:,i) + dt*f(v-abs(Delays),drive(i),P,M))./2;
                     
@@ -502,9 +542,12 @@ switch IntMethod
                 % Karl's Euler-like-with-a-Jacobian-Delay scheme
                 % this just an RK method
                 % dx = (expm(dt*J) - I)*inv(J)*f(x,u)
+                
                 for j = 1:N
 
-                    v = v + Q*f(spm_unvec(v,M.x),drive(i,:),P,M);           
+                    %v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M,Curfire));  
+                    
+                    v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));           
                                          
                     % Ozaki 1992 numerical method:
                     % A bridge between nonlinear time-series models and
@@ -518,7 +561,7 @@ switch IntMethod
                 end   
                 % Expansion point - i.e. deviation around fixed point
                 if ~IsStochastic
-                    y(:,i) = v - spm_vec(M.x);
+                    y(:,i) = v - spm_vec(M.x);                    
                 else
                     y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
                 end
@@ -644,7 +687,7 @@ switch IntMethod
                 Vx       = exp(P.S)*32;
                 V        = spm_unvec(v,M.x);
                 Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);  
-                %Curfire  = Curfire.*[1 1.2 2 1 2 1 1 1];
+                %Curfire  = Curfire.*[1 1 2 1 2 1 1 1];
                 S(:,:,i) = Curfire;
                                 
                 fired     = find(squeeze(V(:,:,1)) >= VR); 
@@ -652,40 +695,41 @@ switch IntMethod
                 %fired=[];
                 %firings=[];
         end
+        
 end
 
 warning on;
 
-DoBilinear = 0;
-if DoBilinear
-    
-    origy = y;
-    M.D   = Q;
-    
-    % reduce to a (bi)linear form: operators M0, M1{c}
-    %----------------------------------------------------------------------
-    [M0,M1,L1,L2] = spm_bireduce(M,P);
-    M0            = spm_bilinear_condition(M0,length(t),dt);
-
-    % dq/dt = M0*q + u(1)*M1{1}*q + u(2)*M1{2}*q + ....
-    %----------------------------------------------------------------------
-    M0 = M0(2:end,2:end);    % remove constant
-    M1 = M1{1}(2:end,2:end); % remove constant
-    qy = M0*y + M1*y;
-    y  = qy;
-    
-    % y(i) = L1(i,:)*q + q'*L2{i}*q/2;
-    %----------------------------------------------------------------------
-    L1 = L1(:,2:end);
-    L2 = L2{1}(2:end,2:end);
-    for i = 1:length(t)
-        dy(:,i)  = L1*qy(:,i) + qy(:,i)'*L2*qy(:,i)/2 ;
-        yy(:,i)  =    qy(:,i) + qy(:,i)'*L2*qy(:,i)/2 ;
-    end
-    %yw          = dy;
-    %WithDelays  = 20; % flag to invoke fft(yw)
-    y = yy;
-end
+% DoBilinear = 0;
+% if DoBilinear
+%     
+%     origy = y;
+%     M.D   = Q;
+%     
+%     % reduce to a (bi)linear form: operators M0, M1{c}
+%     %----------------------------------------------------------------------
+%     [M0,M1,L1,L2] = spm_bireduce(M,P);
+%     M0            = spm_bilinear_condition(M0,length(t),dt);
+% 
+%     % dq/dt = M0*q + u(1)*M1{1}*q + u(2)*M1{2}*q + ....
+%     %----------------------------------------------------------------------
+%     M0 = M0(2:end,2:end);    % remove constant
+%     M1 = M1{1}(2:end,2:end); % remove constant
+%     qy = M0*y + M1*y;
+%     y  = qy;
+%     
+%     % y(i) = L1(i,:)*q + q'*L2{i}*q/2;
+%     %----------------------------------------------------------------------
+%     L1 = L1(:,2:end);
+%     L2 = L2{1}(2:end,2:end);
+%     for i = 1:length(t)
+%         dy(:,i)  = L1*qy(:,i) + qy(:,i)'*L2*qy(:,i)/2 ;
+%         yy(:,i)  =    qy(:,i) + qy(:,i)'*L2*qy(:,i)/2 ;
+%     end
+%     %yw          = dy;
+%     %WithDelays  = 20; % flag to invoke fft(yw)
+%     y = yy;
+% end
 
 % Reshape to model state space outputs
 %--------------------------------------------------------------------------
@@ -697,6 +741,14 @@ timeseries  = y;
 firing      = S;
 nf          = length(w);
 spike       = firings;
+t = drive;
+
+[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx);
+
+end
+
+function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx)
+
 
 % Spectral Response Options
 %--------------------------------------------------------------------------
@@ -889,6 +941,12 @@ for ins = 1:ns
     %----------------------------------------------------------------------
     yx = reshape( squeeze(y(ins,:,:,:)), [npp*nk,length(t)]); 
     
+%     for iw = 1:size(yx,1)
+%         wyx = fft(yx(iw,:));
+%         wyx =  wyx.*(hamming(length(wyx))');
+%         yx(iw,:) = ifft(wyx(1:length(wyx)/2),length(t));
+%     end
+    
                     
 %     [PksAmps,Pks]=findpeaks(Gu,w);
 %     tt = t./t(end);
@@ -1078,7 +1136,7 @@ for ins = 1:ns
                             %[Pf,F] = pyulear(this,ncompe,w,dw./dt);
                             %Pf = ((Pf))';
                             
-                            %[Pf,w]=peig(this,ncompe,w,dw./dt);
+                          % [Pf,w]=peig(this,ncompe,w,dw./dt);
                             
 %                            this2 = spm_vec(this)*spm_vec(this)';
 %                            
@@ -1097,14 +1155,14 @@ for ins = 1:ns
 %                            Pf = mean(Sk,1)';
                            
                            
-                            [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
-                            Pfmean = squeeze(Pfmean);
-                            Pf = spm_vec(max(Pfmean'));
+                           [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
+                           Pfmean = squeeze(Pfmean);
+                           Pf = spm_vec(max(Pfmean'));
                             
                             
-%                             Pf2 = Pf(:);
-                             %Pf1 = spm_vec(atcm.fun.Afft(this,dw/dt,w));
-                             %Pf = Pf1(:);
+%                            Pf2 = Pf(:);
+                            % Pf1 = spm_vec(atcm.fun.Afft(this,dw/dt,w));
+                            % Pf = Pf1(:);
 %                             Pf1 = spm_vec(atcm.fun.AfftSmooth(this,dw/dt,w,3));    
 %                             
 %                             for ik = 1:length(Pf2)
@@ -1112,10 +1170,10 @@ for ins = 1:ns
 %                             end
 %                             
 %                              YY = spm_vec(M.y);
-                             
-
-                             %b=pinv(mat'*mat)*mat'*spm_vec(M.y);
-                             %Pf = spm_vec(b'*mat');
+%                              
+% 
+%                              b=pinv(mat'*mat)*mat'*spm_vec(M.y);
+%                              Pf = spm_vec(b'*mat');
 %                             
 %                             normYY = YY./sum(YY);
 %                             normMAT = mat./sum(mat);
@@ -1124,17 +1182,17 @@ for ins = 1:ns
 %                                 [~,I]=min((normYY(ik)-normMAT(ik,:)).^2);
 %                                 Pf(ik) = mat(ik,I);
 %                             end
-                            Pf=Pf(:);
+%                             Pf=Pf(:);
 
                             
                             
                             %[Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
                             %Pf=Pf(:);
                             
-                            %prior = spm_mar_prior(1,56,'silly');
-                            %[mar,y,y_pred] = spm_mar(this',56,prior);
-                            %marspec = spm_mar_spectra(mar,w,dw/dt);
-                            %Pf = marspec.P;
+                           % prior = spm_mar_prior(1,56,'lag');
+                           % [mar,y,y_pred] = spm_mar(this',56,prior);
+                           % marspec = spm_mar_spectra(mar,w,dw/dt);
+                           % Pf = marspec.P(:);
                             
                             % offset 1./f nature of slope
                             %w0 = linspace(1.5,8,length(w)).^2;
@@ -1162,7 +1220,7 @@ for ins = 1:ns
                                 %Pf1 = Pf;
                                 %[Pf] = atcm.fun.aenvelope(Pf,ncompe,1);
                                 
-                                Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
+                               % Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
                                 
                                 %bpf = Pf;
                                 
@@ -1171,11 +1229,11 @@ for ins = 1:ns
                                 %in = find(isnan(Pf));
                                 %Pf(in)=bpf(in);
                                 
-                                %[Pf] = atcm.fun.aenvelope(Pf,20);
+                                [Pf] = atcm.fun.aenvelope(Pf,20);
                                 
                                 %P0.w = P.w(ij,:);
                                 
-                                %Pf = atcm.fun.tightenvelope(Pf,3,w);
+                               % Pf = atcm.fun.tightenvelope(Pf,3,w);
                                 
                                 %Pf=mean([ filter(ones(1,6)/6, 1, Pf),flipud(filter(ones(1,6)/6, 1, flipud(Pf)))],2);
                                 
@@ -1258,7 +1316,7 @@ for ins = 1:ns
                 
                 % Multiply in the semi-stochastic neuronal fluctuations
                 for i = 1:length(Hz)
-                    Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
+                %    Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
                     %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
                 end
 % 
@@ -1555,6 +1613,7 @@ if isfield(M,'y')
                 %Pf(:,ins,ins) = Pf.*tpf;
                 
                 Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+                
                 %Pf(:,ins,ins)=filter(ones(1,6)/6, 1, Pf(:,ins,ins));
                 
                %Pf(:,ins,ins) = exp(P.L) * atcm.fun.tightenvelope(Pf(:,ins,ins),[],w,P);
@@ -1663,7 +1722,7 @@ y = Pf;
 %w = Hz;
 s = timeseries;
 g = ts;
-t = drive;
+%t = drive;
 
 end
 
