@@ -17,7 +17,7 @@ if Ns == 1
     %load NewDelayPriors.mat
     pth = fileparts(mfilename('fullpath'));
     %load([pth '/AugSpectralPriors']);
-    load([pth '/NewTCPriors']);
+    load([pth '/Priors_Jan2021']);
     
     DCM.M.pE = pE;
     DCM.M.pC = pC;
@@ -30,7 +30,7 @@ else
     
     % NEEDS UPDATING FOR MULTINODE/REGION
     pth = fileparts(mfilename('fullpath'));
-    pr = load([pth '/NewTCPriors']);;
+    pr = load([pth '/Priors_Jan2021']);;
     
     % Extrinsics: restructure adjacency matrices
     %----------------------------------------------------------------------

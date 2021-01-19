@@ -368,6 +368,10 @@ end
  
  del=1./del;
  
+ 
+if ns > 1
+    del = (spm_vec(repmat(del,[ns 1])))';
+end
  %del = repmat(del,[npp*nk,1])';
  
  %del = diag(del);
@@ -1743,6 +1747,7 @@ end
 %--------------------------------------------------------------------------
 %y = real(Pf);
 y = Pf;
+
 %w = Hz;
 s = timeseries;
 g = ts;
