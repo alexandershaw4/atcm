@@ -255,7 +255,7 @@ for  c = 1:size(U.X,1)
         
     % integration, spectral response, firing etc. (subfunction)
     %----------------------------------------------------------------------
-    [y{c},w,s{c},g{c},t{c},layers{c},noise{c},firing{c},QD{c},Spike{c}] = ...
+    [y{c},w,s{c},g{c},t{c},layers{c},noise{c},firing{c},QD{c},Spike{c},condel{c}] = ...
         dodxdt(pst,f,v,Q,M,dt,w,drive,Kx,U,method,solvefp);
 
 end
@@ -265,10 +265,10 @@ other.firing = firing;
 other.QD = QD;
 other.Spike = Spike;
 other.drive = drive;
-
+other.condel=condel;
 end
 
-function [y,w,s,g,t,layers,noise,firing,QD,spike] = ...
+function [y,w,s,g,t,layers,noise,firing,QD,spike,condel] = ...
                             dodxdt(t,f,v,P,M,dt,w,drive,Kx,U,method,solvefp)
 % Numerical integration, signal weighting and FFT of timeseries with
 % spline interpolation and smoothing
@@ -372,6 +372,9 @@ end
 if ns > 1
     del = (spm_vec(repmat(del,[ns 1])))';
 end
+
+condel=del;
+
  %del = repmat(del,[npp*nk,1])';
  
  %del = diag(del);
@@ -1626,9 +1629,11 @@ if isfield(M,'y')
                 yy ;
                 
                 i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,12));
+                %i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,24));
                 
                 for ik = 1:length(i0)
                     opts(ik,:) = linspace(i0(ik),i1(ik),10);
+                    %opts(ik,:) = linspace(i0(ik),i1(ik),20);
                 end
                 
                 for ik = 1:length(i0)
@@ -1640,7 +1645,8 @@ if isfield(M,'y')
                 end
                 Pf = out;
                 
-                Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,2));
+               Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,2));
+               % Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4));
                 
                 %Pf(:,ins,ins)=filter(ones(1,6)/6, 1, Pf(:,ins,ins));
                 
