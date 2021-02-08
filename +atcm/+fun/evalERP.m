@@ -21,7 +21,7 @@ end
 
 % f(x)
 %--------------------------------------------------------------
-[x,pst,fire] = feval(DCM.M.IS,pE,DCM.M,DCM.xU);
+[x,pst] = feval(DCM.M.IS,pE,DCM.M,DCM.xU);
 
 % g(x)
 %--------------------------------------------------------------
@@ -39,21 +39,29 @@ xY = DCM.xY;
 %     y{i} = R*y{i}*L';
 % end
 
-Ns  = length(DCM.A{1}); 
-Nr  = size(DCM.C,1); 
-Nt  = length(x);
-j   = find(kron( exp(gE.J),               ones(1,Nr)));      % Indices of contributing states
-%j    = find(kron( logical(sum(Qg.J)), ones(1,Nr)));
 
-NNs = size(xY.y{1},1);
-x0  = ones(NNs,1)*spm_vec(M.x)';         % expansion point for states
-for i = 1:Nt
-    K{i} = x{i} - x0;                   % centre on expansion point
-    y{i} = M.R*K{i}*L'*M.U;             % prediction (sensor space)
-    r{i} = M.R*xY.y{i}*M.U - y{i};      % residuals  (sensor space)
-    K{i} = K{i}(:,j);                   % Depolarization in sources
+for i = 1:length(x)
+    y{i} = R*x{i}*L';
 end
 
-ymod  = y;
-Yreal = spm_unvec( spm_vec(y)+spm_vec(r), y);
+ymod = y;
+
+% Ns  = length(DCM.A{1}); 
+% Nr  = size(DCM.C,1); 
+% Nt  = length(x);
+% j   = find(kron( exp(gE.J),               ones(1,Nr)));      % Indices of contributing states
+% %j    = find(kron( logical(sum(Qg.J)), ones(1,Nr)));
+% 
+% NNs = size(xY.y{1},1);
+% x0  = ones(NNs,1)*spm_vec(M.x)';         % expansion point for states
+% for i = 1:Nt
+%     K{i} = x{i} - x0;                   % centre on expansion point
+%     y{i} = M.R*K{i}*L'*M.U;             % prediction (sensor space)
+%     r{i} = M.R*xY.y{i}*M.U - y{i};      % residuals  (sensor space)
+%     K{i} = K{i}(:,j);                   % Depolarization in sources
+% end
+% 
+% ymod  = y;
+%Yreal = spm_unvec( spm_vec(y)+spm_vec(r), y);
+Yreal = DCM.xY.y;
 pst = xY.pst;

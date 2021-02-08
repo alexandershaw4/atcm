@@ -62,8 +62,8 @@ for l  = 1:length(k0)
         %px.(x) = log(exp(eval(['px.' fields{1} ]))*k0(j));  % i.e. exp(  log(exp(px.D0(1))*k1) )*60
         %px.(x) = log(exp(eval(['px.' fields{2} ]))*k1(l));
         
-        TP1 = log(exp(eval(['px.' fields{1} ]))+k0(j));  % i.e. exp(  log(exp(px.D0(1))*k1) )*60
-        TP2 = log(exp(eval(['px.' fields{2} ]))+k1(l));
+        TP1 = log(exp(eval(['px.' fields{1} ]))*k0(j));  % i.e. exp(  log(exp(px.D0(1))*k1) )*60
+        TP2 = log(exp(eval(['px.' fields{2} ]))*k1(l));
         
         eval(['px.' fields{1} '= TP1;']);
         eval(['px.' fields{2} '= TP2;']);

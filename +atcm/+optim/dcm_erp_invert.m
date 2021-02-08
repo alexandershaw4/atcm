@@ -7,6 +7,9 @@ xY = DCM.xY;
 if strcmp( char(DCM.M.IS), 'atcm.integrate_erp')
     M.IS = 'atcm.integrate_erp'; % remove '@'
 end
+
+M.IS = char(M.IS);
+
 fprintf('Integrator: %s\n',char(DCM.M.IS));
 fprintf('Model function: %s\n',char(DCM.M.f));
 

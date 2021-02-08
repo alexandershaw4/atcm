@@ -143,7 +143,7 @@ Gn = exp(Gn);
 % % extrinsic connections (F B) - from superficial and deep pyramidal cells
 % %--------------------------------------------------------------------------
 %       SP  DP  tp  rt  rc
-SA   = [1   0   0   0   0;   %  SS
+SA   = [1   0   1   0   0;   %  SS    % added TP->SP
         0   1   0   0   0;   %  SP
         0   1   0   0   0;   %  SI
         1   0   0   0   0;   %  DP
@@ -157,7 +157,7 @@ SA   = [1   0   0   0   0;   %  SS
     
 % % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
 % %--------------------------------------------------------------------------    
-SNMDA = [1   0   0   0   0;   %  SS
+SNMDA = [1   0   1   0   0;   %  SS
          0   1   0   0   0;   %  SP
          0   1   0   0   0;   %  SI
          1   0   0   0   0;   %  DP
@@ -414,6 +414,11 @@ for i = 1:ns
         % and exogenous input(U): 
         %------------------------------------------------------------------
         input_cell        = 8;
+        
+        if isfield(M,'inputcell');
+            input_cell = M.inputcell;
+        end
+        
         E(input_cell)     = E(input_cell)         +dU';
         ENMDA(input_cell) = ENMDA(input_cell)     +dU';
                 
@@ -572,7 +577,12 @@ Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
 Dp = ~Ss;                            % states: different sources
 Ds = ~Sp & Ss;                       % states: same source different pop.
 %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
-D  = d(2)*Dp + d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
+
+if ~isfield(P,'delays')
+    D  = d(2)*Dp + d(1)*Ds + Tc  ;
+else
+    D = d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
+end
 
 %D = d(2)*Dp + Tc; %%%%%!!!!!!
 

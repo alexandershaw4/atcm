@@ -347,30 +347,24 @@ end
  %warning on;
 
  % Delays
- del = exp(P.ID).*[1/4 2 2 1/2 2 1/2 1 1]/2;
- 
- del = exp(P.ID).*[2 1/4 2 1/2 2 1/2 1 1]/2;
-
- del = exp(P.ID).*[2 1 2 1/2 2 1/2 1 1]/2;
-
-  %del = exp(P.ID).*[1 1/2 1 1/4 1 1/4 1/2 1/2];
-  
- del = exp(P.ID).*[2 1/2 1/2 1 2 1/2 1 1]/2;
-
- del = exp(P.ID).*[2 1/2 1/2 2 1/2 2 1 1]/2;
- 
- del = exp(P.ID).*[2 1/2 1/2 2 1/2 2 2 2]/2;
- 
+%  del = exp(P.ID).*[1/4 2 2 1/2 2 1/2 1 1]/2;
+%  del = exp(P.ID).*[2 1/4 2 1/2 2 1/2 1 1]/2;
+%  del = exp(P.ID).*[2 1 2 1/2 2 1/2 1 1]/2;
+%   %del = exp(P.ID).*[1 1/2 1 1/4 1 1/4 1/2 1/2];
+%  del = exp(P.ID).*[2 1/2 1/2 1 2 1/2 1 1]/2;
+%  del = exp(P.ID).*[2 1/2 1/2 2 1/2 2 1 1]/2;
+%  del = exp(P.ID).*[2 1/2 1/2 2 1/2 2 2 2]/2;
  del = exp(P.ID).*[2 1/4 1/2 4 1/2 4 2 2]/2;
- 
- 
  del = repmat(del,[1 nk]);
- 
  del=1./del;
  
- 
 if ns > 1
-    del = (spm_vec(repmat(del,[ns 1])))';
+    if ~isfield(P,'delay')
+        del = (spm_vec(repmat(del,[ns 1])))';
+    else
+        %D  =[];
+        %d  = -D.*full(exp(P.delay))/1000;
+    end
 end
 
 condel=del;

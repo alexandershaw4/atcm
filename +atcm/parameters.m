@@ -1,4 +1,4 @@
-function DCM = parameters(DCM,Ns)
+function DCM = parameters(DCM,Ns,priorfile)
 % collect initial (prior) parameters
 %
 % Need to rewrite this function by writing out the priors saved in matfile
@@ -14,10 +14,14 @@ function DCM = parameters(DCM,Ns)
 if Ns == 1
     %load('May7.mat');
 
-    %load NewDelayPriors.mat
-    pth = fileparts(mfilename('fullpath'));
-    %load([pth '/AugSpectralPriors']);
-    load([pth '/Priors_Jan2021']);
+    if nargin < 3 || isempty(priorfile)
+        %load NewDelayPriors.mat
+        pth = fileparts(mfilename('fullpath'));
+        %load([pth '/AugSpectralPriors']);
+        load([pth '/+fun/FEB_PRIORS_2021']);
+    else
+        load(priorfile)
+    end
     
     DCM.M.pE = pE;
     DCM.M.pC = pC;
@@ -28,9 +32,15 @@ else
     % setup - CBA right now
     fprintf('Priors for multi-node models may be out of date\n');
     
-    % NEEDS UPDATING FOR MULTINODE/REGION
-    pth = fileparts(mfilename('fullpath'));
-    pr = load([pth '/Priors_Jan2021']);;
+        if nargin < 3 || isempty(priorfile)
+
+        % NEEDS UPDATING FOR MULTINODE/REGION
+        pth = fileparts(mfilename('fullpath'));
+        pr = load([pth '/+fun/FEB_PRIORS_2021']);;
+        
+        else
+            pr = load(priorfile);
+        end
     
     % Extrinsics: restructure adjacency matrices
     %----------------------------------------------------------------------
@@ -39,14 +49,14 @@ else
     A{2}  = A{2} | A{3};                              % backward
 
     % [F] SP -> SS & DP
-    pE.A{1} = A{1}*32 - 32;
+    pE.A{1} = A{1}*32 - 32; % 0.5 = 1001.60944 - 1000
     pC.A{1} = A{1}/8;
 
     % [B] DP -> SP & SI
     pE.A{2} = A{2}*32 - 32; 
     pC.A{2} = A{2}/8;
 
-    % [Extrinsic T->C] (none)
+    % [Extrinsic TP-TP] (none)
     pE.A{3} = A{1}*32 - 32; 
     pC.A{3} = A{1}/8;
 
@@ -175,6 +185,9 @@ else
     
     pE.Hn = repmat(pr.pE.Hn, [1 1 ns]);
     pC.Hn = repmat(pr.pC.Hn, [1 1 ns]);
+    
+    pE.pr = pr.pE.pr;
+    pC.pr = pr.pC.pr;
     
     % Pack pE & pC into M
     DCM.M.pE = pE;

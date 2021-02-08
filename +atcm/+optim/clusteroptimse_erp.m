@@ -743,13 +743,13 @@ PP  = spm_unvec(log(x1),pE);             % proper (full model) structure
 IS = spm_funcheck(DD.M.IS);
 try
     try 
-        [yy,w,s,g,t,pst] = IS(PP,DD.M,DD.xU);
+        [yy] = IS(PP,DD.M,DD.xU);
     catch
-        [yy,w] = IS(PP,DD.M,DD.xU);
+        [yy] = IS(PP,DD.M,DD.xU);
     end
 catch
     yy = spm_unvec( (spm_vec(DD.xY.y)*0)+inf , DD.xY.y);
-    w  = DD.xY.Hz;
+    %w  = DD.xY.Hz;
 end
 
 % evaluate oberver func

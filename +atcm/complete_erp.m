@@ -93,13 +93,18 @@ M.dipfit.model = model;
 
 
 % Copy the (spatial) priors into their own structure
-gE.J    = pE.J;
-gE.L    = pE.L;
-gE.Lpos = pE.Lpos;
+try
+    gE.J    = pE.J;
+    gE.L    = pE.L;
+    gE.Lpos = pE.Lpos;
 
-gC.J    = pC.J;
-gC.L    = pC.L;
-gC.Lpos = pC.Lpos;
+    gC.J    = pC.J;
+    gC.L    = pC.L;
+    gC.Lpos = pC.Lpos;
+catch
+    gE = DCM.M.gE;
+    gC= DCM.M.gC;
+end
 
 % Set prior correlations (locking trial effects and dipole orientations
 %--------------------------------------------------------------------------
@@ -122,11 +127,12 @@ xY.scale = xY.scale/scale;
 IS = DCM.M.IS;
 
 fprintf('\nInitialising model (hidden) states\n');
-%[x,f,h] = spm_dcm_x_neural(pE,model);
+
+[x,f,h] = spm_dcm_x_neural(pE,model);
 
 Q   = atcm.fun.spm_gen_Q_as(pE,DCM.xU.X(1,:));
-[x] = atcm.fun.solvefixedpoint(Q,M);
-h=1;
+%[x] = atcm.fun.solvefixedpoint(Q,M,1);
+%h=1;
 
 M.FS   = 'spm_fy_erp';
 %M.G    = 'spm_lx_erp_tc6';
@@ -159,10 +165,10 @@ M.dt     = xY.dt;
 % Check that f and G are callable, from the equation:
 %  { y  = G(dx,P,M)      = spatial projection
 %  { dx = IS(f(x,u,P,M)) = numerical integration of neural model f
-fprintf('Checking integration and spatial projection functions\n');
-
-L   = feval(M.G, gE,M);            
-x   = feval(M.IS,pE,M,xU);  
+% fprintf('Checking integration and spatial projection functions\n');
+% 
+% L   = feval(M.G, gE,M);            
+% x   = feval(M.IS,pE,M,xU);  
 
 % return everything
 DCM.M  = M;
