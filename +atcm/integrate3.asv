@@ -1596,7 +1596,7 @@ if isfield(M,'y')
             if isfield(M,'LFPsmooth') && ~isempty(M.LFPsmooth)
                 smthk = round(M.LFPsmooth);
             else
-                smthk = 2;
+                smthk = 12;
             end
             
             if isfield(P,'LFPsmooth') && ~isempty(P.LFPsmooth)
@@ -1639,19 +1639,7 @@ if isfield(M,'y')
                 end
                 Pf = out;
                 
-               Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
-               
-%                Pf0 = Pf(:,ins,ins);
-%                Pf1(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
-%                clear opts
-%                
-%                for ik = 1:length(Pf0)
-%                    opts(ik,:) = linspace(Pf0(ik),Pf1(ik),round(smthk/2));
-%                end
-%                
-%                b = (pinv(opts*opts')*opts)'*yy;
-%                Pf(:,ins,ins) = b'*opts';
-               
+               Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,2));
                % Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4));
                 
                 %Pf(:,ins,ins)=filter(ones(1,6)/6, 1, Pf(:,ins,ins));

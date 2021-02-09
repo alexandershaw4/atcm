@@ -128,9 +128,15 @@ IS = DCM.M.IS;
 
 fprintf('\nInitialising model (hidden) states\n');
 
-[x,f,h] = spm_dcm_x_neural(pE,model);
+try
+    [x,f,h] = spm_dcm_x_neural(pE,model);
+    
+catch
+    Q   = atcm.fun.spm_gen_Q_as(pE,DCM.xU.X(1,:));
+    [x] = atcm.fun.solvefixedpoint(Q,M,1);
+    h=1;
+end
 
-Q   = atcm.fun.spm_gen_Q_as(pE,DCM.xU.X(1,:));
 %[x] = atcm.fun.solvefixedpoint(Q,M,1);
 %h=1;
 
