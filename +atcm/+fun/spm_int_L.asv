@@ -138,16 +138,13 @@ end
 % extrinsic inter-region delays
 if size(M.x,1) > 1 && isfield(P,'delays')
    
-    exdel = ( round(exp(P.A{1})) | round(exp(P.A{2})) )*4;
+    exdel = ( round(exp(P.A{1})) | round(exp(P.A{2})) )*16;
     exdel = -exdel.*full(exp(P.delays))/1000;
     [ns,np,nk]=size(M.x);
-    %exdel = kron(ones(nk,nk),kron( ~~real(P.H(:,:,1)),exdel));
-    exdel = kron(ones(nk,nk),kron( ones(np,np),exdel));
-    exdel = -exdel*1000;
-    %del = dt*(del+exdel);
-    del = dt*(del+exdel);
-%     
-%     Q     = (spm_expm(dt*(exdel+D)*dfdx/N) - speye(n,n))*spm_inv(dfdx);
+    exdel = kron(ones(nk,nk),kron( ~~real(P.H(:,:,1)),exdel));
+    exdel  = spm_inv(speye(length(dfdx)) - exdel.*dfdx);
+    Q     = (spm_expm(dt*(exdel+D)*dfdx/N) - speye(n,n))*spm_inv(dfdx);
+    
 end
 
 
@@ -166,8 +163,7 @@ for i = 1:size(U.u,1)
         for j = 1:N
             %v = v + Q*f(v,u,P,M);
             if DoDelay
-                %v = v + del'.*(Q*f(v,u,P,M));    
-                v = v + del*(Q*f(v,u,P,M));   
+                v = v + del'.*(Q*f(v,u,P,M));    
             else
                 v = v + Q*f(v,u,P,M);
             end

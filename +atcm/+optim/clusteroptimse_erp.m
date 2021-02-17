@@ -757,7 +757,7 @@ L = feval( DD.M.G , PP , DD.M);
 R = DD.M.R;
 
 for i = 1:length(yy)
-    yy{i} = R*yy{i}*L';
+    yy{i} = real(R)*real(yy{i})*real(L)';
 end
 Y  = (DD.xY.y); 
 

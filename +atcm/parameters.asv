@@ -188,22 +188,16 @@ else
         pC.ID = zeros(1,8);
     end
     
-    try
-        pE.Hn = repmat(pr.pE.Hn, [1 1 ns]);
-        pC.Hn = repmat(pr.pC.Hn, [1 1 ns]);
-    catch
-        pE.Hn = repmat(zeros(8,8), [1 1 ns]);
-        pC.Hn = repmat(pC.H, [1 1 ns]);
-    end
+    pE.Hn = repmat(pr.pE.Hn, [1 1 ns]);
+    pC.Hn = repmat(pr.pC.Hn, [1 1 ns]);
     
     try
         pE.pr = pr.pE.pr;
         pC.pr = pr.pC.pr;
     catch
-        pE.pr = zeros(1,8);
-        pC.pr = zeros(1,8);
+        pE.pr
+        
     end
-    
     % Pack pE & pC into M
     DCM.M.pE = pE;
     DCM.M.pC = pC;

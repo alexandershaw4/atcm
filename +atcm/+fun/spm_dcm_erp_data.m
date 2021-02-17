@@ -278,8 +278,8 @@ for i = 1:length(trial)
     %---------------------------------------------------
     try Fltr = DCM.options.Fltdcm;
         for nf = 1:size(Y,2)
-            [FF xi]    = padtimeseries(Y(:,nf));
-            FF         = bandpassfilter(FF,D.fsample/DT,Fltr);
+            [FF xi]    = atcm.fun.padtimeseries(Y(:,nf));
+            FF         = atcm.fun.bandpassfilter(FF,D.fsample/DT,Fltr);
             Y(:,nf)    = FF(xi);
             if nf == 1; fprintf('Bp filtering...\n'); end
         end

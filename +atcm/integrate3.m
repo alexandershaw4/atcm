@@ -770,6 +770,9 @@ if isfield(M,'IncDCS')
     IncDCS = M.IncDCS;
 end
 
+if isfield(M,'DoHamming')
+    DoHamming = M.DoHamming;
+end
 
 % Compute channel noise components before computing spectral response
 %--------------------------------------------------------------------------
