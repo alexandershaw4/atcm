@@ -149,8 +149,8 @@ SA   = [1   0   1   0   0;   %  SS    % added TP->SP
         1   0   0   0   0;   %  DP
         0   0   0   0   0;   %  DI
         0   0   1   0   0;   %  TP % 0 in ket study
-        0   0   0   1   1;   %  rt % 0 in ket study
-        0   0   0   1   1]/8;%  rc % 0 in ket study
+        0   0   0   0   1;   %  rt % 0 in ket study
+        0   0   0   1   0]/8;%  rc % 0 in ket study
     
     %SA(:,[3 4 5]) = 0; % For ket study
     
@@ -163,8 +163,8 @@ SNMDA = [1   0   1   0   0;   %  SS
          1   0   0   0   0;   %  DP
          0   0   0   0   0;   %  DI
          0   0   1   0   0;   %  TP % 0 in ket study
-         0   0   0   1   1;   %  rt % 0 in ket study
-         0   0   0   1   1]/8;%  rc % 0 in ket study
+         0   0   0   0   1;   %  rt % 0 in ket study
+         0   0   0   1   0]/8;%  rc % 0 in ket study
 
      %SNMDA(:,[3 4 5]) = 0; % For ket study
      
@@ -199,7 +199,7 @@ GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
 GEa(1,:) = [0   0   0   0   0   2   0   2]/1;
 GEa(2,:) = [4   0   0   0   0   0   0   1]/1;
 GEa(3,:) = [0   4   0   0   0   0   0   0]/1; 
-GEa(4,:) = [4   4   0   0   0   2   0   1]/1;
+GEa(4,:) = [0   4   0   0   0   2   0   1]/1;
 GEa(5,:) = [0   0   0   4   0   2   0   0]/1;
 GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
 GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
