@@ -1624,48 +1624,41 @@ if isfield(M,'y')
                 % best fit
                 i0 = Pf(:,ins,ins);
                 yy ;
-
-                usesmoothkernels = 0;
-                if isfield(M,'usesmoothkernels') && M.usesmoothkernels
-                    usesmoothkernels = 1;
+                
+                %i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,12));
+                i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,24));
+                %i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,48));
+                
+                for ik = 1:length(i0)
+                    %opts(ik,:) = linspace(i0(ik),i1(ik),10);
+                    opts(ik,:) = linspace(i0(ik),i1(ik),20);
                 end
                 
-                if ~usesmoothkernels
-                    %i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,12));
-                    i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,24));
-                    %i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,48));
-
-                    for ik = 1:length(i0)
-                        %opts(ik,:) = linspace(i0(ik),i1(ik),10);
-                        opts(ik,:) = linspace(i0(ik),i1(ik),20);
-                    end
-
-                    for ik = 1:length(i0)
-                        this = yy(ik);
-                        opi  = opts(ik,:);
-                        ind  = atcm.fun.findthenearest(this,opi);
-                        ind  = ind(1);
-                        out(ik,ins,ins)=opi(ind);
-                    end
-
-                    Pf(:,ins,ins) = out(:,ins,ins);
-                    Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
-                    %Pf = atcm.fun.aenvelope(Pf,30);
-                    
-                else
-                    APf = AGenQ(Pf);
-                    i0  = Pf(:,ins,ins);
-                    for ik = 1:length(i0)
-                        this = yy(ik);
-                        opi  = APf(ik,:).*Pf;
-                        ind  = atcm.fun.findthenearest(this,opi);
-                        ind  = ind(1);
-                        out(ik,ins,ins)=opi(ind);
-                    end
-
-                    Pf(:,ins,ins) = out(:,ins,ins);
-                    Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+                for ik = 1:length(i0)
+                    this = yy(ik);
+                    opi  = opts(ik,:);
+                    ind  = atcm.fun.findthenearest(this,opi);
+                    ind  = ind(1);
+                    out(ik,ins,ins)=opi(ind);
                 end
+                
+                Pf(:,ins,ins) = out(:,ins,ins);
+
+                %Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+               
+                APf = AGenQ(Pf);
+                i0  = Pf(:,ins,ins);
+                
+                for ik = 1:length(i0)
+                    this = yy(ik);
+                    opi  = APf(ik,:);
+                    ind  = atcm.fun.findthenearest(this,opi);
+                    ind  = ind(1);
+                    out(ik,ins,ins)=opi(ind);
+                end
+                
+                
+                
                 
                 %Pf = atcm.fun.aenvelope(Pf,30));
                 
