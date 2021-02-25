@@ -1156,12 +1156,10 @@ if isfield(M,'y')
                     end
                     % laplacian smoothing
                     [APf,GL] = AGenQ(out(:,ins,ins));
-                    out(:,ins,ins) = GL*GL*GL*GL*out(:,ins,ins);                   
-                    
+                    out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
                     Pf(:,ins,ins) = out(:,ins,ins);
                     Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
                     %Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.aenvelope(Pf(:,ins,ins),35);
-                    
                 else
                     [APf,GL] = AGenQ(Pf); % AGenQ gens smoothing vectors & GraphLap       
                     APf = APf;%.*GL;
