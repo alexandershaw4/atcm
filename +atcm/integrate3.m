@@ -856,10 +856,15 @@ for ins = 1:ns
 %                            end
 %                            Pf = mean(Sk,1)';
                            
-                           [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
-                           Pfmean = squeeze(Pfmean);
-                           Pf = spm_vec(max(Pfmean'));
-                            
+                            if ncompe > 0
+                               [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
+                               Pfmean = squeeze(Pfmean);
+                               Pf = spm_vec(max(Pfmean'));
+                            else
+                                [Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
+                                Pf = Pf(:);
+                            end
+                                                       
                             DoEnv = 1;
                             if isfield(M,'DoEnv')
                                 DoEnv=M.DoEnv;
@@ -989,7 +994,6 @@ if DoHamming
     end
 end
 
-
 % If M.y contains the empirical data, fit it as a GLM of the contirbuting
 % populations
 if isfield(M,'y')
@@ -1029,7 +1033,6 @@ if isfield(M,'y')
                         dev(j,:,i) = atcm.fun.aenvelope(dat(:,i),Sk(j));
                     end
                 end
-
                 Mm = [];
                 for ii = 1:size(dat,2)
                     these = [dat(:,ii) squeeze(dev(:,:,ii))']';
@@ -1037,13 +1040,10 @@ if isfield(M,'y')
                     [~,I] = atcm.fun.maxpoints(cx(2:end,1),4);
                     Mm = [Mm;these];
                 end
-
                 Mm = [Mm;dat'];
                 b  = pinv(Mm*Mm')*Mm*yy;                
-
                 Pf(:,ins,ins) = b'*Mm;
                 Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
-
                 layers.b(ins,:)   = b;
                 layers.M(ins,:,:) = Mm;
             end
@@ -1064,18 +1064,14 @@ if isfield(M,'y')
             
         elseif linmod == 4
            clear dev;
-           
            Sk = [55 35 20 40];
            for i = 1:size(dat,2)
                 dev(:,i) = atcm.fun.aenvelope(dat(:,i),Sk(i)); 
            end
-            
             Mm = [dat dev]';
             b  = pinv(Mm*Mm')*Mm*yy;
-                        
             Pf(:,ins,ins) = b'*Mm;  
             Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
-
             layers.b(ins,:)   = b;
             layers.M(ins,:,:) = Mm;            
             
@@ -1137,7 +1133,6 @@ if isfield(M,'y')
                 % best fit
                 i0 = Pf(:,ins,ins);
                 yy ;
-
                 usesmoothkernels = 0;
                 if isfield(M,'usesmoothkernels') && M.usesmoothkernels
                     usesmoothkernels = 1;
@@ -1146,13 +1141,12 @@ if isfield(M,'y')
                 if ~usesmoothkernels
                     % optimise smoothing function by picking best from a
                     % linearly interpolated set between 0 and nth-order 
-                    i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,12));
+                    i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,24));%12
                     for ik = 1:length(i0)
                         opts(ik,:) = linspace(i0(ik),i1(ik),20);
                     end
                     %X = lsqnonneg(opts,yy);
                     %out(:,ins,ins) = exp(P.L(ins)) * (X'*opts');
-
                     for ik = 1:length(i0)
                         this = yy(ik);
                         opi  = opts(ik,:);
@@ -1160,10 +1154,9 @@ if isfield(M,'y')
                         ind  = ind(1);
                         out(ik,ins,ins)=opi(ind);
                     end
-                    
                     % laplacian smoothing
                     [APf,GL] = AGenQ(out(:,ins,ins));
-                    out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
+                    out(:,ins,ins) = GL*GL*GL*GL*out(:,ins,ins);                   
                     
                     Pf(:,ins,ins) = out(:,ins,ins);
                     Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
