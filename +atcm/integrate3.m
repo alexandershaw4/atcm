@@ -1139,13 +1139,19 @@ if isfield(M,'y')
                 end
                 
                 if ~usesmoothkernels
-                    % optimise smoothing function by picking best from a
-                    % linearly interpolated set between 0 and nth-order 
-                    i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,24));%12
-                    for ik = 1:length(i0)
-                        opts(ik,:) = linspace(i0(ik),i1(ik),20);
+                    % optimise smoothing function by picking best from an
+                    % iteratively smoothed version
+                    %i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,24));%12
+                    %for ik = 1:length(i0)
+                    %    opts(ik,:) = linspace(i0(ik),i1(ik),20);
+                    %end
+                    [~,GL]  = AGenQ(Pf(:,ins,ins));
+                    gln     = 1;
+                    for ik  = 1:24
+                        gln = gln*GL;
+                        opts(:,ik) = gln*Pf(:,ins,ins);
                     end
-                    %X = lsqnonneg(opts,yy);
+                    %X = lsqnonneg(opts,yy); % pos constr LSQGLM
                     %out(:,ins,ins) = exp(P.L(ins)) * (X'*opts');
                     for ik = 1:length(i0)
                         this = yy(ik);
@@ -1155,8 +1161,8 @@ if isfield(M,'y')
                         out(ik,ins,ins)=opi(ind);
                     end
                     % laplacian smoothing
-                    [APf,GL] = AGenQ(out(:,ins,ins));
-                    out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
+                    %[APf,GL] = AGenQ(out(:,ins,ins));
+                    %out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
                     Pf(:,ins,ins) = out(:,ins,ins);
                     Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
                     %Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.aenvelope(Pf(:,ins,ins),35);
