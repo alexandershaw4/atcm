@@ -1167,7 +1167,7 @@ if isfield(M,'y')
                     Pf(:,ins,ins) = out(:,ins,ins);
                     
                     [padvec,yi] = atcm.fun.padtimeseries(Pf(:,ins,ins));
-                    tsmth = atcm.fun.tsmovavg(padvec','e',4)';
+                    tsmth = full(atcm.fun.HighResMeanFilt(padvec,1,smthk));
                     Pf(:,ins,ins) = exp(P.L(ins))*tsmth(yi);
                     
                     %Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
