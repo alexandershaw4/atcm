@@ -1141,15 +1141,10 @@ if isfield(M,'y')
                 if ~usesmoothkernels
                     % optimise smoothing function by picking best from an
                     % iteratively smoothed version
-                    %i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,24));%12
-                    %for ik = 1:length(i0)
-                    %    opts(ik,:) = linspace(i0(ik),i1(ik),20);
-                    %end
-                    [~,GL]  = AGenQ(Pf(:,ins,ins));
-                    gln     = 1;
-                    for ik  = 1:6
-                        gln = gln*GL;
-                        opts(:,ik) = gln*Pf(:,ins,ins);
+                    padpf = atcm.f
+                    i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,6));%12
+                    for ik = 1:length(i0)
+                        opts(ik,:) = linspace(i0(ik),i1(ik),20);
                     end
                     %X = lsqnonneg(opts,yy); % pos constr LSQGLM
                     %out(:,ins,ins) = exp(P.L(ins)) * (X'*opts');
@@ -1160,16 +1155,11 @@ if isfield(M,'y')
                         ind  = ind(1);
                         out(ik,ins,ins)=opi(ind);
                     end
-                    
                     % laplacian smoothing
-                    %[APf,GL] = AGenQ(out(:,ins,ins));
-                    %out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
                     Pf(:,ins,ins) = out(:,ins,ins);
-                    
-                    [padvec,yi] = atcm.fun.padtim
-                    tsmth = atcm.fun.tsmovavg(Pf(:,ins,ins)','e',4)';
-                    
-                    Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.tsmovavg(Pf(:,ins,ins)','e',4)';
+                    [padvec,yi] = atcm.fun.padtimeseries(Pf(:,ins,ins));
+                    tsmth = full(atcm.fun.HighResMeanFilt(padvec,1,smthk));
+                    Pf(:,ins,ins) = exp(P.L(ins))*tsmth(yi);
                     
                     %Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
                     %Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.aenvelope(Pf(:,ins,ins),35);

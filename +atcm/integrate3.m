@@ -871,7 +871,11 @@ for ins = 1:ns
                             end
                             
                             if DoEnv
-                               Pf = full(atcm.fun.HighResMeanFilt(Pf,1,2));
+                                
+                               [padp,indp] = atcm.fun.padtimeseries(Pf);
+                               Pfs = full(atcm.fun.HighResMeanFilt(padp,1,4));
+                               Pf = Pfs(indp);
+                               
                             end
                             
                             % store 
@@ -1141,16 +1145,12 @@ if isfield(M,'y')
                 if ~usesmoothkernels
                     % optimise smoothing function by picking best from an
                     % iteratively smoothed version
-                    i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,6));%12
+                    [padpf,ipf] = atcm.fun.padtimeseries(Pf(:,ins,ins));
+                    smoothpf = full(atcm.fun.HighResMeanFilt(padpf,1,12));%12
+                    i1 = smoothpf(ipf);
                     for ik = 1:length(i0)
                         opts(ik,:) = linspace(i0(ik),i1(ik),20);
                     end
-                    %[~,GL]  = AGenQ(Pf(:,ins,ins));
-                    %gln     = 1;
-                    %for ik  = 1:6
-                    %    gln = gln*GL;
-                    %    opts(:,ik) = gln*Pf(:,ins,ins);
-                    %end
                     %X = lsqnonneg(opts,yy); % pos constr LSQGLM
                     %out(:,ins,ins) = exp(P.L(ins)) * (X'*opts');
                     for ik = 1:length(i0)
@@ -1161,10 +1161,7 @@ if isfield(M,'y')
                         out(ik,ins,ins)=opi(ind);
                     end
                     % laplacian smoothing
-                    %[APf,GL] = AGenQ(out(:,ins,ins));
-                    %out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
                     Pf(:,ins,ins) = out(:,ins,ins);
-                    
                     [padvec,yi] = atcm.fun.padtimeseries(Pf(:,ins,ins));
                     tsmth = full(atcm.fun.HighResMeanFilt(padvec,1,smthk));
                     Pf(:,ins,ins) = exp(P.L(ins))*tsmth(yi);
