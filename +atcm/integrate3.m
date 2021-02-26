@@ -1147,7 +1147,7 @@ if isfield(M,'y')
                     %end
                     [~,GL]  = AGenQ(Pf(:,ins,ins));
                     gln     = 1;
-                    for ik  = 1:12
+                    for ik  = 1:6
                         gln = gln*GL;
                         opts(:,ik) = gln*Pf(:,ins,ins);
                     end
@@ -1165,7 +1165,9 @@ if isfield(M,'y')
                     %[APf,GL] = AGenQ(out(:,ins,ins));
                     %out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
                     Pf(:,ins,ins) = out(:,ins,ins);
-                    Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+                    Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.tsmovavg(Pf(:,ins,ins)','e',4)';
+                    
+                    %Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
                     %Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.aenvelope(Pf(:,ins,ins),35);
                 else
                     [APf,GL] = AGenQ(Pf); % AGenQ gens smoothing vectors & GraphLap       
