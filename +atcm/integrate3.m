@@ -1147,7 +1147,7 @@ if isfield(M,'y')
                     %end
                     [~,GL]  = AGenQ(Pf(:,ins,ins));
                     gln     = 1;
-                    for ik  = 1:24
+                    for ik  = 1:12
                         gln = gln*GL;
                         opts(:,ik) = gln*Pf(:,ins,ins);
                     end
