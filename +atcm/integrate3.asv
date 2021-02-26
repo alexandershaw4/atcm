@@ -1147,7 +1147,7 @@ if isfield(M,'y')
                     %end
                     [~,GL]  = AGenQ(Pf(:,ins,ins));
                     gln     = 1;
-                    for ik  = 1:24
+                    for ik  = 1:6
                         gln = gln*GL;
                         opts(:,ik) = gln*Pf(:,ins,ins);
                     end
@@ -1161,22 +1161,17 @@ if isfield(M,'y')
                         out(ik,ins,ins)=opi(ind);
                     end
                     
-                    
-                    [U,S,V] = spm_svd(diag(Pf));
-                    acti = std(out)./mean(out);
-                    
-                    for ik = 1:length(S)
-                        this = full(U(:,1:ik)*S(1:ik,1:ik)*V(:,1:ik)');
-                        activ(ik) = std(diag(this))./mean(diag(this));
-                        smth(ik,:) = diag(this);
-                    end
-                    
-                    
                     % laplacian smoothing
                     %[APf,GL] = AGenQ(out(:,ins,ins));
                     %out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
                     Pf(:,ins,ins) = out(:,ins,ins);
-                    Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+                    
+                    [padvec,yi] = atcm.fun.padtim
+                    tsmth = atcm.fun.tsmovavg(Pf(:,ins,ins)','e',4)';
+                    
+                    Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.tsmovavg(Pf(:,ins,ins)','e',4)';
+                    
+                    %Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
                     %Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.aenvelope(Pf(:,ins,ins),35);
                 else
                     [APf,GL] = AGenQ(Pf); % AGenQ gens smoothing vectors & GraphLap       

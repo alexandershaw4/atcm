@@ -1165,7 +1165,10 @@ if isfield(M,'y')
                     %[APf,GL] = AGenQ(out(:,ins,ins));
                     %out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
                     Pf(:,ins,ins) = out(:,ins,ins);
-                    Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.tsmovavg(Pf(:,ins,ins)','e',4)';
+                    
+                    [padvec,yi] = atcm.fun.padtimeseries(Pf(:,ins,ins));
+                    tsmth = atcm.fun.tsmovavg(padvec','e',4)';
+                    Pf(:,ins,ins) = exp(P.L(ins))*tsmth(yi);
                     
                     %Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
                     %Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.aenvelope(Pf(:,ins,ins),35);
