@@ -1141,16 +1141,16 @@ if isfield(M,'y')
                 if ~usesmoothkernels
                     % optimise smoothing function by picking best from an
                     % iteratively smoothed version
-                    %i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,24));%12
-                    %for ik = 1:length(i0)
-                    %    opts(ik,:) = linspace(i0(ik),i1(ik),20);
-                    %end
-                    [~,GL]  = AGenQ(Pf(:,ins,ins));
-                    gln     = 1;
-                    for ik  = 1:6
-                        gln = gln*GL;
-                        opts(:,ik) = gln*Pf(:,ins,ins);
+                    i1 = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,6));%12
+                    for ik = 1:length(i0)
+                        opts(ik,:) = linspace(i0(ik),i1(ik),20);
                     end
+                    %[~,GL]  = AGenQ(Pf(:,ins,ins));
+                    %gln     = 1;
+                    %for ik  = 1:6
+                    %    gln = gln*GL;
+                    %    opts(:,ik) = gln*Pf(:,ins,ins);
+                    %end
                     %X = lsqnonneg(opts,yy); % pos constr LSQGLM
                     %out(:,ins,ins) = exp(P.L(ins)) * (X'*opts');
                     for ik = 1:length(i0)
@@ -1160,7 +1160,6 @@ if isfield(M,'y')
                         ind  = ind(1);
                         out(ik,ins,ins)=opi(ind);
                     end
-                    
                     % laplacian smoothing
                     %[APf,GL] = AGenQ(out(:,ins,ins));
                     %out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
