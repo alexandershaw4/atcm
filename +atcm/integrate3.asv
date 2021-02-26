@@ -1161,6 +1161,17 @@ if isfield(M,'y')
                         out(ik,ins,ins)=opi(ind);
                     end
                     
+                    
+                    [U,S,V] = spm_svd(diag(Pf));
+                    acti = std(out)./mean(out);
+                    
+                    for ik = 1:length(S)
+                        this = full(U(:,1:ik)*S(1:ik,1:ik)*V(:,1:ik)');
+                        activ(ik) = std(diag(this))./mean(diag(this));
+                        smth(ik,:) = diag(this);
+                    end
+                    
+                    
                     % laplacian smoothing
                     %[APf,GL] = AGenQ(out(:,ins,ins));
                     %out(:,ins,ins) = GL*GL*out(:,ins,ins);                   
