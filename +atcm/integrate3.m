@@ -1164,9 +1164,9 @@ if isfield(M,'y')
                     Pf(:,ins,ins) = out(:,ins,ins);
                     [padvec,yi] = atcm.fun.padtimeseries(Pf(:,ins,ins));
                     tsmth = full(atcm.fun.HighResMeanFilt(padvec,1,smthk));
-                    Pf(:,ins,ins) = exp(P.L(ins))*tsmth(yi);
+                    Pf(:,ins,ins) = tsmth(yi);
                     
-                    %Pf(:,ins,ins) = exp(P.L(ins))*full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
+                    %Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
                     %Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.aenvelope(Pf(:,ins,ins),35);
                 else
                     [APf,GL] = AGenQ(Pf); % AGenQ gens smoothing vectors & GraphLap       
