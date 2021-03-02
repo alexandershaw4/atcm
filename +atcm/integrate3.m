@@ -212,6 +212,23 @@ switch InputType
         drive = sum(gx,1)';
 end
 
+if ~isfield(M,'timefreq')
+    M.timefreq = 0;
+end
+
+if M.timefreq
+    
+    if isfield(M,'ons')
+        % shift stimulus/drive to onset
+        ind = atcm.fun.findthenearest(M.ons,pst);
+        newdrive = drive*0;
+        newdrive(1:ind)=0;
+        newdrive(ind+1:end) = drive(1:length(newdrive(ind+1:end)));
+        drive = newdrive;
+    end
+    
+end
+
 % expansion (fixed) point: trial & parameter effects are deviations from here
 %--------------------------------------------------------------------------
 f    = spm_funcheck(M.f); 
@@ -703,6 +720,11 @@ if isfield(M,'fmethod')
     fmethod = M.fmethod;
 end
 
+if M.timefreq
+    % force, non-negotiable...
+    fmethod = 'timefreq';
+end
+
 % Whe using DMD remove the ~principal component
 try
     switch fmethod            % UNCOMMENT FOR KET PAPER
@@ -746,6 +768,30 @@ for ins = 1:ns
     switch lower(fmethod)
         case {'dmd' 'instantaneous' 'svd' 'none' 'glm' 'fooof' 'timefreq' 'eig'}
             switch fmethod
+                
+                case 'timefreq'
+                    
+                    
+                    
+                    % load the virtual sensor and run a timefrequency analysis
+                    cfg.baseline = 'relchange';
+                    cfg.sampletimes = double(M.pst);
+                    cfg.fsample = 1./dt;
+                    cfg.filterorder = 4;
+                    FoI = linspace(w(1),w(end),120);
+                    
+                    MatDat = real(J(:)'*yx);
+                    
+                    tf{i} = atcm.fun.bert_singlechannel([MatDat],cfg,FoI,[-1 0]);
+                                        
+                    y = tf{i}.agram;
+                    s = ts;
+                    g = [];
+                    noise = [];
+                    layers.iweighted = yx;
+                    return;                
+                
+                
                 case 'dmd'
                 [Eigenvalues, Eigenvectors, ModeAmplitudes, ModeFrequencies, ...
                     GrowthRates, POD_Mode_Energies] = atcm.fun.dmd((yx), length(Ji), dt);
@@ -799,18 +845,24 @@ for ins = 1:ns
                 warning off;
                 try
                     switch fmethod
-                        case {'timefreq'}
-                            data = Eigenvectors(Ji(ij),burn:end);
-                            for ik = 1:length(w)-1
-                                [B, A] = atcm.fun.mk_filter(1./dt,w(ik), w(ik+1), 3);
-                                filtve = filtfilt(B,A,data);
-                                this(ik,:) = abs(hilbert(filtve));
-                            end
-                            tfm = HighResMeanFilt(this,1,4);
-                            tfm=mean(tfm,2);
-                            Pf = tfm;
-                            Pf(end+1)=Pf(end);
-                            Pf0(ins,ij,:) = Pf;
+                                                
+%                         case {'timefreq'}
+%                             data = Eigenvectors(Ji(ij),burn:end);
+% %                             for ik = 1:length(w)-1
+% %                                 [B, A] = atcm.fun.mk_filter(1./dt,w(ik), w(ik+1), 4);
+% %                                 filtve = filtfilt(B,A,data);
+% %                                 this(ik,:) = abs(hilbert(filtve));
+% %                             end
+% %                             tfm = HighResMeanFilt(this,1,4);
+% %                             
+% %                             Pf(i,:,:) = tfm;
+%                             
+%                             continue;
+%                             
+                            %tfm=mean(tfm,2);
+                            %Pf = tfm;
+                            %Pf(end+1)=Pf(end);
+                            %Pf0(ins,ij,:) = Pf;
                         
                         case 'eig'
                                 J = dfdx;
