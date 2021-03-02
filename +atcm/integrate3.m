@@ -775,21 +775,25 @@ for ins = 1:ns
                         M.nw = 30;
                     end
                     
-                    % load the virtual sensor and run a timefrequency analysis
-                    cfg.baseline = 'relchange';
-                    cfg.sampletimes = double(M.pst);
-                    cfg.fsample = 1./dt;
-                    cfg.filterorder = 4;
-                    FoI = linspace(w(1),w(end),M.nw);
+                    tfmat = 0;
+                    for ij = 1:length(Ji)
+                        % load the virtual sensor and run a timefrequency analysis
+                        cfg.baseline = 'relchange';
+                        cfg.sampletimes = double(M.pst);
+                        cfg.fsample = 1./dt;
+                        cfg.filterorder = 4;
+                        FoI = linspace(w(1),w(end),M.nw);
+
+                        %MatDat = real(J(:)'*yx);
+                        MatDat = real(yx(Ji(ij),:));
+
+                        tf{i} = atcm.fun.bert_singlechannel([MatDat],cfg,FoI,[-1 0]);
+                        y = double(tf{i}.agram);
+                        y = double(atcm.fun.HighResMeanFilt(y,1,4));
+                        tfmat = tfmat + y;
+                    end
                     
-                    MatDat = real(J(:)'*yx);
-                    
-                    tf{i} = atcm.fun.bert_singlechannel([MatDat],cfg,FoI,[-1 0]);
-                                        
-                    y = double(tf{i}.agram);
-                    
-                    y = double(atcm.fun.HighResMeanFilt(y,1,4));
-                    
+                    y = tfmat;
                     s = ts;
                     g = [];
                     noise = [];
