@@ -229,7 +229,7 @@ for i = 1:Ne;
     
     agram = double(tf{i}.agram);
     
-    agram = atcm.fun.HighResMeanFilt(agram,1,4);
+    agram = atcm.fun.HighResMeanFilt(agram,1,2);
     
     DCM.xY.y{i} = double(agram);
     DCM.xY.pst = tf{i}.sampletimes;

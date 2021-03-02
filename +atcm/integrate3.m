@@ -789,7 +789,7 @@ for ins = 1:ns
 
                         tf{i} = atcm.fun.bert_singlechannel([MatDat],cfg,FoI,[-1 0]);
                         y = double(tf{i}.agram);
-                        y = double(atcm.fun.HighResMeanFilt(y,1,4));
+                        y = double(atcm.fun.HighResMeanFilt(y,1,2));
                         tfmat = tfmat + ( Ji(ij)*y );
                     end
                     
