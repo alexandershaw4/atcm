@@ -221,13 +221,17 @@ for i = 1:Ne;
     cfg.sampletimes = DCM.xY.pst;
     cfg.fsample = 1./DCM.xY.dt;
     cfg.filterorder = 4;
-    FoI = linspace(Hz1,Hz2,30);
+    FoI = linspace(Hz1,Hz2,DCM.options.nw);
 
     MatDat = trldat;
 
     tf{i} = atcm.fun.bert_singlechannel(MatDat,cfg,FoI,[-1 0]);
     
-    DCM.xY.y{i} = double(tf{i}.agram);
+    agram = double(tf{i}.agram);
+    
+    agram = atcm.fun.HighResMeanFilt(agram,1,4);
+    
+    DCM.xY.y{i} = double(agram);
     DCM.xY.pst = tf{i}.sampletimes;
     
     DCM.xY.U    = DCM.M.U;

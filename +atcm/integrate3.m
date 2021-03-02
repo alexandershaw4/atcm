@@ -771,20 +771,25 @@ for ins = 1:ns
                 
                 case 'timefreq'
                     
-                    
+                    if ~isfield(M,'nw')
+                        M.nw = 30;
+                    end
                     
                     % load the virtual sensor and run a timefrequency analysis
                     cfg.baseline = 'relchange';
                     cfg.sampletimes = double(M.pst);
                     cfg.fsample = 1./dt;
                     cfg.filterorder = 4;
-                    FoI = linspace(w(1),w(end),30);
+                    FoI = linspace(w(1),w(end),M.nw);
                     
                     MatDat = real(J(:)'*yx);
                     
                     tf{i} = atcm.fun.bert_singlechannel([MatDat],cfg,FoI,[-1 0]);
                                         
                     y = double(tf{i}.agram);
+                    
+                    y = double(atcm.fun.HighResMeanFilt(y,1,4));
+                    
                     s = ts;
                     g = [];
                     noise = [];
