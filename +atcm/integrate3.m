@@ -778,13 +778,13 @@ for ins = 1:ns
                     cfg.sampletimes = double(M.pst);
                     cfg.fsample = 1./dt;
                     cfg.filterorder = 4;
-                    FoI = linspace(w(1),w(end),120);
+                    FoI = linspace(w(1),w(end),30);
                     
                     MatDat = real(J(:)'*yx);
                     
                     tf{i} = atcm.fun.bert_singlechannel([MatDat],cfg,FoI,[-1 0]);
                                         
-                    y = tf{i}.agram;
+                    y = double(tf{i}.agram);
                     s = ts;
                     g = [];
                     noise = [];
