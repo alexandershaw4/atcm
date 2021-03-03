@@ -374,6 +374,25 @@ else
     IsStochastic = 0;
 end
 
+% If timefreq, find a 'robust' fixed point for the baseline period
+a     = 8;                  % regulariser
+dnx   = 0;
+if M.timefreq
+    for i = 1:1000
+        dx = del'.*(Q*f(spm_unvec(v,M.x),0,P,M));
+        ndx   = norm(dx,Inf);
+        if ndx < dnx
+            a = a/2;
+        end
+        dnx    = ndx;
+        M.x    = spm_unvec(spm_vec(M.x) + exp(-a)*dx,M.x);
+        if dnx < 1e-12, break, end
+    end
+    v     = spm_vec(M.x);
+    M.x = spm_unvec(v,M.x);
+end
+
+
 % Frequency steps: dw
 dw = 1./(w(2)-w(1));
 
@@ -460,11 +479,11 @@ switch IntMethod
                 end
                 
                 % Expansion point - i.e. deviation around fixed point
-                    if ~IsStochastic
-                        y(:,i) = v - spm_vec(M.x);                    
-                    else
-                        y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
-                    end
+                if ~IsStochastic
+                    y(:,i) = v - spm_vec(M.x);                    
+                else
+                    y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
+                end
                 
                 
             elseif WithDelays == 101

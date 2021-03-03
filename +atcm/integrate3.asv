@@ -374,6 +374,25 @@ else
     IsStochastic = 0;
 end
 
+a     = 2;                  % regulariser
+dnx   = 0;
+if M.timefreq
+    for i = 1:10
+        [f0,dfdx] = feval(M.f,M.x,M.u,P,M);
+        dx       =  (- dfdx\f0);
+        
+        ndx   = norm(dx,Inf);
+        if ndx < dnx
+            a = a/2;
+        end
+        dnx    = ndx;
+        M.x    = spm_unvec(spm_vec(M.x) + exp(-a)*dx,M.x);
+    end
+    v     = spm_vec(M.x);
+    M.x = spm_unvec(v,M.x);
+end
+
+
 % Frequency steps: dw
 dw = 1./(w(2)-w(1));
 
@@ -444,19 +463,27 @@ switch IntMethod
             elseif WithDelays == 2 %           [ I RECOMMEND THIS METHOD ]
                 % Karl's Euler-like-with-a-Jacobian-Delay scheme
                 % this just an RK method
-                for j = 1:N
-                    v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));           
-                    % Ozaki 1992 numerical method:
-                    % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
-                    %[fx,dfdx] = f(v,drive(i),P,M);
-                    %v = v + spm_dx(D*dfdx,D*fx,dt);
-                end   
+                %if drive(i) == 0
+                %    % baseline
+                %    v = v;
+                %else
+                    
+                    for j = 1:N
+                        v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));           
+                        % Ozaki 1992 numerical method:
+                        % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
+                        %[fx,dfdx] = f(v,drive(i),P,M);
+                        %v = v + spm_dx(D*dfdx,D*fx,dt);
+                    end   
+                    
+                %end
+                
                 % Expansion point - i.e. deviation around fixed point
-                    if ~IsStochastic
-                        y(:,i) = v - spm_vec(M.x);                    
-                    else
-                        y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
-                    end
+                if ~IsStochastic
+                    y(:,i) = v - spm_vec(M.x);                    
+                else
+                    y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
+                end
                 
                 
             elseif WithDelays == 101
