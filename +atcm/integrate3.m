@@ -1246,6 +1246,14 @@ if isfield(M,'y')
                         opi  = opts(ik,:);
                         ind  = atcm.fun.findthenearest(this,opi);
                         ind  = ind(1);
+                        
+                        if isfield(M,'pkrank')
+                            ism = round(linspace(1,12,20));
+                            smthi = round(rescale(M.pkrank,1,12));
+                            ind = atcm.fun.findthenearest(smthi(ik),ism);
+                            ind  = ind(1);
+                        end
+                            
                         out(ik,ins,ins)=opi(ind);
                     end
                     % laplacian smoothing
