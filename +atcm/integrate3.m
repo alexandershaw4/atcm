@@ -444,19 +444,27 @@ switch IntMethod
             elseif WithDelays == 2 %           [ I RECOMMEND THIS METHOD ]
                 % Karl's Euler-like-with-a-Jacobian-Delay scheme
                 % this just an RK method
-                for j = 1:N
-                    v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));           
-                    % Ozaki 1992 numerical method:
-                    % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
-                    %[fx,dfdx] = f(v,drive(i),P,M);
-                    %v = v + spm_dx(D*dfdx,D*fx,dt);
-                end   
-                % Expansion point - i.e. deviation around fixed point
-                if ~IsStochastic
-                    y(:,i) = v - spm_vec(M.x);                    
+                if drive(i) == 0
+                    % baseline
+                    v = v;
                 else
-                    y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
+                    
+                    for j = 1:N
+                        v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));           
+                        % Ozaki 1992 numerical method:
+                        % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
+                        %[fx,dfdx] = f(v,drive(i),P,M);
+                        %v = v + spm_dx(D*dfdx,D*fx,dt);
+                    end   
+                    
                 end
+                
+                % Expansion point - i.e. deviation around fixed point
+                    if ~IsStochastic
+                        y(:,i) = v - spm_vec(M.x);                    
+                    else
+                        y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
+                    end
                 
                 
             elseif WithDelays == 101
@@ -786,7 +794,7 @@ for ins = 1:ns
 
                         %MatDat = real(J(:)'*yx);
                         MatDat = real(yx(Ji(ij),:));
-
+                        
                         tf{i} = atcm.fun.bert_singlechannel([MatDat],cfg,FoI,[-1 0]);
                         y = double(tf{i}.agram);
                         y = double(atcm.fun.HighResMeanFilt(y,1,2));
@@ -794,8 +802,8 @@ for ins = 1:ns
                     end
                     
                     y = exp(P.L)*tfmat;
-                    s = ts;
-                    g = [];
+                    s = yx;
+                    g = ts;
                     noise = [];
                     layers.iweighted = yx;
                     return;                
