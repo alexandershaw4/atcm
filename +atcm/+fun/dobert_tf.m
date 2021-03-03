@@ -233,6 +233,7 @@ for i = 1:Ne;
     
     DCM.xY.y{i} = double(agram);
     DCM.xY.pst = tf{i}.sampletimes;
+    DCM.xY.iHz = tf{i}.freqs;
     
     DCM.xY.U    = DCM.M.U;
     DCM.xY.code = condlabels(trial);
