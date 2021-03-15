@@ -929,8 +929,10 @@ for ins = 1:ns
 %                            end
 %                            Pf = mean(Sk,1)';
 
-                            this = atcm.fun.bandpassfilter(this,1./dt,[w(1) w(end)]);
-                           
+                            [thispad,It] = atcm.fun.padtimeseries(this);
+                            thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1)-dw w(end)]);
+                            this = thispad(It);
+                            
                             if ncompe > 0
                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
                                Pfmean = squeeze(Pfmean);
