@@ -113,7 +113,7 @@ x     = M.x;                      % model (hidden) states
 Kx    = x;                        % pre-fp x, for kernel scheme
 dt    = 1/600;                    % sample rate
 Fs    = 1/dt;                     % sampling frequency
-tn    = 2;                        % sample window length, in seconds
+tn    = 3;                        % sample window length, in seconds
 pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
 
 % unpack simulation pst options, if specified
@@ -161,8 +161,8 @@ switch InputType
         %------------------------------------------------------------------
         mu    = 1*(P.R(1));                      % mean amplitude
         mf    = 10*exp(P.R(2));                      % frequency
-        drive = mu * ( (sin(2*pi*mf*(pst/1000))) ...
-                        + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
+        drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
+                     %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
                     
     case 2
         % For ERP inputs...
@@ -374,24 +374,9 @@ else
     IsStochastic = 0;
 end
 
-% If timefreq, find a 'robust' fixed point for the baseline period
-a     = 8;                  % regulariser
-dnx   = 0;
-if M.timefreq
-    for i = 1:1000
-        dx = del'.*(Q*f(spm_unvec(v,M.x),0,P,M));
-        ndx   = norm(dx,Inf);
-        if ndx < dnx
-            a = a/2;
-        end
-        dnx    = ndx;
-        M.x    = spm_unvec(spm_vec(M.x) + exp(-a)*dx,M.x);
-        if dnx < 1e-12, break, end
-    end
-    v     = spm_vec(M.x);
-    M.x = spm_unvec(v,M.x);
-end
-
+% if solvefp
+%    v    = spm_vec(atcm.fun.solvefixedpoint(P,M,drive(1)));
+% end
 
 % Frequency steps: dw
 dw = 1./(w(2)-w(1));
@@ -943,6 +928,8 @@ for ins = 1:ns
 %                                Sk(k,:) = 1./(1j*2*pi*w - fq(k));
 %                            end
 %                            Pf = mean(Sk,1)';
+
+                            this = atcm.fun.bandpassfilter(this,1./dt,[w(1) w(end)]);
                            
                             if ncompe > 0
                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
@@ -950,7 +937,9 @@ for ins = 1:ns
                                Pf = spm_vec(max(Pfmean'));
                             else
                                 [Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
-                                Pf = Pf(:);
+                                %Pf = pyulear(this,8,w,dw./dt).*Hz.^2;
+                                w0 = 1 + (8*( w./w(end)));
+                                Pf = Pf(:).*w0(:);%.*Hz(:);
                             end
                                                        
                             DoEnv = 1;
@@ -960,9 +949,16 @@ for ins = 1:ns
                             
                             if DoEnv
                                 
+                                %h = 1+hamming(length(Pf));
                                [padp,indp] = atcm.fun.padtimeseries(Pf);
-                               Pfs = full(atcm.fun.HighResMeanFilt(padp,1,4));
+                               %Pfs = full(atcm.fun.HighResMeanFilt(padp,1,4));
+                               
+                               %Pfs = atcm.fun.tsmovavg(padp','e',8);
+                               Pfs = atcm.fun.tsmovavg(padp','t',8);
+                               %Pfs = atcm.fun.tsmovavg(Pfs,'t',8);
+                               
                                Pf = Pfs(indp);
+                               Pf=Pf(:);
                                
                             end
                             
@@ -1231,39 +1227,50 @@ if isfield(M,'y')
                 end
                 
                 if ~usesmoothkernels
-                    % optimise smoothing function by picking best from an
-                    % iteratively smoothed version
-                    [padpf,ipf] = atcm.fun.padtimeseries(Pf(:,ins,ins));
-                    smoothpf = full(atcm.fun.HighResMeanFilt(padpf,1,12));%12
-                    i1 = smoothpf(ipf);
-                    for ik = 1:length(i0)
-                        opts(ik,:) = linspace(i0(ik),i1(ik),20);
-                    end
-                    %X = lsqnonneg(opts,yy); % pos constr LSQGLM
-                    %out(:,ins,ins) = exp(P.L(ins)) * (X'*opts');
-                    for ik = 1:length(i0)
-                        this = yy(ik);
-                        opi  = opts(ik,:);
-                        ind  = atcm.fun.findthenearest(this,opi);
-                        ind  = ind(1);
-                        
-                        if isfield(M,'pkrank')
-                            ism = round(linspace(1,12,20));
-                            smthi = round(rescale(M.pkrank,1,12));
-                            ind = atcm.fun.findthenearest(smthi(ik),ism);
-                            ind  = ind(1);
-                        end
-                            
-                        out(ik,ins,ins)=opi(ind);
-                    end
-                    % laplacian smoothing
-                    Pf(:,ins,ins) = out(:,ins,ins);
-                    [padvec,yi] = atcm.fun.padtimeseries(Pf(:,ins,ins));
-                    tsmth = full(atcm.fun.HighResMeanFilt(padvec,1,smthk));
-                    Pf(:,ins,ins) = tsmth(yi);
+                    
+                    Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+%                     
+%                     % optimise smoothing function by picking best from an
+%                     % iteratively smoothed version
+%                     [padpf,ipf] = atcm.fun.padtimeseries(Pf(:,ins,ins));
+%                     smoothpf = full(atcm.fun.HighResMeanFilt(padpf,1,smthk));%12
+%                     smoothpf = atcm.fun.tsmovavg(smoothpf','e',smthk);
+%                     %smoothpf = abs(hilbert(smoothpf));
+%                     i1 = smoothpf(ipf);
+%                     
+%                     for ik = 1:length(i0)
+%                         opts(ik,:) = linspace(i0(ik),i1(ik),10);
+%                         
+%                         %[pado,sec] = atcm.fun.padtimeseries(opts(ik,:));
+%                         %pado = abs(hilbert(pado));
+%                         %opts(ik,:) = pado(sec);
+%                         
+%                     end
+% %                     
+% %                     
+% %                     %b = pinv(opts'*opts)*opts'*yy;
+% %                     %out(:,ins,ins) = (opts*b)+Gn(:);
+%                     
+%                     %X = lsqnonneg(opts,yy); % pos constr LSQGLM
+%                     %out(:,ins,ins) = exp(P.L(ins)) * (X'*opts');
+%                    % Pf(:,ins,ins)=out(:,ins,ins);
+%                     for ik = 1:length(i0)
+%                         this = yy(ik);
+%                         opi  = opts(ik,:);
+%                         ind  = atcm.fun.findthenearest(this,opi);
+%                         ind  = ind(1);
+%                         
+%                         out(ik,ins,ins)=opi(ind);
+%                     end
+%                      Pf(:,ins,ins) = exp(P.L(ins))*out(:,ins,ins);
+                   %  [padvec,yi] = atcm.fun.padtimeseries(Pf(:,ins,ins));
+                   %  tsmth = full(atcm.fun.HighResMeanFilt(padvec,1,smthk));
+                %     tsmth = atcm.fun.tsmovavg(tsmth','e',smthk);
+                %     %tsmth = full(atcm.fun.tsmovavg(padvec','t',smthk));
+                    % Pf(:,ins,ins) = exp(P.L(ins))*tsmth(yi);
                     
                     %Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,smthk));
-                    %Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.aenvelope(Pf(:,ins,ins),35);
+                  %  Pf(:,ins,ins) = exp(P.L(ins))*atcm.fun.aenvelope(Pf(:,ins,ins),20);
                 else
                     [APf,GL] = AGenQ(Pf); % AGenQ gens smoothing vectors & GraphLap       
                     APf = APf;%.*GL;
@@ -1293,6 +1300,7 @@ if isfield(M,'y')
                 end
             end
         end
+        addnoise=0;
         if addnoise
             % Multiply in the semi-stochastic neuronal fluctuations
             for i = 1:length(Hz)
@@ -1314,7 +1322,7 @@ if isfield(M,'y')
     % RE-Incorporate noise components for auto (Gs) and cross (Gn) spectra
     %----------------------------------------------------------------------
     %if ns > 1
-    addnoise=0;
+    %addnoise=0;
     if addnoise
         for i = 1:ns
             for j = 1:ns
@@ -1322,7 +1330,7 @@ if isfield(M,'y')
                 Pf(:,i,j) = Pf(:,i,j) + Gn(:);
                 if j ~= i
                     % Cross spectral noise / innovations
-                    Pf(:,j,i) = Pf(:,j,i) + Gs(:,i);
+                    Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);
                     Pf(:,i,j) = Pf(:,j,i);
                 end
             end
@@ -1387,4 +1395,3 @@ warning on;
 j = j';
 j(isnan(j))=0;
 end
-
