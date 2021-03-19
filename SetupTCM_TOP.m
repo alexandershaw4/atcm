@@ -233,8 +233,7 @@ for s = 1:length(Data.Datasets)
     %DCM.M.pE.C = [0 0 0 0 0];
     %DCM.M.pC.C = [1 1 1 1 1]/8;
     
-    DCM.M.pE.L = -0.25;
-    %DCM.M.pE.L = -1;
+    DCM.M.pE.L = -2.5;
     
     
     DCM.M.pE.Gsc = zeros(1,8);
