@@ -21,7 +21,7 @@
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'KetDatasets.txt';  % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'SZ_Datasets.txt';  % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];              % std/dev
 Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
@@ -154,12 +154,12 @@ for s = 1:length(Data.Datasets)
     % Subfunctions
     %----------------------------------------------------------------------
     DCM = atcm.parameters(DCM,Ns);       % gets latet priors for tc nmm     
-    DCM = atcm.complete(DCM);            % complete network specification
+    
             
     % if using AOPTIM for inversion, invoke the linear model g(x) output by
     % placing data (DCM.xY.y) in model struct - DCM.M.y
     DCM.M.y  = DCM.xY.y;
-    DCM.M.Hz = DCM.M.Hz;
+    DCM.M.Hz = DCM.xY.Hz;
     
     % If using DCM inversion, select whether to block graph or not
     DCM.M.nograph = 0;
@@ -168,7 +168,6 @@ for s = 1:length(Data.Datasets)
     DCM.M.fmethod = 'none';
     DCM.M.DoEnv   = 1;
     
-    DCM.M.InputType 
     DCM.M.ncompe=0;
     DCM.M.envonly=1;
     DCM.M.EnvLFP=1;
@@ -242,6 +241,8 @@ for s = 1:length(Data.Datasets)
     DCM.M.pC.Gsc = ones(1,8)/16;
     
     DCM.M.pC.b = [1;1]/8;
+    
+    DCM = atcm.complete(DCM);            % complete network specification
     
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
