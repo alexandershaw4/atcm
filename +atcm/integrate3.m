@@ -340,7 +340,7 @@ try
    %N = min([N 4]);
 end
 
-del = exp(P.ID).*[2 1/4 1/2 4 1/2 4 2 2]/2;
+del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
 del = repmat(del,[1 nk]);
 del=1./del;
 if ns > 1
@@ -446,15 +446,22 @@ switch IntMethod
                     y(:,i) = y(:,i) + Delays;
                 end
             elseif WithDelays == 2 %           [ I RECOMMEND THIS METHOD ]
-                % Karl's Euler-like-with-a-Jacobian-Delay scheme
-                % this just an RK method
+                % Karl's Euler-like-with-a-matrix exponential delay operator
+                % this just essentially an RK method
                 if drive(i) == 0
                     % baseline
                     v = v;
                 else
                     
                     for j = 1:N
+                        
                         v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));           
+                        
+                        %[f0,dfdx,D] = f(spm_unvec(v,M.x),drive(i,:),P,M);
+                        %Q       = (spm_expm(dt*D*dfdx/N) - speye(n,n))*spm_inv(dfdx);
+                        
+                        %v = v + del'.*Q*f0;
+                        
                         % Ozaki 1992 numerical method:
                         % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
                         %[fx,dfdx] = f(v,drive(i),P,M);
@@ -778,7 +785,7 @@ for ins = 1:ns
     %----------------------------------------------------------------------
     warning off;              % avoid rank deficiency warning
     switch lower(fmethod)
-        case {'dmd' 'instantaneous' 'svd' 'none' 'glm' 'fooof' 'timefreq' 'eig'}
+        case {'kpca' 'dmd' 'instantaneous' 'svd' 'none' 'glm' 'fooof' 'timefreq' 'eig'}
             switch fmethod
                 
                 case 'timefreq'
@@ -812,7 +819,14 @@ for ins = 1:ns
                     layers.iweighted = yx;
                     return;                
                 
-                
+                case 'kpca'
+                    
+                    x = yx(1:8,:);
+                    kpca = KernelPca(x', 'gaussian', 'gamma', 2.5, 'AutoScale', true);
+                    M = length(find(Ji));
+                    Eigenvectors = project(kpca, x', M)';
+                    
+                    
                 case 'dmd'
                 [Eigenvalues, Eigenvectors, ModeAmplitudes, ModeFrequencies, ...
                     GrowthRates, POD_Mode_Energies] = atcm.fun.dmd((yx), length(Ji), dt);
@@ -867,16 +881,16 @@ for ins = 1:ns
                 try
                     switch fmethod
                                                 
-%                         case {'timefreq'}
-%                             data = Eigenvectors(Ji(ij),burn:end);
-% %                             for ik = 1:length(w)-1
-% %                                 [B, A] = atcm.fun.mk_filter(1./dt,w(ik), w(ik+1), 4);
-% %                                 filtve = filtfilt(B,A,data);
-% %                                 this(ik,:) = abs(hilbert(filtve));
-% %                             end
-% %                             tfm = HighResMeanFilt(this,1,4);
-% %                             
-% %                             Pf(i,:,:) = tfm;
+                        case {'timefreq'}
+                            data = Eigenvectors(Ji(ij),burn:end);
+%                             for ik = 1:length(w)-1
+%                                 [B, A] = atcm.fun.mk_filter(1./dt,w(ik), w(ik+1), 4);
+%                                 filtve = filtfilt(B,A,data);
+%                                 this(ik,:) = abs(hilbert(filtve));
+%                             end
+%                             tfm = HighResMeanFilt(this,1,4);
+%                             
+%                             Pf(i,:,:) = tfm;
 %                             
 %                             continue;
 %                             
@@ -902,12 +916,13 @@ for ins = 1:ns
                                 spec = dvdu*SS;
                                 Pf = exp(P.J(Ji(ij))) * spec(Ji(ij),:)';
                             
-                        case {'none','dmd','svd'}
+                        case {'none','dmd','svd' 'kpca'}
                             % just a smoothed fft of the (contributing)states
                             switch fmethod
                                 case 'none';this = Eigenvectors(Ji(ij),burn:end);
                                 case 'dmd' ;this = y0(burn:end);
                                 case 'svd' ;this = Eigenvectors(ij,burn:end);
+                                case 'kpca';this = y0(burn:end);
                             end
                             
                             % splined fft
@@ -928,19 +943,24 @@ for ins = 1:ns
 %                                Sk(k,:) = 1./(1j*2*pi*w - fq(k));
 %                            end
 %                            Pf = mean(Sk,1)';
-
+                                
                             [thispad,It] = atcm.fun.padtimeseries(this);
-                            thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1)-dw w(end)]);
+                            thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(end)]);
                             this = thispad(It);
                             
                             if ncompe > 0
                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
                                Pfmean = squeeze(Pfmean);
                                Pf = spm_vec(max(Pfmean'));
+                               
+                               nwg = 4*exp(P.psmooth);
+                                w0 = 1 + (nwg*( w./w(end)));
+                                Pf = Pf(:).*w0(:);
                             else
                                 [Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
-                                %Pf = pyulear(this,8,w,dw./dt).*Hz.^2;
-                                w0 = 1 + (8*( w./w(end)));
+                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                nwg = 4;%*exp(P.psmooth);
+                                w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:).*w0(:);%.*Hz(:);
                             end
                                                        
@@ -1230,32 +1250,93 @@ if isfield(M,'y')
                 
                 if ~usesmoothkernels
                     
-                    Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+                    %lyy = log10(yy);
+                    %lyy(isinf(lyy))=0;
+                    %b = robustfit(log10(w),lyy);
+                    %pv(1) = b(2);
+                    %pv(2) = b(1);
+                    
+                    m = fit(w.',Pf(:,ins,ins),'fourier8');
+                    x = Pf(:,ins,ins);
+                    p = m.w; %Dirichlet's condition 
+                    
+                    % rebuild the cossines constituting the fourier series
+                    for j = 1:8
+                        c(j,:) = m.(['a' num2str(j)])*cos(j*w*p)+m.(['b' num2str(j)])*sin(j*w*p);
+                    end
+                    warning off;
+                    %X = lsqnonneg(c',yy); % pos constr LSQGLM
+                    X = pinv(c*c')*c*yy;
+                    %Pf(:,ins,ins) = exp(P.L(ins)) * m(w);
+                    warning on;
+                    Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
+                    
+                    %Pf = mod(w);
+                    
+                    
+                    %c(1,:) = mod.a1*exp(-((w-mod.b1)/mod.c1).^2);
+                    %c(2,:) = mod.a2*exp(-((w-mod.b2)/mod.c2).^2);
+                    %c(3,:) = mod.a3*exp(-((w-mod.b3)/mod.c3).^2);
+                    %c(4,:) = mod.a4*exp(-((w-mod.b4)/mod.c4).^2);
+                    %c(5,:) = mod.a5*exp(-((w-mod.b5)/mod.c5).^2);
+                    %c(6,:) = mod.a6*exp(-((w-mod.b6)/mod.c6).^2);
+                    
+% 
+%                     k=12;
+%                     x = Pf(:,ins,ins);
+% 
+%                     gmdist = fitgmdist(x,k,'Replicates',length(w));
+% 
+%                     gmsigma = squeeze(gmdist.Sigma);
+%                     gmmu = gmdist.mu;
+%                     gmwt = gmdist.ComponentProportion;
+% 
+%                     for i = 1:k
+%                         %p(i,:) = gmdist.PComponents(i)*normpdf(w,gmdist.mu(i),sqrt(gmdist.Sigma(i)));
+%                         p(i,:) =  gmdist.PComponents(i)*pdf('Normal', (1:length(w))./length(w), gmmu(i), gmsigma(i)^0.5);
+%                     end
+% 
+%                     plot(w, p)
+%                     hold on;
+%                     plot(w,Pf)
 %                     
-%                     % optimise smoothing function by picking best from an
-%                     % iteratively smoothed version
-%                     [padpf,ipf] = atcm.fun.padtimeseries(Pf(:,ins,ins));
-%                     smoothpf = full(atcm.fun.HighResMeanFilt(padpf,1,smthk));%12
-%                     smoothpf = atcm.fun.tsmovavg(smoothpf','e',smthk);
-%                     %smoothpf = abs(hilbert(smoothpf));
+%                     X = lsqnonneg(c',yy); % pos constr LSQGLM
+%                     Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
+                    
+                    meanpower=c;
+%                     warning off;
+%                     meanpower=10.^(polyval(pv,log10(w))); 
+%                     meanpower = meanpower - min(meanpower);
+%                     %meanpower = meanpower.*tukeywin(length(meanpower),0.2)';
+%                     meanpower = meanpower*exp(P.psmooth);
+%                     warning on;
+%                     
+%                     Pf(:,ins,ins) = (exp(P.L(ins))*Pf(:,ins,ins))+meanpower(:);
+%                     
+% %                     % optimise smoothing function by picking best from an
+% %                     % iteratively smoothed version
+%                      [padpf,ipf] = atcm.fun.padtimeseries(Pf(:,ins,ins));
+%                      smoothpf = full(atcm.fun.HighResMeanFilt(padpf,1,smthk));%12
+% %                     smoothpf = atcm.fun.tsmovavg(smoothpf','e',smthk);
+% %                     smoothpf = abs(hilbert(smoothpf));
 %                     i1 = smoothpf(ipf);
 %                     
 %                     for ik = 1:length(i0)
-%                         opts(ik,:) = linspace(i0(ik),i1(ik),10);
+%                         opts(ik,:) = linspace(i0(ik),i1(ik),4);
 %                         
 %                         %[pado,sec] = atcm.fun.padtimeseries(opts(ik,:));
 %                         %pado = abs(hilbert(pado));
 %                         %opts(ik,:) = pado(sec);
 %                         
 %                     end
+% % %                     
+% % %                     
+% % %                     %b = pinv(opts'*opts)*opts'*yy;
+% % %                     %out(:,ins,ins) = (opts*b)+Gn(:);
 % %                     
-% %                     
-% %                     %b = pinv(opts'*opts)*opts'*yy;
-% %                     %out(:,ins,ins) = (opts*b)+Gn(:);
-%                     
-%                     %X = lsqnonneg(opts,yy); % pos constr LSQGLM
-%                     %out(:,ins,ins) = exp(P.L(ins)) * (X'*opts');
-%                    % Pf(:,ins,ins)=out(:,ins,ins);
+% %                     %X = lsqnonneg(opts,yy); % pos constr LSQGLM
+% %                     %out(:,ins,ins) = exp(P.L(ins)) * (X'*opts');
+% %                    % Pf(:,ins,ins)=out(:,ins,ins);
 %                     for ik = 1:length(i0)
 %                         this = yy(ik);
 %                         opi  = opts(ik,:);
@@ -1324,7 +1405,7 @@ if isfield(M,'y')
     % RE-Incorporate noise components for auto (Gs) and cross (Gn) spectra
     %----------------------------------------------------------------------
     %if ns > 1
-    %addnoise=0;
+    addnoise=1;
     if addnoise
         for i = 1:ns
             for j = 1:ns
@@ -1332,8 +1413,8 @@ if isfield(M,'y')
                 Pf(:,i,j) = Pf(:,i,j) + Gn(:);
                 if j ~= i
                     % Cross spectral noise / innovations
-                    Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);
-                    Pf(:,i,j) = Pf(:,j,i);
+                   % Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);
+                   % Pf(:,i,j) = Pf(:,j,i);
                 end
             end
         end
@@ -1356,6 +1437,7 @@ end
 y = Pf;
 s = timeseries;
 g = ts;
+noise.aperiodic = meanpower;
 
 end
 

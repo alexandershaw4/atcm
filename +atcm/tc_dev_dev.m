@@ -197,11 +197,11 @@ GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
 
 % Trying out some additional synapses - RL->SP&DP, TP->RT & DP->RL/RT
 GEa(1,:) = [0   0   0   0   0   2   0   2]/1;
-GEa(2,:) = [4   0   0   0   0   0   0   1]/1;
-GEa(3,:) = [0   4   0   0   0   0   0   0]/1; 
-GEa(4,:) = [0   4   0   0   0   2   0   1]/1;
+GEa(2,:) = [6   0   0   0   0   0   0   1]/1;
+GEa(3,:) = [0   8   0   0   0   0   0   0]/1; 
+GEa(4,:) = [0   6   0   0   0   2   0   1]/1;
 GEa(5,:) = [0   0   0   4   0   2   0   0]/1;
-GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
+GEa(6,:) = [0   0   0   6   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
 GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
 GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
@@ -225,11 +225,14 @@ GEa = GEa .* ~eye(np);
 %GEa = GEa * .8;
 GEa = GEa + eye(np);      % KILLED
 
+%GEa = GEa*exp(P.Gs);
 
 
 GEn = GEa;
 
 GEn = GEn + (eye(8)/8);
+
+%GEa(2,2)=16;
 
 
 % overwrite separate nmda matrix
@@ -238,15 +241,16 @@ GEn = GEn + (eye(8)/8);
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
 %           ss  sp  si  dp  di  tp  rt  rl
-GIa(1,:) = [8   0   8   0   0   0   0   0 ];
-GIa(2,:) = [0   16  32  0   0   0   0   0 ];
+GIa(1,:) = [16  0   8   0   0   0   0   0 ];
+GIa(2,:) = [0   32  16  0   0   0   0   0 ]; %spsp was 16
 GIa(3,:) = [0   0   32  0   32  0   0   0 ];
 GIa(4,:) = [0   0   0   8   12  0   0   0 ];
 GIa(5,:) = [0   0   32  0   16  0   0   0 ];
 GIa(6,:) = [0   0   0   0   32  8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
-GIa(8,:) = [0   0   0   0   0   0   8   32]; % 32!! SEPT
+GIa(8,:) = [0   0   0   0   0   0   8   32]; 
 
+%GIa(2,2)=32;
 
 % GIa(3,3)=4;
 % GIa(1,3)=0;
@@ -269,6 +273,8 @@ GIa(8,:) = [0   0   0   0   0   0   8   32]; % 32!! SEPT
 %GIa = GIa*(4*exp(P.in));
 
 GIa = GIa/2;
+
+%GIa = GIa * exp(P.GIs);
 
 GIb      = GIa;
 
@@ -398,11 +404,13 @@ for i = 1:ns
         else
             dU = 0;
         end
-                
+        
+        Gsc = ~eye(8);
+        Gsc = Gsc + (diag(exp(P.Gsc)));
         
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------
-        E      = ( G(:,:,i).*GEa)*m(i,:)'; % AMPA currents
+        E      = ( (G(:,:,i).*GEa).*Gsc )*m(i,:)'; % AMPA currents
         ENMDA  = (Gn(:,:,i).*GEn)*m(i,:)'; % NMDA currents
         I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
         IB     = ( G(:,:,i).*GIb)*m(i,:)'; % GABA-B currents

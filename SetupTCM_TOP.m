@@ -28,7 +28,7 @@ Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
 Data.Prefix       = 'TCM_';      % outputted DCM prefix
-Data.Datasets     = ReadverifyDatasets(Data.Datasets);
+Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
 %--------------------------------------------------------------------------
@@ -126,13 +126,13 @@ for s = 1:length(Data.Datasets)
     DCM.M.U            = sparse(diag(ones(Ns,1)));  %... ignore [modes]
     DCM.options.trials = tCode;                     %... trial code [GroupDataLocs]
     DCM.options.Tdcm   = [300 1000];                   %... peristimulus time
-    DCM.options.Fdcm   = [2 120];                    %... frequency window
+    DCM.options.Fdcm   = [4 90];                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
-    DCM.options.han    = 1;                         %... apply hanning window
+    DCM.options.han    = 0;                         %... apply hanning window
     DCM.options.h      = 4;                         %... number of confounds (DCT)
     DCM.options.DoData = 1;                         %... leave on [custom]
     %DCM.options.baseTdcm   = [-200 0];             %... baseline times [new!]
-    DCM.options.Fltdcm = [2 120];                    %... bp filter [new!]
+    DCM.options.Fltdcm = [4 90];                    %... bp filter [new!]
 
     DCM.options.analysis      = 'CSD';              %... analyse type
     DCM.xY.modality           = 'LFP';              %... ECD or LFP data? [LFP]
@@ -142,10 +142,10 @@ for s = 1:length(Data.Datasets)
 
     % Alex additions - 1010 = use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 0;
-    DCM.options.UseButterband = [2 120];
+    DCM.options.FFTSmooth     = 4;
+    DCM.options.UseButterband = [4 90];
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = 0.5;        % use .5 Hz steps
+    DCM.options.FrequencyStep = 1;        % use .5 Hz steps
     
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
@@ -166,37 +166,128 @@ for s = 1:length(Data.Datasets)
     
     % Final options for integrator
     DCM.M.fmethod = 'none';
-    DCM.M.DoEnv   = 0;
+    DCM.M.DoEnv   = 1;
     
-    % Fit the model using DCM inversion routine:
-    %-----------------------------------------------------
-    %DCM = atcm.optim.dcminvert(DCM);
-    %close; drawnow;
+    DCM.M.InputType 
+    DCM.M.ncompe=0;
+    DCM.M.envonly=1;
+    DCM.M.EnvLFP=1;
+    DCM.M.IncDCS=0;
+    DCM.M.burnin = 300;
+    DCM.M.solvefixed=1;
+    DCM.M.DoHamming=0;
+    DCM.M.LFPsmooth=0;
+    DCM.M.usesmoothkernels=0;
     
-    % Or, invert (optimise) using aoptim (AO.m) - works better!
-    %-----------------------------------------------------
+    % new parameters
+    pC = DCM.M.pC;
+    V  = spm_unvec(spm_vec(pC)*0,pC);
+    
+    V.L  = 1/8;
+    V.ID = ones(1,8)*0.0156;
+    
+    V.H([2 3],3)=1/8;
+    V.H([1 2],8)=1/8;
+    V.H(2,2)=1/8;
+    V.H(3,2)=1/8;
+    V.H(2,1)=1/8;
+    V.H([4 5],5)=1/8;
+    V.H(8,6)=1/8;
+    V.H(1,1)=1/8;
+    V.H(8,8)=1/8;
+    
+    V.Hn([2 3],2)=1/8;
+    V.Hn(3,2)=1/8;
+    V.Hn(2,1)=1/8;
+    V.Hn(8,6)=1/8;
+    V.Hn(1,8)=1/8;
+    
+    V.H(4,2)=1/8;
+    V.H([4 5 6],4)=1/8;
+    V.H(4,5)=1/8;    
+    V.H([3 5],[5 2])=1/16;
+    
+    V.H = pC.H;
+    V.Hn = pC.Hn;
+    
+    V.CV = ones(1,8)/8;
+    V.S = ones(1,8)/8;
+    
+    DCM.M.pC=V;
+    DCM.M.pE.L=0;
+        
+    DCM.M.DoHamming=0;
+    DCM.M.DoEnv=1;
+    DCM.M.LFPsmooth=12;
+    DCM.M.usesmoothkernels=0;
+    DCM.M.ncompe=0;
+    DCM.M.burnin=300;
+    
+    DCM.M.pE.J([1 4 6 8])=-1000;
+    DCM.M.pE.J(4)=log(.6);
+    DCM.M.pE.J(1)=log(.4);
+    
+    DCM.M.InputType=1;
+    DCM.M.pE.R(2)=0;
+    DCM.M.pC.R(2)=1/16;
+    
+    %DCM.M.pE.C = [0 0 0 0 0];
+    %DCM.M.pC.C = [1 1 1 1 1]/8;
+    
+    DCM.M.pE.L = -0.25;
+    %DCM.M.pE.L = -1;
+    
+    
+    DCM.M.pE.Gsc = zeros(1,8);
+    DCM.M.pC.Gsc = ones(1,8)/16;
+    
+    DCM.M.pC.b = [1;1]/8;
+    
+    % Optimise BASLEINE                                                  1
+    %----------------------------------------------------------------------
     M = AODCM(DCM);
-    M.default_optimise();
-    
-    % Extract the things we need from the optimisation object
-    EP = M.Ep;
-    F  = M.F;
-    CP = M.CP;
-    History = M.history;
 
-    EP = spm_unvec( spm_vec(EP), DCM.M.pE);
+    % opt set 1.
+    M.opts.EnforcePriorProb=1;
+    M.opts.ismimo=0;
+    M.opts.doparallel=1;
+    M.opts.hyperparams=1;
+    M.opts.fsd=0;
+    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
+    %M.opts.FS = @(x) x(:).^2.*(1:length(x))'.^2;  
     
-    % re-embed the reduced covariance matrix into full-model space
-    CP1 = atcm.fun.reembedreducedcovariancematrix(DCM,CP1);
+    M.default_optimise([1],[12]);
     
-    % save outputs when using AO.m
-    save(DCM.name,'DCM','EP','F','CP','History','M');
+    % set 2
+    M.update_parameters(M.Ep);
+    M.opts.Q = [];%QQ;
+    M.opts.hyperparams=0;
+    M.opts.fsd=0;
+    w = DCM.xY.Hz;
+    % bias both precision (Q) and feature selection (FS) toward gamma
+    M.opts.FS =@(x) x(:).^2.*(1:length(x))'.^2;     
+    M.opts.Q = spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
+    M.default_optimise([1],[4]);
+    
+    % set 3
+    M.update_parameters(M.Ep);
+    M.opts.ismimo=1;
+    M.opts.hyperparams=0;
+    M.opts.fsd=0;
+    M.opts.FS = [];%@(x) x(:).^2.*(1:length(x))'.^2;
+    M.default_optimise([1],[4]);
+    
+    % set 4
+    M.update_parameters(M.Ep);
+    M.opts.ismimo=0;
+    M.opts.hyperparams=1;
+    M.opts.fsd=1;
+    M.opts.FS = [];
+    M.default_optimise([1],[2]);
+    
+    Ep = spm_unvec(M.Ep,DCM.M.pE);
+    save(DCM.name); close; clear global;
 
-    
-    % n.b. 
-    % EP = posteriors, F = (sign flipped) F-value, CP = coviarance of
-    % (active_ parameters), History = history
-    % structure from the optimisation routine
     
     
     
