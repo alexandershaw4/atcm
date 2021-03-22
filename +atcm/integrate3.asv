@@ -603,10 +603,9 @@ timeseries  = y;
 firing      = S;
 nf          = length(w);
 spike       = firings;
-
+t = drive;
 
 [y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx);
-t = drive;
 end
 
 function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx)
@@ -945,23 +944,9 @@ for ins = 1:ns
 %                            end
 %                            Pf = mean(Sk,1)';
                                 
-
                             [thispad,It] = atcm.fun.padtimeseries(this);
                             thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(end)]);
                             this = thispad(It);
-                            
-                            
-                            X = dct(this);                             % Discrete cosine transform
-                            [XX,ind] = sort(abs(X)); ind = fliplr(ind);
-                            num_coeff = 1;
-                            while (norm([X(ind(1:num_coeff)) zeros(1,100-num_coeff)])/norm(X)<.99)
-                                num_coeff = num_coeff + 1;
-                            end;
-                            
-                            
-                            
-                            
-                            
                             
                             if ncompe > 0
                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
@@ -1289,6 +1274,13 @@ if isfield(M,'y')
                     %Pf = mod(w);
                     
                     
+                    X = dct(yx);                             % Discrete cosine transform
+                    [XX,ind] = sort(abs(X)); ind = fliplr(ind);
+                    num_coeff = 1;
+                    while (norm([X(ind(1:num_coeff)) zeros(1,100-num_coeff)])/norm(X)<.99)
+                        num_coeff = num_coeff + 1;
+                    end;
+                    num_coeff
                     
                     
                     
