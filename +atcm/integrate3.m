@@ -824,8 +824,8 @@ for ins = 1:ns
                     
                     x = yx(1:8,:);
                     kpca = KernelPca(x', 'gaussian', 'gamma', 2.5, 'AutoScale', true);
-                    M = length(find(Ji));
-                    Eigenvectors = project(kpca, x', M)';
+                    M0 = length(find(Ji));
+                    Eigenvectors = project(kpca, x', M0)';
                     
                     
                 case 'dmd'
@@ -945,24 +945,52 @@ for ins = 1:ns
 %                            end
 %                            Pf = mean(Sk,1)';
                                 
-
                             [thispad,It] = atcm.fun.padtimeseries(this);
                             thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(end)]);
                             this = thispad(It);
                             
+%                             MM = 30;
+%                             N = length(this);
+%                             Y=zeros(N-MM+1,MM);
+%                             for m=1:MM
+%                                 Y(:,m) = this((1:N-MM+1)+m-1);
+%                             end;
+%                             Cemb=Y'*Y / (N-MM+1);
+%                             C=Cemb;
+%                             
+%                             [RHO,LAMBDA] = eig(C);
+%                             LAMBDA = diag(LAMBDA);               % extract the diagonal elements
+%                             [LAMBDA,ind]=sort(LAMBDA,'descend'); % sort eigenvalues
+%                             RHO = RHO(:,ind);                    % and eigenvectors
+%                             
+%                             PC = Y*RHO;
+%                             
+%                             RC=zeros(N,MM);
+%                             for m=1:MM
+%                                 buf=PC(:,m)*RHO(:,m)'; % invert projection
+%                                 buf=buf(end:-1:1,:);
+%                                 for n=1:N % anti-diagonal averaging
+%                                     RC(n,m)=mean( diag(buf,-(N-MM+1)+n) );
+%                                 end
+%                             end
+%                             
+%                             %for ipf = 1:30; Pftest(ipf,:) = atcm.fun.AfftSmooth(RC(:,ipf)',dw/dt,w,12);end
+%                             %Bw = pinv(Pftest*Pftest')*Pftest*M.y{:};
+%                             %this = (RC*Bw)';
+%                             
+%                             this = sum(RC(:,1:10),2)';
                             
-                            X = dct(this);                             % Discrete cosine transform
-                            [XX,ind] = sort(abs(X)); ind = fliplr(ind);
-                            num_coeff = 1;
-                            while (norm([X(ind(1:num_coeff)) zeros(1,100-num_coeff)])/norm(X)<.99)
-                                num_coeff = num_coeff + 1;
-                            end;
                             
-                            
-                            
-                            
-                            
-                            
+%                             X = dct(this);
+%                             [XX,ind] = sort(abs(X),'descend');
+%                             i = 1;
+%                             while norm(X(ind(1:i)))/norm(X) < 0.98
+%                                 i = i + 1;
+%                             end
+%                             needed = i;
+%                             X(ind(needed+1:end)) = 0;
+%                             this = idct(X);
+                                  
                             if ncompe > 0
                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
                                Pfmean = squeeze(Pfmean);
@@ -1271,25 +1299,70 @@ if isfield(M,'y')
                     %pv(1) = b(2);
                     %pv(2) = b(1);
                     
-                    m = fit(w.',Pf(:,ins,ins),'fourier8');
-                    x = Pf(:,ins,ins);
-                    p = m.w; %Dirichlet's condition 
+                    %Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
                     
-                    % rebuild the cossines constituting the fourier series
-                    for j = 1:8
-                        c(j,:) = m.(['a' num2str(j)])*cos(j*w*p)+m.(['b' num2str(j)])*sin(j*w*p);
+                    
+                    X = Pf(:,ins,ins);
+                    MM = 30;
+                    N = length(X);
+                    Y=zeros(N-MM+1,MM);
+                    for m=1:MM
+                        Y(:,m) = X((1:N-MM+1)+m-1);
+                    end;
+                    Cemb=Y'*Y / (N-MM+1);
+                    C=Cemb;
+                    
+                    [RHO,LAMBDA] = eig(C);
+                    LAMBDA = diag(LAMBDA);               % extract the diagonal elements
+                    [LAMBDA,ind]=sort(LAMBDA,'descend'); % sort eigenvalues
+                    RHO = RHO(:,ind);                    % and eigenvectors
+                    
+                    PC = Y*RHO;
+                    
+                    RC=zeros(N,MM);
+                    for m=1:MM
+                        buf=PC(:,m)*RHO(:,m)'; % invert projection
+                        buf=buf(end:-1:1,:);
+                        for n=1:N % anti-diagonal averaging
+                            RC(n,m)=mean( diag(buf,-(N-MM+1)+n) );
+                        end
                     end
-                    warning off;
-                    %X = lsqnonneg(c',yy); % pos constr LSQGLM
-                    X = pinv(c*c')*c*yy;
-                    %Pf(:,ins,ins) = exp(P.L(ins)) * m(w);
-                    warning on;
-                    Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
+                    
+                    %npc = atcm.fun.findthenearest(cumsum(LAMBDA)./sum(LAMBDA),.9999);
+                    
+                    %pc = RC(:,1:npc);
+                    pc = RC;
+                    Bw = pinv(pc'*pc)*pc'*yy;
+                    %warning off;
+                    %Bw = lsqnonneg(pc,yy); % pos constr LSQGLM
+                    %warning on;
+                    
+                    %for ipf = 1:30; Pftest(ipf,:) = atcm.fun.AfftSmooth(RC(:,ipf)',dw/dt,w,12);end
+                    %Bw = pinv(Pftest*Pftest')*Pftest*M.y{:};
+                    %this = (RC*Bw)';
+                    
+                    Pf(:,ins,ins) = exp(P.L(ins))*(pc*Bw);
+                    
+                    c = RC;
+                    X = {pc Bw};
+                    
+                    
+%                     m = fit(w.',Pf(:,ins,ins),'fourier8');
+%                     x = Pf(:,ins,ins);
+%                     p = m.w; %Dirichlet's condition 
+%                     
+%                     % rebuild the cossines constituting the fourier series
+%                     for j = 1:8
+%                         c(j,:) = m.(['a' num2str(j)])*cos(j*w*p)+m.(['b' num2str(j)])*sin(j*w*p);
+%                     end
+%                     warning off;
+%                     %X = lsqnonneg(c',yy); % pos constr LSQGLM
+%                     X = pinv(c*c')*c*yy;
+%                     Pf(:,ins,ins) = exp(P.L(ins)) * m(w);
+%                     warning on;
+                    %Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
                     
                     %Pf = mod(w);
-                    
-                    
-                    
                     
                     
                     %c(1,:) = mod.a1*exp(-((w-mod.b1)/mod.c1).^2);
@@ -1320,7 +1393,8 @@ if isfield(M,'y')
 %                     
 %                     X = lsqnonneg(c',yy); % pos constr LSQGLM
 %                     Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
-                    
+                    %X=[];
+                    %c=[];
                     meanpower={X c};
 %                     warning off;
 %                     meanpower=10.^(polyval(pv,log10(w))); 
@@ -1455,7 +1529,9 @@ end
 y = Pf;
 s = timeseries;
 g = ts;
-noise.aperiodic = meanpower;
+try
+    noise.aperiodic = meanpower;
+end
 
 end
 

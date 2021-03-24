@@ -178,10 +178,12 @@ for s = 1:length(Data.Datasets)
     DCM.M.LFPsmooth=0;
     DCM.M.usesmoothkernels=0;
     
-    % new parameters
+    DCM.M.IncDCS=0;
+    DCM.M.pC.d = ones(8,1)*0;
+    
     pC = DCM.M.pC;
     V  = spm_unvec(spm_vec(pC)*0,pC);
-    
+       
     V.L  = 1/8;
     V.ID = ones(1,8)*0.0156;
     
@@ -203,18 +205,26 @@ for s = 1:length(Data.Datasets)
     
     V.H(4,2)=1/8;
     V.H([4 5 6],4)=1/8;
-    V.H(4,5)=1/8;    
+    V.H(4,5)=1/8;
+    
+    
     V.H([3 5],[5 2])=1/16;
     
     V.H = pC.H;
     V.Hn = pC.Hn;
     
-    V.CV = ones(1,8)/8;
-    V.S = ones(1,8)/8;
     
+    V.CV = ones(1,8)/8;
+    %V.S = ones(1,8)/8;
+    
+    %V.D = [1 1]/8;
+    %V.D0=[1 1]/8;
+    
+        
     DCM.M.pC=V;
     DCM.M.pE.L=0;
-        
+    
+    
     DCM.M.DoHamming=0;
     DCM.M.DoEnv=1;
     DCM.M.LFPsmooth=12;
@@ -225,67 +235,43 @@ for s = 1:length(Data.Datasets)
     DCM.M.pE.J([1 4 6 8])=-1000;
     DCM.M.pE.J(4)=log(.6);
     DCM.M.pE.J(1)=log(.4);
-    
     DCM.M.InputType=1;
     DCM.M.pE.R(2)=0;
     DCM.M.pC.R(2)=1/16;
     
-    %DCM.M.pE.C = [0 0 0 0 0];
-    %DCM.M.pC.C = [1 1 1 1 1]/8;
     
-    DCM.M.pE.L = -2.5;
+    DCM.M.pE.L = -0.25;
+    %DCM.M.pE.L = -1;
     
     
     DCM.M.pE.Gsc = zeros(1,8);
     DCM.M.pC.Gsc = ones(1,8)/16;
+    %DCM.M.pC.Gsc = zeros(1,8);
     
-    DCM.M.pC.b = [1;1]/8;
-    
-    DCM = atcm.complete(DCM);            % complete network specification
+    DCM.M.pC.b = [1;1]/8;    
     
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
-
+    
     % opt set 1.
     M.opts.EnforcePriorProb=1;
     M.opts.ismimo=0;
     M.opts.doparallel=1;
     M.opts.hyperparams=1;
     M.opts.fsd=0;
-    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
+    
+    w = DCM.xY.Hz;
+    M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     %M.opts.FS = @(x) x(:).^2.*(1:length(x))'.^2;  
     
-    M.default_optimise([1],[12]);
+    M.default_optimise([1],[20]);
     
-    % set 2
     M.update_parameters(M.Ep);
-    M.opts.Q = [];%QQ;
-    M.opts.hyperparams=0;
-    M.opts.fsd=0;
-    w = DCM.xY.Hz;
-    % bias both precision (Q) and feature selection (FS) toward gamma
-    M.opts.FS =@(x) x(:).^2.*(1:length(x))'.^2;     
-    M.opts.Q = spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
-    M.default_optimise([1],[4]);
-    
-    % set 3
-    M.update_parameters(M.Ep);
-    M.opts.ismimo=1;
-    M.opts.hyperparams=0;
-    M.opts.fsd=0;
-    M.opts.FS = [];%@(x) x(:).^2.*(1:length(x))'.^2;
-    M.default_optimise([1],[4]);
-    
-    % set 4
-    M.update_parameters(M.Ep);
-    M.opts.ismimo=0;
-    M.opts.hyperparams=1;
-    M.opts.fsd=1;
-    M.opts.FS = [];
-    M.default_optimise([1],[2]);
-    
+    %M.opts.Q=[];
+    M.default_optimise([3 1],[10 20]);
     Ep = spm_unvec(M.Ep,DCM.M.pE);
+    
     save(DCM.name); close; clear global;
 
     
