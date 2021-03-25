@@ -340,16 +340,30 @@ try
    %N = min([N 4]);
 end
 
-del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
-del = repmat(del,[1 nk]);
-del=1./del;
-if ns > 1
-    if ~isfield(P,'delay')
-        del = (spm_vec(repmat(del,[ns 1])))';
-    else
+if npp == 8
+    del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
+    del = repmat(del,[1 nk]);
+    del=1./del;
+    if ns > 1
+        if ~isfield(P,'delay')
+            del = (spm_vec(repmat(del,[ns 1])))';
+        else
+        end
     end
+    condel=del;
 end
-condel=del;
+if npp == 4 % cmc
+    del = exp(P.ID).*[2 1/4 1/2 4]/2.4;
+    del = repmat(del,[1 nk]);
+    del=1./del;
+    if ns > 1
+        if ~isfield(P,'delay')
+            del = (spm_vec(repmat(del,[ns 1])))';
+        else
+        end
+    end
+    condel=del;
+end
  
 % initial firing rate
 Curfire = zeros(size(M.x,2),1)';
@@ -884,21 +898,6 @@ for ins = 1:ns
                                                 
                         case {'timefreq'}
                             data = Eigenvectors(Ji(ij),burn:end);
-%                             for ik = 1:length(w)-1
-%                                 [B, A] = atcm.fun.mk_filter(1./dt,w(ik), w(ik+1), 4);
-%                                 filtve = filtfilt(B,A,data);
-%                                 this(ik,:) = abs(hilbert(filtve));
-%                             end
-%                             tfm = HighResMeanFilt(this,1,4);
-%                             
-%                             Pf(i,:,:) = tfm;
-%                             
-%                             continue;
-%                             
-                            %tfm=mean(tfm,2);
-                            %Pf = tfm;
-                            %Pf(end+1)=Pf(end);
-                            %Pf0(ins,ij,:) = Pf;
                         
                         case 'eig'
                                 J = dfdx;
@@ -906,7 +905,7 @@ for ins = 1:ns
                                 s     = diag(s);
                                 s     = 1j*imag(s) + real(s) - exp(real(s));
                                 
-                                [vv,uu,ss]=svd(Eigenvectors);
+                                [vv,uu,ss]=svd(Eigenvectors*Eigenvectors');
                                 dvdu  = pinv(vv);
 
                                 for k = 1:length(s)
@@ -944,53 +943,28 @@ for ins = 1:ns
 %                                Sk(k,:) = 1./(1j*2*pi*w - fq(k));
 %                            end
 %                            Pf = mean(Sk,1)';
-                                
+
                             [thispad,It] = atcm.fun.padtimeseries(this);
-                            thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(end)]);
-                            this = thispad(It);
+                            thisl = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(round(w(end)/2))]);
+                            thish = atcm.fun.bandpassfilter(thispad',1./dt,[w(round(w(end)/2)) w(end)]);
+                            this  = thisl(It) + thish(It);
                             
-%                             MM = 30;
-%                             N = length(this);
-%                             Y=zeros(N-MM+1,MM);
-%                             for m=1:MM
-%                                 Y(:,m) = this((1:N-MM+1)+m-1);
-%                             end;
-%                             Cemb=Y'*Y / (N-MM+1);
-%                             C=Cemb;
+                             
+
+%                             [thispad,It] = atcm.fun.padtimeseries(this);
+%                             thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(end)]);
+%                             this = thispad(It);
 %                             
-%                             [RHO,LAMBDA] = eig(C);
-%                             LAMBDA = diag(LAMBDA);               % extract the diagonal elements
-%                             [LAMBDA,ind]=sort(LAMBDA,'descend'); % sort eigenvalues
-%                             RHO = RHO(:,ind);                    % and eigenvectors
-%                             
-%                             PC = Y*RHO;
-%                             
-%                             RC=zeros(N,MM);
-%                             for m=1:MM
-%                                 buf=PC(:,m)*RHO(:,m)'; % invert projection
-%                                 buf=buf(end:-1:1,:);
-%                                 for n=1:N % anti-diagonal averaging
-%                                     RC(n,m)=mean( diag(buf,-(N-MM+1)+n) );
-%                                 end
-%                             end
-%                             
-%                             %for ipf = 1:30; Pftest(ipf,:) = atcm.fun.AfftSmooth(RC(:,ipf)',dw/dt,w,12);end
-%                             %Bw = pinv(Pftest*Pftest')*Pftest*M.y{:};
-%                             %this = (RC*Bw)';
-%                             
-%                             this = sum(RC(:,1:10),2)';
-                            
-                            
-%                             X = dct(this);
-%                             [XX,ind] = sort(abs(X),'descend');
-%                             i = 1;
-%                             while norm(X(ind(1:i)))/norm(X) < 0.98
-%                                 i = i + 1;
-%                             end
-%                             needed = i;
-%                             X(ind(needed+1:end)) = 0;
-%                             this = idct(X);
-                                  
+% %                             X = dct(this);
+% %                             [XX,ind] = sort(abs(X),'descend');
+% %                             i = 1;
+% %                             while norm(X(ind(1:i)))/norm(X) < 0.98
+% %                                 i = i + 1;
+% %                             end
+% %                             needed = i;
+% %                             X(ind(needed+1:end)) = 0;
+% %                             this = idct(X);
+%                                   
                             if ncompe > 0
                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
                                Pfmean = squeeze(Pfmean);
@@ -1000,8 +974,8 @@ for ins = 1:ns
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:).*w0(:);
                             else
-                                [Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
-                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                %[Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
+                                Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
                                 nwg = 4;%*exp(P.psmooth);
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:).*w0(:);%.*Hz(:);
@@ -1014,14 +988,8 @@ for ins = 1:ns
                             
                             if DoEnv
                                 
-                                %h = 1+hamming(length(Pf));
                                [padp,indp] = atcm.fun.padtimeseries(Pf);
-                               %Pfs = full(atcm.fun.HighResMeanFilt(padp,1,4));
-                               
-                               %Pfs = atcm.fun.tsmovavg(padp','e',8);
                                Pfs = atcm.fun.tsmovavg(padp','t',8);
-                               %Pfs = atcm.fun.tsmovavg(Pfs,'t',8);
-                               
                                Pf = Pfs(indp);
                                Pf=Pf(:);
                                
@@ -1077,11 +1045,6 @@ for ins = 1:ns
                 Pf = (Pf)';
                 Pf = full(Pf)';
 
-                % Multiply in the semi-stochastic neuronal fluctuations
-                for i = 1:length(Hz)
-                    %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins))*sq(Pf(i,:,:))'; % PUTBAC
-                    %Pf(i,:,:) = sq(Pf(i,:,:))*diag(Gu(i,ins));
-                end
                 J  = full(exp(P.J));
 
                 if DoHamming
@@ -1176,92 +1139,7 @@ if isfield(M,'y')
                 b  = pinv(Mm*Mm')*Mm*yy;
                 Pf(:,ins,ins) = b'*Mm; 
                 Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
-                
-            else
-                % For a refined smoothing topimised spectrum - works best
-                % when the spiky spectrum is already close to optimal
-                Sk = [1 2 3 6 10 20 30 40];% 35 40 50 55];
-                for j = 1:length(Sk)
-                    for i = 1:size(dat,2)
-                        dev(j,:,i) = atcm.fun.aenvelope(dat(:,i),Sk(j));
-                    end
-                end
-                Mm = [];
-                for ii = 1:size(dat,2)
-                    these = [dat(:,ii) squeeze(dev(:,:,ii))']';
-                    cx    = corr(these').^2;
-                    [~,I] = atcm.fun.maxpoints(cx(2:end,1),4);
-                    Mm = [Mm;these];
-                end
-                Mm = [Mm;dat'];
-                b  = pinv(Mm*Mm')*Mm*yy;                
-                Pf(:,ins,ins) = b'*Mm;
-                Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
-                layers.b(ins,:)   = b;
-                layers.M(ins,:,:) = Mm;
             end
-            
-            layers.weighted = layers.iweighted;
-        elseif linmod == 5
-            
-            acc = Pf(:,ins,ins)*0;
-            for i = 1:size(dat,2)
-                smth = full(atcm.fun.HighResMeanFilt(dat(:,i),1,16));
-                Mm   = [dat(:,i) smth]';
-                b = [1 1]'/2;
-                this = J(Ji(i)) * (b'*Mm);
-                acc(:,ins,ins) =  acc(:,ins,ins) + this(:);
-            end
-            Pf(:,ins,ins) = acc(:,ins,ins) * exp(P.L(ins));
-            
-            
-        elseif linmod == 4
-           clear dev;
-           Sk = [55 35 20 40];
-           for i = 1:size(dat,2)
-                dev(:,i) = atcm.fun.aenvelope(dat(:,i),Sk(i)); 
-           end
-            Mm = [dat dev]';
-            b  = pinv(Mm*Mm')*Mm*yy;
-            Pf(:,ins,ins) = b'*Mm;  
-            Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
-            layers.b(ins,:)   = b;
-            layers.M(ins,:,:) = Mm;            
-            
-        elseif linmod == 2
-            clear dev 
-            
-            dev(1,:,:) = ev1 - dat;
-            dev(2,:,:) = ev2 - dat;
-            dev(3,:,:) = ev3 - dat;
-            dev(4,:,:) = ev4 - dat;
-
-            for ii = 1:size(dat,2)
-                M = [dat(:,ii) squeeze(dev(:,:,ii))']';
-                b = pinv(M*M')*M*yy;
-                best(ii,:) = b'*M; 
-            end
-            
-            % Now best combo:
-            bb = pinv(best*best')*best*yy;
-            glbest = bb'*best;
-            Pf(:,ins,ins) = glbest * exp(P.L(ins));
-            
-        elseif linmod == 3
-            clear dev
-            dev(1,:,:) = ev1 - dat;
-            dev(2,:,:) = ev2 - dat;
-            dev(3,:,:) = ev3 - dat;
-            dev(4,:,:) = ev4 - dat;
-
-            for ii = 1:size(dat,2)
-                M = [dat(:,ii) squeeze(dev(:,:,ii))']';
-                b = pinv(M*M')*M*yy;
-                best(ii,:) = (b'*M) * J(Ji(ii)); 
-            end
-            
-            glbest = sum(best,1);
-            Pf(:,ins,ins) = glbest * exp(P.L(ins));
         end
         
         if isfield(M,'EnvLFP') && M.EnvLFP
@@ -1270,11 +1148,7 @@ if isfield(M,'y')
             else
                 smthk = 2;
             end
-            
-            if isfield(P,'LFPsmooth') && ~isempty(P.LFPsmooth)
-                smthk = round(exp(P.LFPsmooth));
-            end
-            
+                        
             if isfield(M,'tsmovavg')
                 do_movavg = M.tsmovavg;
             else
@@ -1282,8 +1156,6 @@ if isfield(M,'y')
             end
             
             if ~do_movavg
-                % linearly inteprolated between spiky and smooth - find
-                % best fit
                 i0 = Pf(:,ins,ins);
                 yy ;
                 usesmoothkernels = 0;
@@ -1292,18 +1164,11 @@ if isfield(M,'y')
                 end
                 
                 if ~usesmoothkernels
-                    
-                    %lyy = log10(yy);
-                    %lyy(isinf(lyy))=0;
-                    %b = robustfit(log10(w),lyy);
-                    %pv(1) = b(2);
-                    %pv(2) = b(1);
-                    
-                    %Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
-                    
-                    
+                                        
+                    % Compute singular spectrum analysis [ssa], fir comps
+                    %------------------------------------------------------
                     X = Pf(:,ins,ins);
-                    MM = 30;
+                    MM = 30;                             % delay/embedding
                     N = length(X);
                     Y=zeros(N-MM+1,MM);
                     for m=1:MM
@@ -1329,23 +1194,19 @@ if isfield(M,'y')
                     end
                     
                     %npc = atcm.fun.findthenearest(cumsum(LAMBDA)./sum(LAMBDA),.9999);
-                    
                     %pc = RC(:,1:npc);
                     pc = RC;
                     Bw = pinv(pc'*pc)*pc'*yy;
+                    
                     %warning off;
                     %Bw = lsqnonneg(pc,yy); % pos constr LSQGLM
                     %warning on;
-                    
-                    %for ipf = 1:30; Pftest(ipf,:) = atcm.fun.AfftSmooth(RC(:,ipf)',dw/dt,w,12);end
-                    %Bw = pinv(Pftest*Pftest')*Pftest*M.y{:};
-                    %this = (RC*Bw)';
-                    
+                                        
                     Pf(:,ins,ins) = exp(P.L(ins))*(pc*Bw);
                     
                     c = RC;
                     X = {pc Bw};
-                    
+                    meanpower={X c};
                     
 %                     m = fit(w.',Pf(:,ins,ins),'fourier8');
 %                     x = Pf(:,ins,ins);
@@ -1361,49 +1222,12 @@ if isfield(M,'y')
 %                     Pf(:,ins,ins) = exp(P.L(ins)) * m(w);
 %                     warning on;
                     %Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
-                    
                     %Pf = mod(w);
                     
                     
-                    %c(1,:) = mod.a1*exp(-((w-mod.b1)/mod.c1).^2);
-                    %c(2,:) = mod.a2*exp(-((w-mod.b2)/mod.c2).^2);
-                    %c(3,:) = mod.a3*exp(-((w-mod.b3)/mod.c3).^2);
-                    %c(4,:) = mod.a4*exp(-((w-mod.b4)/mod.c4).^2);
-                    %c(5,:) = mod.a5*exp(-((w-mod.b5)/mod.c5).^2);
-                    %c(6,:) = mod.a6*exp(-((w-mod.b6)/mod.c6).^2);
-                    
-% 
-%                     k=12;
-%                     x = Pf(:,ins,ins);
-% 
-%                     gmdist = fitgmdist(x,k,'Replicates',length(w));
-% 
-%                     gmsigma = squeeze(gmdist.Sigma);
-%                     gmmu = gmdist.mu;
-%                     gmwt = gmdist.ComponentProportion;
-% 
-%                     for i = 1:k
-%                         %p(i,:) = gmdist.PComponents(i)*normpdf(w,gmdist.mu(i),sqrt(gmdist.Sigma(i)));
-%                         p(i,:) =  gmdist.PComponents(i)*pdf('Normal', (1:length(w))./length(w), gmmu(i), gmsigma(i)^0.5);
-%                     end
-% 
-%                     plot(w, p)
-%                     hold on;
-%                     plot(w,Pf)
-%                     
-%                     X = lsqnonneg(c',yy); % pos constr LSQGLM
-%                     Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
                     %X=[];
                     %c=[];
-                    meanpower={X c};
-%                     warning off;
-%                     meanpower=10.^(polyval(pv,log10(w))); 
-%                     meanpower = meanpower - min(meanpower);
-%                     %meanpower = meanpower.*tukeywin(length(meanpower),0.2)';
-%                     meanpower = meanpower*exp(P.psmooth);
-%                     warning on;
-%                     
-%                     Pf(:,ins,ins) = (exp(P.L(ins))*Pf(:,ins,ins))+meanpower(:);
+                    
 %                     
 % %                     % optimise smoothing function by picking best from an
 % %                     % iteratively smoothed version

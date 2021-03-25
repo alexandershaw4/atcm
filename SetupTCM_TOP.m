@@ -177,6 +177,7 @@ for s = 1:length(Data.Datasets)
     DCM.M.DoHamming=0;
     DCM.M.LFPsmooth=0;
     DCM.M.usesmoothkernels=0;
+    DCM.M.intmethod=2;
     
     DCM.M.IncDCS=0;
     DCM.M.pC.d = ones(8,1)*0;
