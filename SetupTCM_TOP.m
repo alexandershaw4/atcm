@@ -21,7 +21,7 @@
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'SZ_Datasets.txt';  % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'PMP_Datasets.txt';  % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];              % std/dev
 Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
@@ -125,7 +125,7 @@ for s = 1:length(Data.Datasets)
     %----------------------------------------------------------------------
     DCM.M.U            = sparse(diag(ones(Ns,1)));  %... ignore [modes]
     DCM.options.trials = tCode;                     %... trial code [GroupDataLocs]
-    DCM.options.Tdcm   = [300 1000];                   %... peristimulus time
+    DCM.options.Tdcm   = [300 1300];                   %... peristimulus time
     DCM.options.Fdcm   = [4 90];                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
     DCM.options.han    = 0;                         %... apply hanning window
@@ -187,52 +187,16 @@ for s = 1:length(Data.Datasets)
        
     V.L  = 1/8;
     V.ID = ones(1,8)*0.0156;
-    
-    V.H([2 3],3)=1/8;
-    V.H([1 2],8)=1/8;
-    V.H(2,2)=1/8;
-    V.H(3,2)=1/8;
-    V.H(2,1)=1/8;
-    V.H([4 5],5)=1/8;
-    V.H(8,6)=1/8;
-    V.H(1,1)=1/8;
-    V.H(8,8)=1/8;
-    
-    V.Hn([2 3],2)=1/8;
-    V.Hn(3,2)=1/8;
-    V.Hn(2,1)=1/8;
-    V.Hn(8,6)=1/8;
-    V.Hn(1,8)=1/8;
-    
-    V.H(4,2)=1/8;
-    V.H([4 5 6],4)=1/8;
-    V.H(4,5)=1/8;
-    
-    
-    V.H([3 5],[5 2])=1/16;
-    
+        
     V.H = pC.H;
     V.Hn = pC.Hn;
     
-    
     V.CV = ones(1,8)/8;
-    %V.S = ones(1,8)/8;
-    
-    %V.D = [1 1]/8;
-    %V.D0=[1 1]/8;
-    
         
     DCM.M.pC=V;
     DCM.M.pE.L=0;
     
-    
-    DCM.M.DoHamming=0;
-    DCM.M.DoEnv=1;
-    DCM.M.LFPsmooth=12;
-    DCM.M.usesmoothkernels=0;
-    DCM.M.ncompe=0;
-    DCM.M.burnin=300;
-    
+    % Observation & Input Fun Settings
     DCM.M.pE.J([1 4 6 8])=-1000;
     DCM.M.pE.J(4)=log(.6);
     DCM.M.pE.J(1)=log(.4);
@@ -240,16 +204,10 @@ for s = 1:length(Data.Datasets)
     DCM.M.pE.R(2)=0;
     DCM.M.pC.R(2)=1/16;
     
-    
     DCM.M.pE.L = -0.25;
-    %DCM.M.pE.L = -1;
-    
-    
-    DCM.M.pE.Gsc = zeros(1,8);
-    DCM.M.pC.Gsc = ones(1,8)/16;
-    %DCM.M.pC.Gsc = zeros(1,8);
-    
     DCM.M.pC.b = [1;1]/8;    
+    
+    DCM = atcm.complete(DCM);
     
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
