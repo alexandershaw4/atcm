@@ -36,7 +36,7 @@ else
 
         % NEEDS UPDATING FOR MULTINODE/REGION
         pth = fileparts(mfilename('fullpath'));
-        pr = load([pth '/+fun/FEB_PRIORS_2021']);;
+        pr = load([pth '/+fun/Priors2021a']);;
         
         else
             pr = load(priorfile);
