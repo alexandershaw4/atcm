@@ -75,12 +75,8 @@ L = sparse(1,1);
 % L = sparse(8,8); 
 
 
-% THE REST IS COMMON ACROSS SETUPS: 
-%                                   DONT EDIT, APART FROM 'PREPARE DATA'
+% THE REST IS COMMON ACROSS SETUPS: DONT EDIT, APART FROM 'PREPARE DATA'
 %--------------------------------------------------------------------------
-
-
-
 
 
 % Set up, over subjects
@@ -155,7 +151,6 @@ for s = 1:length(Data.Datasets)
     %----------------------------------------------------------------------
     DCM = atcm.parameters(DCM,Ns);       % gets latet priors for tc nmm     
     
-            
     % if using AOPTIM for inversion, invoke the linear model g(x) output by
     % placing data (DCM.xY.y) in model struct - DCM.M.y
     DCM.M.y  = DCM.xY.y;
@@ -192,9 +187,10 @@ for s = 1:length(Data.Datasets)
     V.Hn = pC.Hn;
     
     V.CV = ones(1,8)/8;
-        
+    V.Gsc = ones(1,8)/8;
+    V.R(2) = 1/8;
+    V.b = [1;1]/8;
     DCM.M.pC=V;
-    DCM.M.pE.L=0;
     
     % Observation & Input Fun Settings
     DCM.M.pE.J([1 4 6 8])=-1000;
