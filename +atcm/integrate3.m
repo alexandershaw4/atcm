@@ -945,17 +945,10 @@ for ins = 1:ns
 %                            Pf = mean(Sk,1)';
 
                             [thispad,It] = atcm.fun.padtimeseries(this);
-                            thisl = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(round(w(end)/2))]);
-                            thish = atcm.fun.bandpassfilter(thispad',1./dt,[w(round(w(end)/2)) w(end)]);
-                            this  = thisl(It) + thish(It);
-                            
-                             
+                            thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(end)]);
+                            this = thispad(It);
 
-%                             [thispad,It] = atcm.fun.padtimeseries(this);
-%                             thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(end)]);
-%                             this = thispad(It);
-%                             
-% %                             X = dct(this);
+%                               X = dct(this);
 % %                             [XX,ind] = sort(abs(X),'descend');
 % %                             i = 1;
 % %                             while norm(X(ind(1:i)))/norm(X) < 0.98
