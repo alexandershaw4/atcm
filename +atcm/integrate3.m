@@ -967,8 +967,8 @@ for ins = 1:ns
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:).*w0(:);
                             else
-                                %[Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
-                                Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                [Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
+                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
                                 nwg = 4;%*exp(P.psmooth);
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:).*w0(:);%.*Hz(:);
