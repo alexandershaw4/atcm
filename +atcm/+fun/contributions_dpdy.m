@@ -55,3 +55,15 @@ con.redmap = redmap;
 con.par = par;
 con.Names = N;
 con.pindices = find(spm_vec(DCM.M.pC));
+
+% find the rank of the covariance of the derivative matrix and project
+% principal components:
+%
+% RelCh = con.redmap'*con.RelChangeSpec; % active params only
+% N = rank(cov(RelCh')); % cov rank
+% [v,D] = eig(cov(RelCh')); % decompose covariance matrix
+% DD = diag(D); [~,ord]=sort(DD,'descend'); % sort eigenvalues
+% PCV = v(:,ord(1:N))*D(ord(1:N),ord(1:N))*v(:,ord(1:N))'; % project factorised matrix without rank deficiency
+%
+% Check that the principal components are orthogonal:
+% corr((v(:,ord(1:N))'*RelCh)')

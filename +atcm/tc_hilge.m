@@ -1,4 +1,4 @@
-function [f,J,Q,D] = tc_dev_dev(x,u,P,M,m)
+function [f,J,Q,D] = tc_hilge(x,u,P,M,m)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -206,15 +206,15 @@ GEa(7,:) = [0   0   0   1   0   2   0   2]/1;
 GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
 
-% % NEW - BASED ON HILGETAG PAPER
-% GEa(1,:) = [0   4   0   0   0   2   0   2]/1;
-% GEa(2,:) = [6   4   0   0   0   0   0   1]/1;
-% GEa(3,:) = [0   8   0   4   0   4   0   0]/1; 
-% GEa(4,:) = [4   6   0   0   0   2   0   1]/1;
-% GEa(5,:) = [0   4   0   4   0   2   0   0]/1;
-% GEa(6,:) = [0   0   0   6   0   0   0   1/4]/1; 
-% GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
-% GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
+% NEW - BASED ON HILGETAG PAPER
+GEa(1,:) = [0   4   0   0   0   2   0   2]/1;
+GEa(2,:) = [6   4   0   0   0   0   0   1]/1;
+GEa(3,:) = [0   8   0   4   0   4   0   0]/1; 
+GEa(4,:) = [4   6   0   0   0   2   0   1]/1;
+GEa(5,:) = [0   4   0   4   0   2   0   0]/1;
+GEa(6,:) = [0   0   0   6   0   0   0   1/4]/1; 
+GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
+GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
 
 
