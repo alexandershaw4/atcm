@@ -1189,11 +1189,11 @@ if isfield(M,'y')
                     %npc = atcm.fun.findthenearest(cumsum(LAMBDA)./sum(LAMBDA),.9999);
                     %pc = RC(:,1:npc);
                     pc = RC;
-                    Bw = pinv(pc'*pc)*pc'*yy;
+                    %Bw = pinv(pc'*pc)*pc'*yy;
                     
-                    %warning off;
-                    %Bw = lsqnonneg(pc,yy); % pos constr LSQGLM
-                    %warning on;
+                    warning off;
+                    Bw = lsqnonneg(pc,yy); % pos constr LSQGLM
+                    warning on;
                                         
                     Pf(:,ins,ins) = exp(P.L(ins))*(pc*Bw);
                     
