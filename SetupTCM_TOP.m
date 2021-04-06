@@ -217,7 +217,7 @@ for s = 1:length(Data.Datasets)
     M.opts.fsd=0;
     
     w = DCM.xY.Hz;
-    M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
+    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     %M.opts.FS = @(x) x(:).^2.*(1:length(x))'.^2;  
     
     M.default_optimise([1],[20]);
