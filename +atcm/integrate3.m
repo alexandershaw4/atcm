@@ -1130,7 +1130,7 @@ if isfield(M,'y')
                     pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
                     pcx = pcx(1:end-1,end);
                     [~,I]=sort(pcx,'descend');
-                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.4);
+                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
                     I = I(1:these);
                     %fprintf('%d/%d\n',these,length(pcx));
                     
@@ -1212,6 +1212,7 @@ if DoHamming
         for j = 1:ns
             H  = (1 - cos(2*pi*[1:nf]'/(nf + 1)))/2;
             H  = kaiser(nf,2.5);
+            H = rescale(kaiser(nf,2.5),.1,1).^.2;
             Pf(:,i,j) = Pf(:,i,j).*H;
         end
     end
