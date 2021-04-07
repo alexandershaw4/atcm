@@ -203,7 +203,10 @@ for s = 1:length(Data.Datasets)
     DCM.M.pE.L = -0.25;
     DCM.M.pC.b = [1;1]/8;    
     
-    DCM = atcm.complete(DCM);
+    % Feature function for the integrator
+    DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
+    
+    DCM = atcm.complete(DCM);cc
     
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
@@ -213,11 +216,11 @@ for s = 1:length(Data.Datasets)
     M.opts.EnforcePriorProb=1;
     M.opts.ismimo=0;
     M.opts.doparallel=1;
-    M.opts.hyperparams=1;
+    M.opts.hyperparams=0;
     M.opts.fsd=0;
     
     w = DCM.xY.Hz;
-    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
+    M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     %M.opts.FS = @(x) x(:).^2.*(1:length(x))'.^2;  
     
     M.default_optimise([1],[20]);

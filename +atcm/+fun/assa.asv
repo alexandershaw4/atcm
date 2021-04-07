@@ -1,13 +1,8 @@
 function RC = assa(X,MM,reduce)
 % Singular spectrum analysis 
 %
-%   RC = assa(X,MM);
 %
-% Optionally returns the n-component projection of the original data, X:
 %
-%   RC = assa(X,MM,n);
-%
-% AS
 
 if nargin < 3 || isempty(reduce)
     reduce=0;

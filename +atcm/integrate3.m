@@ -217,7 +217,6 @@ if ~isfield(M,'timefreq')
 end
 
 if M.timefreq
-    
     if isfield(M,'ons')
         % shift stimulus/drive to onset
         ind = atcm.fun.findthenearest(M.ons,pst);
@@ -226,7 +225,6 @@ if M.timefreq
         newdrive(ind+1:end) = drive(1:length(newdrive(ind+1:end)));
         drive = newdrive;
     end
-    
 end
 
 % expansion (fixed) point: trial & parameter effects are deviations from here
@@ -394,6 +392,14 @@ end
 
 % Frequency steps: dw
 dw = 1./(w(2)-w(1));
+
+
+% % do a burn-in - 
+% for i = 1:1200
+%     burny(i,:) = spm_vec(v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M)));
+%     v = spm_vec(burny(i,:));
+% end
+% v = spm_robust_average(burny,1)';
 
 switch IntMethod
 
@@ -895,7 +901,8 @@ for ins = 1:ns
                 warning off;
                 try
                     switch fmethod
-                                                
+                                         
+                        
                         case {'timefreq'}
                             data = Eigenvectors(Ji(ij),burn:end);
                         
@@ -925,6 +932,15 @@ for ins = 1:ns
                                 case 'kpca';this = y0(burn:end);
                             end
                             
+%                             switch fmethod
+%                                 case 'none'
+%                                     if ij == 1
+%                                         this = ts(:);
+%                                     else
+%                                         continue;
+%                                     end
+%                             end
+                            
                             ncompe = 100;
                             if isfield(M,'ncompe')
                                 ncompe = M.ncompe;
@@ -942,9 +958,9 @@ for ins = 1:ns
 %                            Pf = mean(Sk,1)';
 
                             % pad & filter
-                            [thispad,It] = atcm.fun.padtimeseries(this);
-                            thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1) w(end)]);
-                            this = thispad(It);
+                       %     [thispad,It] = atcm.fun.padtimeseries(this);
+                       %     thispad = atcm.fun.bandpassfilter(thispad',1./dt,[w(1)-1 w(end)]);
+                       %     this = thispad(It);
 %                             
 %                             % original
 %                             PfOrig  = atcm.fun.Afft(this,dw/dt,w);
@@ -1031,9 +1047,10 @@ for ins = 1:ns
                             else
                                 [Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
                                 %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
-                                %nwg = 4;%*exp(P.psmooth);
-                                %w0 = 1 + (nwg*( w./w(end)));
-                                Pf = Pf(:);%.*w0(:);%.*Hz(:);
+                                nwg = 4;%*exp(P.psmooth);
+                                w0 = 1 + (nwg*( w./w(end)));
+                               % w0 = linspace(1,2,length(w));
+                                Pf = Pf(:).*Hz(:);%w0(:);%.*Hz(:);
                             end
                                                        
                             DoEnv = 1;
@@ -1044,7 +1061,7 @@ for ins = 1:ns
                             if DoEnv
                                 
                                [padp,indp] = atcm.fun.padtimeseries(Pf);
-                               Pfs = atcm.fun.tsmovavg(padp','t',12);
+                               Pfs = atcm.fun.tsmovavg(padp','t',8);
                                Pf = Pfs(indp);
                                Pf=Pf(:);
                                
@@ -1186,8 +1203,12 @@ if isfield(M,'y')
                 Mm = dat';
                 b = exp(P.J(Ji));
                 %b  = pinv(Mm*Mm')*Mm*yy;
-                Pf(:,ins,ins) = b(:)'*Mm; 
-                Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+                if any(size(Mm)==length(b))
+                    Pf(:,ins,ins) = b(:)'*Mm; 
+                    Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+                else
+                    Pf(:,ins,ins) = Mm;
+                end
                 
             elseif isfield(M,'envonly') && M.envonly == 2
                 addnoise = 0;
@@ -1225,41 +1246,28 @@ if isfield(M,'y')
 %                     % Compute singular spectrum analysis [ssa], fir comps
 %                     %------------------------------------------------------
                     X = Pf(:,ins,ins);
-                    MM = 30;                             % delay/embedding
-                    N = length(X);
-                    Y=zeros(N-MM+1,MM);
-                    for m=1:MM
-                        Y(:,m) = X((1:N-MM+1)+m-1);
-                    end;
-                    Cemb=Y'*Y / (N-MM+1);
-                    C=Cemb;
                     
-                    [RHO,LAMBDA] = eig(C);
-                    LAMBDA = diag(LAMBDA);               % extract the diagonal elements
-                    [LAMBDA,ind]=sort(LAMBDA,'descend'); % sort eigenvalues
-                    RHO = RHO(:,ind);                    % and eigenvectors
+                    %[Xp,Xpi] = atcm.fun.padtimeseries(X);
+                   % Xp = full(atcm.fun.HighResMeanFilt(Xp,1,smthk));
+                   % X = Xp(Xpi);
+                   % Pf(:,ins,ins)=X;
                     
-                    PC = Y*RHO;
-                    
-                    RC=zeros(N,MM);
-                    for m=1:MM
-                        buf=PC(:,m)*RHO(:,m)'; % invert projection
-                        buf=buf(end:-1:1,:);
-                        for n=1:N % anti-diagonal averaging
-                            RC(n,m)=mean( diag(buf,-(N-MM+1)+n) );
-                        end
-                    end
-                    
-                    %npc = atcm.fun.findthenearest(cumsum(LAMBDA)./sum(LAMBDA),.9999);
-                    %pc = RC(:,1:npc);
+                   RC = atcm.fun.assa(X,30);
+                   
                     pc = RC;
                     %Bw = pinv(pc'*pc)*pc'*yy;
                                         
-                    pcx = corr(pc,Pf(:,ins,ins)).^2;
+                    %pcx = corr(pc,Pf(:,ins,ins)).^2;
+                    weight = M.FS(M.y{:});
+                    %weight = weight./sum(weight);
+                    %pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],w'./sum(w)).^2;
+                    pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
+                    pcx = pcx(1:end-1,end);
                     %[~,I]=atcm.fun.maxpoints(pcx,4);
                     [~,I]=sort(pcx,'descend');
-                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.999);
+                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.4);
                     I = I(1:these);
+                    %fprintf('%d/%d\n',these,length(pcx));
                     
                     Pf(:,ins,ins) = exp(P.L(ins))* sum(pc(:,[I]),2);
                     
@@ -1297,11 +1305,11 @@ if isfield(M,'y')
 %                         c(j,:) = m.(['a' num2str(j)])*cos(j*w*p)+m.(['b' num2str(j)])*sin(j*w*p);
 %                     end
 %                     warning off;
-%                     %X = lsqnonneg(c',yy); % pos constr LSQGLM
-%                     X = pinv(c*c')*c*yy;
-%                     Pf(:,ins,ins) = exp(P.L(ins)) * m(w);
+%                     X = atcm.fun.lsqnonneg(c',yy); % pos constr LSQGLM
+%                     %X = pinv(c*c')*c*yy;
+%                     %Pf(:,ins,ins) = exp(P.L(ins)) * m(w);
 %                     warning on;
-                    %Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
+%                     Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
                     %Pf = mod(w);
                     
                     
@@ -1379,7 +1387,7 @@ if isfield(M,'y')
                 end
             end
         end
-        addnoise=0;
+        %addnoise=0;
         if addnoise
             % Multiply in the semi-stochastic neuronal fluctuations
             for i = 1:length(Hz)
