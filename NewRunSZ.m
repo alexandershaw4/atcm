@@ -137,11 +137,13 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.EnvLFP=1;
     DCM.M.burnin = 300;
     DCM.M.solvefixed=1;
-    DCM.M.DoHamming=1;
+    DCM.M.DoHamming=0;
     DCM.M.LFPsmooth=12;
     DCM.M.usesmoothkernels=0;
     DCM.M.intmethod=2;
     DCM.M.IncDCS=1;
+    
+    DCM.M.InputType=1; % OSCILLATION
     
     % Feature function for the integrator
     %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
