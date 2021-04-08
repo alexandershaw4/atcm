@@ -15,6 +15,9 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 % Use as a replacement for spm_csd_mtf.m, for calculating the voltage time-series
 % and spectral response from a neural mass.
 %
+% The optimisation problem becomes highly nonlinear so i suggest using AO.m
+% optimisation (https://github.com/alexandershaw4/aoptim).
+%
 % This routine is more basic than the deault DCM transfer functions because, 
 % rather than taking an fft of the system's kernels (eigenvectors of the 
 % Jacobian), it uses the  approach of integrating ( dx/dt ) using a Euler 
@@ -90,7 +93,12 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 %
 % Note - when using 'none', optionally specify whether to take the
 % envelope of this spiky spectrum using M.DoEnv (flag 0/1) and how many
-% components to include in the envelope (M.ncompe=30).
+% components to include in the envelope (M.ncompe=30) [def=0]
+%
+% Singular Spectrum Analysis
+% -------------------------------------
+% The weighted spectral output is decomposed into a basis set using 
+% 
 %
 % Other options:
 % -------------------------------------
@@ -605,8 +613,14 @@ switch IntMethod
             V        = spm_unvec(v,M.x);
             Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);
             S(:,:,i) = Curfire;
-            fired     = find(squeeze(V(:,:,1)) >= VR);
-            firings   = [firings; [i+0*fired',fired'] ];
+            try
+                fired     = find(squeeze(V(:,:,1)) >= VR);
+                firings   = [firings; [i+0*fired',fired'] ];
+            catch
+                % doesn't always work for multi-node models
+                fired=[];
+                firings=[];
+            end
         end
         
 end
@@ -931,13 +945,13 @@ for ins = 1:ns
                             end
                             
                             if ncompe > 0
-                               [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);                             
-                               Pfmean = squeeze(Pfmean);
-                               Pf = spm_vec(max(Pfmean'));
-                               
-                               nwg = 4*exp(P.psmooth);
+                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
+                                Pfmean = squeeze(Pfmean);
+                                Pf = spm_vec(max(Pfmean'));
+                                
+                                nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
-                                Pf = Pf(:).*w0(:);
+                                Pf = Pf(:).*Hz(:);
                             else
                                 [Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
                                 %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
@@ -984,7 +998,6 @@ for ins = 1:ns
                             spec = w*0;
                             for iq = 1:length(ufq)
                                 q  = ufq(iq);
-                                %qw = std( ifq(find(ufq(iq)==rfq)) );
                                 qw = length( ifq(find(ufq(iq)==rfq)) );
                                 amplitude = mean( amps(find(ufq(iq)==rfq)) );
                                 pd  = makedist('normal','mu',q,'sigma', 2*(qw));
@@ -1131,7 +1144,7 @@ if isfield(M,'y')
                     pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
                     pcx = pcx(1:end-1,end);
                     [~,I]=sort(pcx,'descend');
-                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.4);
+                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
                     I = I(1:these);
                     %fprintf('%d/%d\n',these,length(pcx));
                     
@@ -1196,7 +1209,7 @@ if isfield(M,'y')
         for i = 1:ns
             for j = 1:ns
                 % Autospectral noise / innovations
-                Pf(:,i,j) = Pf(:,i,j) + Gn(:);
+                %Pf(:,i,j) = Pf(:,i,j) + Gn(:);
                 if j ~= i
                     % Cross spectral noise / innovations
                    % Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);
@@ -1213,6 +1226,7 @@ if DoHamming
         for j = 1:ns
             H  = (1 - cos(2*pi*[1:nf]'/(nf + 1)))/2;
             H  = kaiser(nf,2.5);
+            H = rescale(kaiser(nf,2.5),.1,1).^.2;
             Pf(:,i,j) = Pf(:,i,j).*H;
         end
     end

@@ -15,6 +15,9 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 % Use as a replacement for spm_csd_mtf.m, for calculating the voltage time-series
 % and spectral response from a neural mass.
 %
+% The optimisation problem becomes highly nonlinear so i suggest using AO.m
+% optimisation (https://github.com/alexandershaw4/aoptim).
+%
 % This routine is more basic than the deault DCM transfer functions because, 
 % rather than taking an fft of the system's kernels (eigenvectors of the 
 % Jacobian), it uses the  approach of integrating ( dx/dt ) using a Euler 
@@ -90,17 +93,20 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 %
 % Note - when using 'none', optionally specify whether to take the
 % envelope of this spiky spectrum using M.DoEnv (flag 0/1) and how many
-% components to include in the envelope (M.ncompe=30).
+% components to include in the envelope (M.ncompe=30) [def=0]
 %
+% Singular Spectrum Analysis
+% -------------------------------------
+% The weighted spectral output is decomposed into a frequency basis set 
+% using a type of SSA, then projected as a lower dimensional representation
+% composed of the components epxaining the most variance in the full signal
+% (weighted by the data vector in M.y{1}). This helps to 'clean up' noisy 
+% spectra in a targetted way.
+% 
 % Other options:
 % -------------------------------------
 % M.IncDCS = flag to include a discrete cosine set (a semi-stochastic set
 % of neuronal fluctuations in frequency space).
-%
-% Including the data (DCM.xY.y) in M (i.e. DCM.M.y = DCM.xY.y) will invoke
-% a linear model, formed by a combination of the raw fourier spectrum and
-% the corresponding smoothed (envelope) version. This 
-% is a way of 'optimising' the smoothing function.
 %
 % Also required: SPM12 w/ DCM,  
 %
