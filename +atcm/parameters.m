@@ -18,7 +18,7 @@ if Ns == 1
         %load NewDelayPriors.mat
         pth = fileparts(mfilename('fullpath'));
         %load([pth '/AugSpectralPriors']);
-        load([pth '/+fun/Priors2021a']);
+        load([pth '/+fun/Priors2021b']);
     else
         load(priorfile)
     end
@@ -36,7 +36,7 @@ else
 
         % NEEDS UPDATING FOR MULTINODE/REGION
         pth = fileparts(mfilename('fullpath'));
-        pr = load([pth '/+fun/Priors2021a']);;
+        pr = load([pth '/+fun/Priors2021b']);;
         
         else
             pr = load(priorfile);

@@ -166,7 +166,6 @@ for s = 1:length(Data.Datasets)
     DCM.M.ncompe=0;
     DCM.M.envonly=1;
     DCM.M.EnvLFP=1;
-    DCM.M.IncDCS=0;
     DCM.M.burnin = 300;
     DCM.M.solvefixed=1;
     DCM.M.DoHamming=0;
@@ -174,34 +173,8 @@ for s = 1:length(Data.Datasets)
     DCM.M.usesmoothkernels=0;
     DCM.M.intmethod=2;
     
-    DCM.M.IncDCS=0;
-    DCM.M.pC.d = ones(8,1)*0;
+    DCM.M.IncDCS=1;    
     
-    pC = DCM.M.pC;
-    V  = spm_unvec(spm_vec(pC)*0,pC);
-       
-    V.L  = 1/8;
-    V.ID = ones(1,8)*0.0156;
-        
-    V.H = pC.H;
-    V.Hn = pC.Hn;
-    
-    V.CV = ones(1,8)/8;
-    V.Gsc = ones(1,8)/8;
-    V.R(2) = 1/8;
-    V.b = [1;1]/8;
-    DCM.M.pC=V;
-    
-    % Observation & Input Fun Settings
-    DCM.M.pE.J([1 4 6 8])=-1000;
-    DCM.M.pE.J(4)=log(.6);
-    DCM.M.pE.J(1)=log(.4);
-    DCM.M.InputType=1;
-    DCM.M.pE.R(2)=0;
-    DCM.M.pC.R(2)=1/16;
-    
-    DCM.M.pE.L = -0.25;
-    DCM.M.pC.b = [1;1]/8;    
     
     % Feature function for the integrator
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;

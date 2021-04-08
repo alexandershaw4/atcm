@@ -1212,7 +1212,7 @@ if DoHamming
         for j = 1:ns
             H  = (1 - cos(2*pi*[1:nf]'/(nf + 1)))/2;
             H  = kaiser(nf,2.5);
-            H = rescale(kaiser(nf,2.5),.1,1).^.2;
+            %H = rescale(kaiser(nf,2.5),.1,1).^.2;
             Pf(:,i,j) = Pf(:,i,j).*H;
         end
     end

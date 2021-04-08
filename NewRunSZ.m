@@ -143,39 +143,9 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.intmethod=2;
     DCM.M.IncDCS=1;
     
-    pC = DCM.M.pC;
-    V  = spm_unvec(spm_vec(pC)*0,pC);
-       
-    V.d = ones(8,1)/8;
-    
-    V.L  = 1/8;
-    V.ID = ones(1,8)*0.0156;
-        
-    %V.H = pC.H;
-    %V.Hn = pC.Hn;
-    
-    %V.CV = ones(1,8)/8;
-    V.Gsc = ones(1,8)/8;
-    V.R(2) = 1/8;
-    V.b = [1;1]/8;
-    
-    DCM.M.pC=V;
-    
-    % Observation & Input Fun Settings
-    DCM.M.pE.J([1 2 4 6 8])=-1000;
-    DCM.M.pE.J(2)=log(1.1);
-    DCM.M.pE.J(4)=log(0.8);
-    
-    DCM.M.InputType=1;
-    DCM.M.pE.R(2)=0;
-    DCM.M.pC.R(2)=1/16;
-    
-    DCM.M.pE.L = -2.25;
-    DCM.M.pC.b = [1;1]/8;    
-        
-    DCM = atcm.complete(DCM);
-    
     % Feature function for the integrator
+    DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
+    DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     
     % Optimise BASLEINE                                                  1
@@ -189,16 +159,10 @@ for s = i;%1:length(Data.Datasets)
     M.opts.hyperparams=0;
     M.opts.fsd=0;
     
-    %w = DCM.xY.Hz;
-    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
-    %M.opts.FS = @(x) x(:).^2.*(1:length(x))'.^2;  
+    w = DCM.xY.Hz;
+    M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     
-    M.default_optimise([1],[20]);
-    
-    M.update_parameters(M.Ep);
-    %M.opts.Q=[];
-    M.default_optimise([3 1],[10 20]);
-    Ep = spm_unvec(M.Ep,DCM.M.pE);
+    M.default_optimise([1 3 1],[20 10 10]);
     
     save(DCM.name); close; clear global;    
     
