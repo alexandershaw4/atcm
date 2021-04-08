@@ -204,6 +204,14 @@ else
         pC.pr = zeros(1,8);
     end
     
+    try
+        pE.Gsc = pr.pE.Gsc;
+        pC.Gsc = pr.pC.Gsc;
+    catch
+        pE.Gsc = zeros(1,8);
+        pC.Gsc = zeros(1,8);
+    end
+    
     % Pack pE & pC into M
     DCM.M.pE = pE;
     DCM.M.pC = pC;

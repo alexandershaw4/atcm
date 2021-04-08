@@ -10,7 +10,7 @@ function NewRunSZ(i)
 %
 % As of late 2020, I am having more success using an alternative
 % optimisation routine 'aoptim', available at https://github.com/alexandershaw4/aoptim
-% This routine is similar to the DCM one (spm_nlsi)GN.m) - it still optimises 
+% This routine is similar to the DCM one (spm_nlsi_GN.m) - it still optimises 
 % free energy using a gradient descent, but has some extra options such as 
 % momentum parameters and line search. 
 %
@@ -144,7 +144,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.IncDCS=1;
     
     % Feature function for the integrator
-    DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
+    %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     

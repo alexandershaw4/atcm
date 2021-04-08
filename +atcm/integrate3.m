@@ -605,8 +605,14 @@ switch IntMethod
             V        = spm_unvec(v,M.x);
             Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);
             S(:,:,i) = Curfire;
-            fired     = find(squeeze(V(:,:,1)) >= VR);
-            firings   = [firings; [i+0*fired',fired'] ];
+            try
+                fired     = find(squeeze(V(:,:,1)) >= VR);
+                firings   = [firings; [i+0*fired',fired'] ];
+            catch
+                % doesn't always work for multi-node models
+                fired=[];
+                firings=[];
+            end
         end
         
 end
@@ -1126,7 +1132,7 @@ if isfield(M,'y')
                     RC = atcm.fun.assa(X,30);
                     pc = RC;
                     
-                    weight = M.FS(M.y{:});
+                    weight = M.FS(M.y{:}(:,ins,ins));
                     pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
                     pcx = pcx(1:end-1,end);
                     [~,I]=sort(pcx,'descend');
