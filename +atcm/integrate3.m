@@ -1149,7 +1149,11 @@ if isfield(M,'y')
                     %------------------------------------------------------
                     X  = Pf(:,ins,ins);
                     
-                    X = atcm.fun.aenvelope(X,6);
+                    %X = atcm.fun.aenvelope(X,6);
+                    [padp,indp] = atcm.fun.padtimeseries(X);
+                    Pfs = atcm.fun.tsmovavg(padp','t',8);
+                    %Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
+                    X = Pfs(indp);
                     
                     RC = atcm.fun.assa(X,10);
                     pc = RC;
@@ -1173,14 +1177,18 @@ if isfield(M,'y')
 %                     x = Pf(:,ins,ins);
 %                     p = m.w; %Dirichlet's condition 
 %                     
+%                     clear c
 %                     % rebuild the cossines constituting the fourier series
 %                     for j = 1:8
 %                         c(j,:) = m.(['a' num2str(j)])*cos(j*w*p)+m.(['b' num2str(j)])*sin(j*w*p);
 %                     end
-%                     warning off;
-%                     X = atcm.fun.lsqnonneg(c',yy); % pos constr LSQGLM
+%                     %warning off;
+%                     %X = atcm.fun.lsqnonneg(c',yy); % pos constr LSQGLM
 %                     %X = pinv(c*c')*c*yy;
-%                     Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
+%                     
+%                     Pf(:,ins,ins) = exp(P.L(ins)) * sum(c,1);
+                    
+                    %Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
 
             else
                 Ppf{1} = atcm.fun.tsmovavg(Pf(:,ins,ins)','e',2)';
