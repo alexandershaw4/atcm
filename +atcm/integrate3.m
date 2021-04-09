@@ -941,19 +941,7 @@ for ins = 1:ns
                             if isfield(M,'ncompe')
                                 ncompe = M.ncompe;
                             end
-                            
-                            
-                            %switch ij
-                            %    case 1; flt = [30 80];
-                            %    case 2; flt = [4 30];
-                            %end
-                            %flt = [w(1)+1 w(end)-1];
-                            
-                            %[ppf,pfi] = atcm.fun.padtimeseries(this);
-                            %fltthis = atcm.fun.bandpassfilter(ppf,1./dt,flt);
-                            %this = fltthis(pfi)';
-                            
-                            
+                                                        
                             if ncompe > 0
                                 [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
                                 Pfmean = squeeze(Pfmean);
@@ -1098,80 +1086,58 @@ end
 %--------------------------------------------------------------------------
 if isfield(M,'y')
     for ins = 1:ns
+        
+        % LFP signal as Weighted sum of population spectra
+        %------------------------------------------------------------------
         dat = squeeze(layers.iweighted(ins,:,:))';
         yy  = squeeze(M.y{1}(:,ins,ins));
         if all( (size(dat,1)==1) && size(dat,2)==length(w) )
             dat = dat';
         end
-        linmod = 1;
-        if isfield(M,'linmod')
-            linmod = M.linmod;
+        Mm = dat';
+        b = exp(P.J(Ji));
+        %b  = pinv(Mm*Mm')*Mm*yy;
+        if any(size(Mm)==length(b))
+            Pf(:,ins,ins) = b(:)'*Mm;
+            Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+        else
+            Pf(:,ins,ins) = Mm;
         end
-        addnoise = 1;
-        if linmod == 1
-            if isfield(M,'envonly') && M.envonly == 1
-                Mm = dat';
-                b = exp(P.J(Ji));
-                %b  = pinv(Mm*Mm')*Mm*yy;
-                if any(size(Mm)==length(b))
-                    Pf(:,ins,ins) = b(:)'*Mm; 
-                    Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
-                else
-                    Pf(:,ins,ins) = Mm;
-                end
-                
-            elseif isfield(M,'envonly') && M.envonly == 2
-                addnoise = 0;
-                Mm = dat';
-                Mm = [Mm; Gu'; Gn]; % put the noise in the glm
-                b  = pinv(Mm*Mm')*Mm*yy;
-                Pf(:,ins,ins) = b'*Mm; 
-                Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
-            end
-        end
-        
-        if isfield(M,'EnvLFP') && M.EnvLFP
-            if isfield(M,'LFPsmooth') && ~isempty(M.LFPsmooth)
-                smthk = round(M.LFPsmooth);
-            else
-                smthk = 2;
-            end
                                                                             
-            % Compute singular spectrum analysis [ssa], fir comps
-            %------------------------------------------------------
-            X  = Pf(:,ins,ins);
-            RC = atcm.fun.assa(X,30);
-            pc = RC;
-            for ipc = 1:size(pc,2)
-                pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,8));
-            end
-            
-            weight = M.FS(M.y{:});
-            pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
-            pcx = pcx(1:end-1,end);
-            [~,I]=sort(pcx,'descend');
-            these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
-            I = I(1:these);
-            %fprintf('%d/%d\n',these,length(pcx));
-            Pf(:,ins,ins) = exp(P.L(ins))* sum(pc(:,[I]),2);
-            
-            % return components
-            c = RC;
-            X = I;
-            meanpower={X c};
-            
+        % Compute singular spectrum analysis [ssa], fir comps
+        %------------------------------------------------------------------
+        X  = Pf(:,ins,ins);
+        RC = atcm.fun.assa(X,30); % compute basis set
+        pc = RC;
+        for ipc = 1:size(pc,2) % smooth the components
+            pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,8));
         end
-        %addnoise=0;
+
+        weight = M.FS(M.y{:}); % use data spectrum as weights
+        pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
+        pcx = pcx(1:end-1,end);
+        [~,I]=sort(pcx,'descend'); % use components explaining top 20%
+        these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
+        I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
+        Pf(:,ins,ins) = exp(P.L(ins))* sum(pc(:,[I]),2);
+
+        % return components in separate outputs
+        c = RC;X = I;
+        meanpower={X c};
+            
+        % Add noise to (in frequency space) to this LFP channel spectrum
+        %------------------------------------------------------------------
+        addnoise=1;
         if addnoise
             % Multiply in the semi-stochastic neuronal fluctuations
-            Gu = Gu./(max(Gu)*2);
             for i = 1:length(Hz)
                 Pf(i,ins,ins) = sq(Pf(i,ins,ins))*diag(Gu(i,ins))*sq(Pf(i,ins,ins));
             end
         end
-    end
+    end                                            % end loop over sources
 
-    % recompute CSDs
+    % Recompute cross spectrum of regions (CSDs)s
+    %------------------------------------------------------------------
     for inx = 1:ns
         for iny = 1:ns
             if inx ~= iny
@@ -1181,7 +1147,7 @@ if isfield(M,'y')
         end
     end
     
-    % RE-Incorporate noise components for auto (Gs) and cross (Gn) spectra
+    % RE-Incorporate other noise components for auto (Gs) and cross (Gn) spectra
     %----------------------------------------------------------------------
     %if ns > 1
     addnoise=1;
@@ -1200,6 +1166,9 @@ if isfield(M,'y')
      end
     
 end
+
+% Place hamming window over whole spectrum if flagged: e.g. when data is BPF
+%--------------------------------------------------------------------------
 %DoHamming=0;
 if DoHamming
     for i = 1:ns
