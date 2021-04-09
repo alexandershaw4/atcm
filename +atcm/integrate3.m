@@ -436,8 +436,10 @@ switch IntMethod
         else;       xbar    = spm_vec(M.x);
         end
         M.x     = spm_unvec(xbar,M.x);
+        
         % compute Jacobian, evaluated at xbar
         dfdx    = spm_diff(M.f,M.x,M.u,P,M,1);
+            
         % eigenvectors and values
         [T,D]   = eig(full(real(dfdx)));
         iT      = pinv(T);
@@ -1110,10 +1112,11 @@ if isfield(M,'y')
         RC = atcm.fun.assa(X,30); % compute basis set
         pc = RC;
         for ipc = 1:size(pc,2) % smooth the components
-            pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,4));
+            pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,8));
         end
 
-        weight = M.FS(M.y{:}); % use data spectrum as weights
+        weight = M.y{:}./max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
+                
         pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
         pcx = pcx(1:end-1,end);
         [~,I]=sort(pcx,'descend'); % use components explaining top 20%
