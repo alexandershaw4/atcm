@@ -947,11 +947,11 @@ for ins = 1:ns
                             %    case 1; flt = [30 80];
                             %    case 2; flt = [4 30];
                             %end
-                            flt = [w(1)+1 w(end)-1];
+                            %flt = [w(1)+1 w(end)-1];
                             
-                            [ppf,pfi] = atcm.fun.padtimeseries(this);
-                            fltthis = atcm.fun.bandpassfilter(ppf,1./dt,flt);
-                            this = fltthis(pfi)';
+                            %[ppf,pfi] = atcm.fun.padtimeseries(this);
+                            %fltthis = atcm.fun.bandpassfilter(ppf,1./dt,flt);
+                            %this = fltthis(pfi)';
                             
                             
                             if ncompe > 0

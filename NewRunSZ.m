@@ -130,7 +130,7 @@ for s = i;%1:length(Data.Datasets)
     
     % Final options for integrator
     DCM.M.fmethod = 'none';
-    DCM.M.DoEnv   = 1;
+    DCM.M.DoEnv   = 0;
     
     DCM.M.ncompe=0;
     DCM.M.envonly=1;
@@ -141,7 +141,11 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.LFPsmooth=12;
     DCM.M.usesmoothkernels=0;
     DCM.M.intmethod=2;
-    DCM.M.IncDCS=1;
+    DCM.M.IncDCS=0;
+    
+    DCM.M.pC.d = zeros(8,1);
+    DCM.M.pE.L = -1.5;
+    DCM.M.pC.CV([1 2 8])=1/8;
     
     DCM.M.InputType=1; % OSCILLATION
     
