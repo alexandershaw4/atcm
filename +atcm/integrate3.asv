@@ -97,18 +97,16 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 %
 % Singular Spectrum Analysis
 % -------------------------------------
-% The weighted spectral output is decomposed into a basis set using 
+% The weighted spectral output is decomposed into a frequency basis set 
+% using a type of SSA, then projected as a lower dimensional representation
+% composed of the components epxaining the most variance in the full signal
+% (weighted by the data vector in M.y{1}). This helps to 'clean up' noisy 
+% spectra in a targetted way.
 % 
-%
 % Other options:
 % -------------------------------------
 % M.IncDCS = flag to include a discrete cosine set (a semi-stochastic set
 % of neuronal fluctuations in frequency space).
-%
-% Including the data (DCM.xY.y) in M (i.e. DCM.M.y = DCM.xY.y) will invoke
-% a linear model, formed by a combination of the raw fourier spectrum and
-% the corresponding smoothed (envelope) version. This 
-% is a way of 'optimising' the smoothing function.
 %
 % Also required: SPM12 w/ DCM,  
 %
@@ -944,6 +942,18 @@ for ins = 1:ns
                                 ncompe = M.ncompe;
                             end
                             
+                            
+                            %switch ij
+                            %    case 1; flt = [30 80];
+                            %    case 2; flt = [4 30];
+                            %end
+                            %flt = [w(1)+1 w(end)-1];
+                            
+                            %[ppf,pfi] = atcm.fun.padtimeseries(this);
+                            %fltthis = atcm.fun.bandpassfilter(ppf,1./dt,flt);
+                            %this = fltthis(pfi)';
+                            
+                            
                             if ncompe > 0
                                 [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
                                 Pfmean = squeeze(Pfmean);
@@ -968,7 +978,8 @@ for ins = 1:ns
                             if DoEnv
                                % timseries moving average smoothing
                                [padp,indp] = atcm.fun.padtimeseries(Pf);
-                               Pfs = atcm.fun.tsmovavg(padp','t',8);
+                               %Pfs = atcm.fun.tsmovavg(padp','t',8);
+                               Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
                                Pf = Pfs(indp);
                                Pf=Pf(:);
                             end
@@ -1137,7 +1148,10 @@ if isfield(M,'y')
                     % Compute singular spectrum analysis [ssa], fir comps
                     %------------------------------------------------------
                     X  = Pf(:,ins,ins);
-                    RC = atcm.fun.assa(X,30);
+                    
+                    X = atcm.fun.aenvelope(
+                    
+                    RC = atcm.fun.assa(X,10);
                     pc = RC;
                     
                     weight = M.FS(M.y{:});
@@ -1185,8 +1199,9 @@ if isfield(M,'y')
         %addnoise=0;
         if addnoise
             % Multiply in the semi-stochastic neuronal fluctuations
+            Gu = Gu./(max(Gu)*2);
             for i = 1:length(Hz)
-                Pf(i,ins,ins) = sq(Pf(i,ins,ins))*diag(Gu(i,ins));
+                Pf(i,ins,ins) = sq(Pf(i,ins,ins))*diag(Gu(i,ins))*sq(Pf(i,ins,ins));
             end
         end
     end

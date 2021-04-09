@@ -1148,6 +1148,9 @@ if isfield(M,'y')
                     % Compute singular spectrum analysis [ssa], fir comps
                     %------------------------------------------------------
                     X  = Pf(:,ins,ins);
+                    
+                    X = atcm.fun.aenvelope(X,6);
+                    
                     RC = atcm.fun.assa(X,10);
                     pc = RC;
                     
