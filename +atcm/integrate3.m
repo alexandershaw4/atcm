@@ -1148,14 +1148,14 @@ if isfield(M,'y')
                     % Compute singular spectrum analysis [ssa], fir comps
                     %------------------------------------------------------
                     X  = Pf(:,ins,ins);
-                    RC = atcm.fun.assa(X,30);
+                    RC = atcm.fun.assa(X,10);
                     pc = RC;
                     
                     weight = M.FS(M.y{:});
                     pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
                     pcx = pcx(1:end-1,end);
                     [~,I]=sort(pcx,'descend');
-                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.6);
+                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
                     I = I(1:these);
                     %fprintf('%d/%d\n',these,length(pcx));
                     
@@ -1196,8 +1196,9 @@ if isfield(M,'y')
         %addnoise=0;
         if addnoise
             % Multiply in the semi-stochastic neuronal fluctuations
+            Gu = Gu./(max(Gu)*2);
             for i = 1:length(Hz)
-                Pf(i,ins,ins) = sq(Pf(i,ins,ins))*diag(Gu(i,ins));
+                Pf(i,ins,ins) = sq(Pf(i,ins,ins))*diag(Gu(i,ins))*sq(Pf(i,ins,ins));
             end
         end
     end
