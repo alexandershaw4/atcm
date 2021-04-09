@@ -78,7 +78,7 @@ for s = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tc_dev_dev;               % model function handle
+    DCM.M.f  = @atcm.tc_hilge;               % model function handle
     DCM.M.IS = @atcm.integrate3;              % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;  % fft function for IS
     
@@ -146,6 +146,28 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.d = zeros(8,1);
     DCM.M.pE.L = -1.5;
     DCM.M.pC.CV([1 2 8])=1/8;
+    
+%     V = DCM.M.pC;
+%     V.H([2 3],3)=1/8;
+%     V.H([1 2],8)=1/8;
+%     V.H(2,2)=1/8;
+%     V.H(3,2)=1/8;
+%     V.H(2,1)=1/8;
+%     V.H([4 5],5)=1/8;
+%     V.H(8,6)=1/8;
+%     V.H(1,1)=1/8;
+%     V.H(8,8)=1/8;
+%     V.Hn([2 3],2)=1/8;
+%     V.Hn(3,2)=1/8;
+%     V.Hn(2,1)=1/8;
+%     V.Hn(8,6)=1/8;
+%     V.Hn(1,8)=1/8;
+%     V.H(4,2)=1/8;
+%     V.H([4 5 6],4)=1/8;
+%     V.H(4,5)=1/8;    
+%     V.H([3 5],[5 2])=1/16;
+%     V.ID = ones(1,8)*0;
+%     DCM.M.pC=V;
     
     DCM.M.InputType=1; % OSCILLATION
     

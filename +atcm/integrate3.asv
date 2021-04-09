@@ -1150,7 +1150,11 @@ if isfield(M,'y')
                     X  = Pf(:,ins,ins);
                     
                     %X = atcm.fun.aenvelope(X,6);
-                    X = atcm.fun.tsmovav
+                    [padp,indp] = atcm.fun.padtimeseries(X);
+                    Pfs = atcm.fun.tsmovavg(padp','t',8);
+                    Pfsb = atcm.fun.tsmovavg(flipud(padp)','t',8);
+                    %Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
+                    X = Pfs(indp);
                     
                     RC = atcm.fun.assa(X,10);
                     pc = RC;

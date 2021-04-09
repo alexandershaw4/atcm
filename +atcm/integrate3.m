@@ -1136,73 +1136,30 @@ if isfield(M,'y')
             else
                 smthk = 2;
             end
-                        
-            if isfield(M,'tsmovavg')
-                do_movavg = M.tsmovavg;
-            else
-                do_movavg = 0;
+                                                                            
+            % Compute singular spectrum analysis [ssa], fir comps
+            %------------------------------------------------------
+            X  = Pf(:,ins,ins);
+            RC = atcm.fun.assa(X,30);
+            pc = RC;
+            for ipc = 1:size(pc,2)
+                pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,8));
             end
             
-            if ~do_movavg
-                                        
-                    % Compute singular spectrum analysis [ssa], fir comps
-                    %------------------------------------------------------
-                    X  = Pf(:,ins,ins);
-                    
-                    %X = atcm.fun.aenvelope(X,6);
-                    [padp,indp] = atcm.fun.padtimeseries(X);
-                    Pfs = atcm.fun.tsmovavg(padp','t',8);
-                    %Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
-                    X = Pfs(indp);
-                    
-                    RC = atcm.fun.assa(X,10);
-                    pc = RC;
-                    
-                    weight = M.FS(M.y{:});
-                    pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
-                    pcx = pcx(1:end-1,end);
-                    [~,I]=sort(pcx,'descend');
-                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
-                    I = I(1:these);
-                    %fprintf('%d/%d\n',these,length(pcx));
-                    
-                    Pf(:,ins,ins) = exp(P.L(ins))* sum(pc(:,[I]),2);
-                    
-                    % return components
-                    c = RC;
-                    X = I;
-                    meanpower={X c};
-                    
-%                     m = fit(w.',Pf(:,ins,ins),'fourier8');
-%                     x = Pf(:,ins,ins);
-%                     p = m.w; %Dirichlet's condition 
-%                     
-%                     clear c
-%                     % rebuild the cossines constituting the fourier series
-%                     for j = 1:8
-%                         c(j,:) = m.(['a' num2str(j)])*cos(j*w*p)+m.(['b' num2str(j)])*sin(j*w*p);
-%                     end
-%                     %warning off;
-%                     %X = atcm.fun.lsqnonneg(c',yy); % pos constr LSQGLM
-%                     %X = pinv(c*c')*c*yy;
-%                     
-%                     Pf(:,ins,ins) = exp(P.L(ins)) * sum(c,1);
-                    
-                    %Pf(:,ins,ins) = exp(P.L(ins)) * (X'*c);
-
-            else
-                Ppf{1} = atcm.fun.tsmovavg(Pf(:,ins,ins)','e',2)';
-                Ppf{2} = atcm.fun.tsmovavg(Pf(:,ins,ins)','e',4)';
-                Ppf{3} = atcm.fun.tsmovavg(Pf(:,ins,ins)','e',8)';
-                Ppf{4} = atcm.fun.tsmovavg(Pf(:,ins,ins)','e',12)';
-                
-                opt = [Pf(:,ins,ins) cat(2,Ppf{:})];
-                for iy = 1:length(yy)
-                    [~,I]=min(( yy(iy) - opt(iy,:)).^2);
-                    I = I(1);
-                    Pf(iy,ins,ins) = opt(iy,I);
-                end
-            end
+            weight = M.FS(M.y{:});
+            pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
+            pcx = pcx(1:end-1,end);
+            [~,I]=sort(pcx,'descend');
+            these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
+            I = I(1:these);
+            %fprintf('%d/%d\n',these,length(pcx));
+            Pf(:,ins,ins) = exp(P.L(ins))* sum(pc(:,[I]),2);
+            
+            % return components
+            c = RC;
+            X = I;
+            meanpower={X c};
+            
         end
         %addnoise=0;
         if addnoise
