@@ -144,7 +144,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.IncDCS=0;
     
     DCM.M.pC.d = zeros(8,1);
-    DCM.M.pE.L = -1.5;
+    DCM.M.pE.L = -1.75;
     DCM.M.pC.CV([1 2 8])=1/8;
     
 %     V = DCM.M.pC;
