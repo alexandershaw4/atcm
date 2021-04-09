@@ -1110,7 +1110,7 @@ if isfield(M,'y')
         RC = atcm.fun.assa(X,30); % compute basis set
         pc = RC;
         for ipc = 1:size(pc,2) % smooth the components
-            pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,8));
+            pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,4));
         end
 
         weight = M.FS(M.y{:}); % use data spectrum as weights

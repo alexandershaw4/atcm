@@ -78,7 +78,7 @@ for s = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tc_dev_dev;               % model function handle
+    DCM.M.f  = @atcm.tc_hilge;               % model function handle
     DCM.M.IS = @atcm.integrate3;              % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;  % fft function for IS
     
