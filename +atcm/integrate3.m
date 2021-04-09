@@ -942,6 +942,18 @@ for ins = 1:ns
                                 ncompe = M.ncompe;
                             end
                             
+                            
+                            %switch ij
+                            %    case 1; flt = [30 80];
+                            %    case 2; flt = [4 30];
+                            %end
+                            flt = [w(1)+1 w(end)-1];
+                            
+                            [ppf,pfi] = atcm.fun.padtimeseries(this);
+                            fltthis = atcm.fun.bandpassfilter(ppf,1./dt,flt);
+                            this = fltthis(pfi)';
+                            
+                            
                             if ncompe > 0
                                 [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
                                 Pfmean = squeeze(Pfmean);
@@ -966,7 +978,8 @@ for ins = 1:ns
                             if DoEnv
                                % timseries moving average smoothing
                                [padp,indp] = atcm.fun.padtimeseries(Pf);
-                               Pfs = atcm.fun.tsmovavg(padp','t',8);
+                               %Pfs = atcm.fun.tsmovavg(padp','t',8);
+                               Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
                                Pf = Pfs(indp);
                                Pf=Pf(:);
                             end
@@ -1142,7 +1155,7 @@ if isfield(M,'y')
                     pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
                     pcx = pcx(1:end-1,end);
                     [~,I]=sort(pcx,'descend');
-                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
+                    these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.6);
                     I = I(1:these);
                     %fprintf('%d/%d\n',these,length(pcx));
                     

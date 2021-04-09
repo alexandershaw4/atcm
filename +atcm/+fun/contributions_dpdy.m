@@ -24,6 +24,7 @@ n = 0;
 N = atcm.fun.generate_pnames(DCM.M.pE);
 
 redmap = zeros(length(p),length(find(v)));
+pspec = zeros(length(p),length(y0));
 
 for i = 1:length(p)
     if i > 1; fprintf(repmat('\b',[1 length(txt)])); end
