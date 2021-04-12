@@ -184,7 +184,7 @@ for s = i;%1:length(Data.Datasets)
     M.opts.EnforcePriorProb=1;
     M.opts.ismimo=0;
     M.opts.doparallel=1;
-    M.opts.hyperparams=0;
+    M.opts.hyperparams=1;
     M.opts.fsd=0;
     
     w = DCM.xY.Hz;
