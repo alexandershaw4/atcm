@@ -951,13 +951,13 @@ for ins = 1:ns
                                 
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
-                                Pf = Pf(:).*Hz(:);
+                                Pf = Pf(:);%.*Hz(:);
                             else
-                                [Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
-                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                %[Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
+                                Pf = pyulear(this,24,w,dw./dt);%.*Hz.^2;
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
-                                Pf = Pf(:).*Hz(:);
+                                Pf = Pf(:);%.*Hz(:);
                             end
                                                        
                             DoEnv = 1;
@@ -1101,7 +1101,7 @@ if isfield(M,'y')
         %b  = pinv(Mm*Mm')*Mm*yy;
         if any(size(Mm)==length(b))
             Pf(:,ins,ins) = b(:)'*Mm;
-            Pf(:,ins,ins) = Pf(:,ins,ins) * exp(P.L(ins));
+            Pf(:,ins,ins) = Pf(:,ins,ins) ;%* exp(P.L(ins));
         else
             Pf(:,ins,ins) = Mm;
         end
@@ -1109,28 +1109,38 @@ if isfield(M,'y')
         % Compute singular spectrum analysis [ssa], fir comps
         %------------------------------------------------------------------
         X  = Pf(:,ins,ins);
-        RC = atcm.fun.assa(X,10); % compute basis set
+        RC = atcm.fun.assa(X,30); % compute basis set
         pc = RC;
-        for ipc = 1:size(pc,2) % smooth the components
-            pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,8));
-        end
+%         for ipc = 1:size(pc,2) % smooth the components
+%             pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,12));
+%         end
+% 
+%         weight = M.y{:}./max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
+%               
+%         warning off;
+%         pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
+%         pcx = pcx(1:end-1,end);
+%         [~,I]=sort(pcx,'descend'); % use components explaining top 20%
+%         these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
+%         I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
+%         %b = atcm.fun.lsqnonneg(pc(:,I),yy);
+%         %Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
+%         warning on;
+        
+        b = pinv(pc'*pc)*pc'*yy;
+        Pf(:,ins,ins) = exp(P.L(ins))*b(:)'*pc';
+        %Pf(:,ins,ins) = exp(P.L(ins))* sum(pc,2);
+        
+        %Pf(:,ins,ins) = exp(P.L(ins))* sum(pc(:,[I]),2);
 
-        weight = M.y{:}./max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
-                
-        pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
-        pcx = pcx(1:end-1,end);
-        [~,I]=sort(pcx,'descend'); % use components explaining top 20%
-        these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
-        I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
-        Pf(:,ins,ins) = exp(P.L(ins))* sum(pc(:,[I]),2);
-
+        X=[];I=[];
         % return components in separate outputs
         c = RC;X = I;
         meanpower={X c};
             
         % Add noise to (in frequency space) to this LFP channel spectrum
         %------------------------------------------------------------------
-        addnoise=1;
+        addnoise=0;
         if addnoise
             % Multiply in the semi-stochastic neuronal fluctuations
             for i = 1:length(Hz)

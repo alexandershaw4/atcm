@@ -733,7 +733,12 @@ end
 
 Y  = (DD.xY.y); 
 try
-    E  = sum( Q*(spm_vec(Y) - real(spm_vec(yy))).^2 );
+    %E  = sum( Q*(spm_vec(Y) - real(spm_vec(yy))).^2 );
+    
+    ee = spm_vec(Y) - spm_vec(yy);
+    E  = (ee'*Q*ee).^2;
+    %E = sum(e(:).^2);
+    
 catch
     E  = sum( (spm_vec(Y) - real(spm_vec(yy))).^2 );
 end
