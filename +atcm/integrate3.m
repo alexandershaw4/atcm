@@ -1121,7 +1121,7 @@ if isfield(M,'y')
         % Compute singular spectrum analysis [ssa], fir comps
         %------------------------------------------------------------------
         X  = Pf(:,ins,ins);
-        RC = atcm.fun.assa(X,10); % compute basis set
+        RC = atcm.fun.assa(X,30); % compute basis set
         pc = RC;
 %         for ipc = 1:size(pc,2) % smooth the components
 %             pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,12));

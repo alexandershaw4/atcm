@@ -118,7 +118,7 @@ for s = i;%1:length(Data.Datasets)
     
     % Subfunctions
     %----------------------------------------------------------------------
-    DCM = atcm.parameters(DCM,Ns);       % gets latet priors for tc nmm     
+    DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
     
     % if using AOPTIM for inversion, invoke the linear model g(x) output by
     % placing data (DCM.xY.y) in model struct - DCM.M.y
@@ -145,30 +145,9 @@ for s = i;%1:length(Data.Datasets)
     
     DCM.M.pC.d = zeros(8,1);
     DCM.M.pE.L = -1.75;
-    DCM.M.pC.CV([1 2 8])=1/8;
-    
-%     V = DCM.M.pC;
-%     V.H([2 3],3)=1/8;
-%     V.H([1 2],8)=1/8;
-%     V.H(2,2)=1/8;
-%     V.H(3,2)=1/8;
-%     V.H(2,1)=1/8;
-%     V.H([4 5],5)=1/8;
-%     V.H(8,6)=1/8;
-%     V.H(1,1)=1/8;
-%     V.H(8,8)=1/8;
-%     V.Hn([2 3],2)=1/8;
-%     V.Hn(3,2)=1/8;
-%     V.Hn(2,1)=1/8;
-%     V.Hn(8,6)=1/8;
-%     V.Hn(1,8)=1/8;
-%     V.H(4,2)=1/8;
-%     V.H([4 5 6],4)=1/8;
-%     V.H(4,5)=1/8;    
-%     V.H([3 5],[5 2])=1/16;
-%     V.ID = ones(1,8)*0;
-%     DCM.M.pC=V;
-    
+    DCM.M.pC.CV = zeros(1,8);
+    DCM.M.pC.T = [1 1 1 1]/16;
+            
     DCM.M.InputType=1; % OSCILLATION
     
     % Feature function for the integrator
