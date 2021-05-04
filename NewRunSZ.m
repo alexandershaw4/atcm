@@ -160,8 +160,8 @@ for s = i;%1:length(Data.Datasets)
     %X = load('NewStartPoint.mat','Ep');
     %DCM.M.pE = X.Ep;
     
-    %X = load('/Users/Alex/code/atcm/+atcm/+fun/Priors2021a.mat');
-    %DCM.M.pC.H=X.pC.H;
+    X = load('/Users/Alex/code/atcm/+atcm/+fun/Priors2021a.mat');
+    DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
     % Feature function for the integrator
     %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
