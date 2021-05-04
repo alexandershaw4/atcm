@@ -948,6 +948,25 @@ for ins = 1:ns
                             bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
                             this = bpfpf(pfi);
                             
+%                             comps = atcm.fun.assa(this,10);
+%                             
+%                             for ic = 1:size(comps,2)
+%                                 %Pfc(:,ic) = pyulear(comps(:,ic),8,w,dw./dt);
+%                                 Pfc(:,ic) = atcm.fun.AfftSmooth(comps(:,ic)',dw/dt,w,8);
+%                             end
+%                             
+%                             
+%                             pcx = corr(Pfc, M.y{:}).^2;
+%                             pcx = pcx(1:end-1,end);
+%                             [~,I]=sort(pcx,'descend'); % use components explaining top 20%
+%                             these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.8);
+%                             I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
+%                             Pfc = Pfc(:,I);
+%                             
+%                             b = atcm.fun.lsqnonneg(Pfc,M.y{:});
+%                             
+%                             Pf = Pfc*b;
+                            
                             ncompe = 100;
                             if isfield(M,'ncompe')
                                 ncompe = M.ncompe;
@@ -988,6 +1007,8 @@ for ins = 1:ns
                             
                             % store 
                             Pf0(ins,ij,:) = Pf;
+                            
+                            %PfAll(ins,ij,:,:) = Pfc;
                                                                                     
                         case 'instantaneous'
                             % compute the instantaneous frequencies
@@ -1050,7 +1071,7 @@ for ins = 1:ns
 end
 
 switch lower(fmethod)
-    case {'svd','dmd'};
+    case {'svd','dmd' 'none'};
         clear Pf
 end
 
@@ -1120,27 +1141,38 @@ if isfield(M,'y')
                                                                             
         % Compute singular spectrum analysis [ssa], fir comps
         %------------------------------------------------------------------
+%         PfR = squeeze(PfAll(ins,:,:,:));
+%         PfR = permute(PfR,[1 3 2]);
+%         PfR = reshape(PfR,[size(PfR,1)*size(PfR,2),size(PfR,3)]);
+%         pc=PfR';
+        
         X  = Pf(:,ins,ins);
         RC = atcm.fun.assa(X,30); % compute basis set
         pc = RC;
-%         for ipc = 1:size(pc,2) % smooth the components
-%             pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,12));
-%         end
-% 
-%         weight = M.y{:}./max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
-%               
-         warning off;
-%         pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
-%         pcx = pcx(1:end-1,end);
-%         [~,I]=sort(pcx,'descend'); % use components explaining top 20%
-%         these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
-%         I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
-            I = 1:size(pc,2);
-         b = atcm.fun.lsqnonneg(pc(:,I),yy);
+        
+        %for ipc = 1:size(pc,2) % smooth the components
+            %pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,12));
+        %    H = rescale(kaiser(nf,2.5),.1,1).^.2;
+        %    pc(:,ipc) = pc(:,ipc).*H(:);
+        %end
+%  
+%          weight = M.y{:}./max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
+%                
+          warning off;
+%          %pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
+%          pcx = atcm.fun.wcor([pc M.y{:}],weight).^2;
+%          pcx = pcx(1:end-1,end);
+%          [~,I]=sort(pcx,'descend'); % use components explaining top 20%
+%          these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
+%          I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
+         I = 1:size(pc,2);
+         %b = atcm.fun.lsqnonneg(pc(:,I),yy);
+         pci = pc(:,I);
+         b = pinv(pci'*pci)*pci'*yy;
          Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
          warning on;
         
-        %Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+      %  Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
         %RC=[];
 
         %b = pinv(pc'*pc)*pc'*yy;
@@ -1149,7 +1181,7 @@ if isfield(M,'y')
         
         %Pf(:,ins,ins) = exp(P.L(ins))* sum(pc(:,[I]),2);
 
-        X=[];I=[];
+        X=[];I=[];RC=[];
         % return components in separate outputs
         c = RC;X = I;
         meanpower={X c};

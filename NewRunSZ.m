@@ -86,18 +86,20 @@ for s = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     fprintf('Running Dataset %d / %d\n',s,length(Data.Datasets));
     
+    fq = [4 90];
+    
     % Prepare Data
     %----------------------------------------------------------------------
     DCM.M.U            = sparse(diag(ones(Ns,1)));  %... ignore [modes]
     DCM.options.trials = tCode;                     %... trial code [GroupDataLocs]
     DCM.options.Tdcm   = [300 1300];                   %... peristimulus time
-    DCM.options.Fdcm   = [4 90];                    %... frequency window
+    DCM.options.Fdcm   = fq;                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
     DCM.options.han    = 0;                         %... apply hanning window
     DCM.options.h      = 4;                         %... number of confounds (DCT)
     DCM.options.DoData = 1;                         %... leave on [custom]
     %DCM.options.baseTdcm   = [-200 0];             %... baseline times [new!]
-    DCM.options.Fltdcm = [4 90];                    %... bp filter [new!]
+    DCM.options.Fltdcm = fq;                    %... bp filter [new!]
 
     DCM.options.analysis      = 'CSD';              %... analyse type
     DCM.xY.modality           = 'LFP';              %... ECD or LFP data? [LFP]
@@ -108,7 +110,7 @@ for s = i;%1:length(Data.Datasets)
     % Alex additions - 1010 = use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 4;
-    DCM.options.UseButterband = [4 90];
+    DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;        % use .5 Hz steps
     
@@ -118,7 +120,11 @@ for s = i;%1:length(Data.Datasets)
     
     % Subfunctions
     %----------------------------------------------------------------------
-    DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
+    %DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
+    DCM = atcm.parameters(DCM,Ns,'~/code/atcm/+atcm/+fun/Priors2021b');
+    
+    DCM.M.pE.gaba = zeros(1,8);
+    DCM.M.pC.gaba = zeros(1,8)+1/16;
     
     % if using AOPTIM for inversion, invoke the linear model g(x) output by
     % placing data (DCM.xY.y) in model struct - DCM.M.y
@@ -150,6 +156,13 @@ for s = i;%1:length(Data.Datasets)
             
     DCM.M.InputType=1; % OSCILLATION
     
+    % load best so far
+    %X = load('NewStartPoint.mat','Ep');
+    %DCM.M.pE = X.Ep;
+    
+    %X = load('/Users/Alex/code/atcm/+atcm/+fun/Priors2021a.mat');
+    %DCM.M.pC.H=X.pC.H;
+    
     % Feature function for the integrator
     %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     DCM = atcm.complete(DCM);
@@ -169,7 +182,7 @@ for s = i;%1:length(Data.Datasets)
     w = DCM.xY.Hz;
     M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     
-    M.default_optimise([1 3 1],[20 10 10]);
+    M.default_optimise([1],[15]);
     
     save(DCM.name); close; clear global;    
     

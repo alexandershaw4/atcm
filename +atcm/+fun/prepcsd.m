@@ -385,10 +385,10 @@ for i = 1:Ne;
         %P(find(P<=0))=0;
         P=P-min(P);
         
-%         if isfield(DCM.options,'han') && DCM.options.han
-%             % apply hanning window
-%            P = P .* ( (1 - cos(2*pi*[1:Nf]'/(Nf + 1)))/2 )'; 
-%         end
+        if isfield(DCM.options,'han') && DCM.options.han
+            % apply hanning window
+           P = P .* rescale(kaiser(Nf,2.5),.01,1)'.^.2;
+        end
         
         try
             DCM.xY.csd{i}=P';
