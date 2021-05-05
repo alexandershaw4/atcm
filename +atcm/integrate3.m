@@ -982,7 +982,7 @@ for ins = 1:ns
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
                             else
-                                %[Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
+                                %[Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
                                 Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
                                 %Pf = pmtm(this,24,w,dw./dt,'eigen');
                                 nwg = 4;
@@ -1141,23 +1141,12 @@ if isfield(M,'y')
                                                                             
         % Compute singular spectrum analysis [ssa], fir comps
         %------------------------------------------------------------------
-%         PfR = squeeze(PfAll(ins,:,:,:));
-%         PfR = permute(PfR,[1 3 2]);
-%         PfR = reshape(PfR,[size(PfR,1)*size(PfR,2),size(PfR,3)]);
-%         pc=PfR';
-        
         X  = Pf(:,ins,ins);
         RC = atcm.fun.assa(X,10); % compute basis set
         pc = RC;
         
-        %for ipc = 1:size(pc,2) % smooth the components
-            %pc(:,ipc) = full(atcm.fun.HighResMeanFilt(pc(:,ipc),1,12));
-        %    H = rescale(kaiser(nf,2.5),.1,1).^.2;
-        %    pc(:,ipc) = pc(:,ipc).*H(:);
-        %end
-%  
-          weight = M.FS(M.y{:});%./max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
-%                
+          weight = M.FS(M.y{:})/max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
+          %weight = w';
           warning off;
 %          %pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
           pcx = atcm.fun.wcor([pc M.y{:}],weight).^2;
@@ -1165,25 +1154,15 @@ if isfield(M,'y')
           [~,I]=sort(pcx,'descend'); % use components explaining top 20%
           these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
           I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
-          
           b = ones(1,length(I));
-          
 %        I = 1:size(pc,2);
- %        b = atcm.fun.lsqnonneg(pc(:,I),yy);
+%        b = atcm.fun.lsqnonneg(pc(:,I),yy);
          pci = pc(:,I);
          %b = pinv(pci'*pci)*pci'*yy;
          Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
          warning on;
         
       %  Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
-        %RC=[];
-
-        %b = pinv(pc'*pc)*pc'*yy;
-        %Pf(:,ins,ins) = exp(P.L(ins))*b(:)'*pc';
-        %Pf(:,ins,ins) = exp(P.L(ins))* sum(pc,2);
-        
-        %Pf(:,ins,ins) = exp(P.L(ins))* sum(pc(:,[I]),2);
-
         X=[];I=[];RC=[];
         % return components in separate outputs
         c = pci;X = b;
