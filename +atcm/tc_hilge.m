@@ -223,7 +223,6 @@ GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
 GEa = GEa/8;
 
-
 %GEa = GEa*(3*exp(P.ex));
 
 GEa = GEa .* ~eye(np);
@@ -277,6 +276,7 @@ GIa(8,:) = [0   0   0   0   0   0   8   32];
 %GIa = GIa*(4*exp(P.in));
 
 GIa = GIa/2;
+
 
 %GIa = GIa * exp(P.GIs);
 

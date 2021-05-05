@@ -944,9 +944,9 @@ for ins = 1:ns
                             end
                             
                             % filter
-                            %[pfp,pfi]=atcm.fun.padtimeseries(this);
-                            %bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
-                            %this = bpfpf(pfi);
+                            [pfp,pfi]=atcm.fun.padtimeseries(this);
+                            bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
+                            this = bpfpf(pfi);
                             
 %                             comps = atcm.fun.assa(this,10);
 %                             
@@ -983,7 +983,7 @@ for ins = 1:ns
                                 Pf = Pf(:);%.*Hz(:);
                             else
                                 %[Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
-                                Pf = pyulear(this,48,w,dw./dt);%.*Hz.^2;
+                                Pf = pyulear(this,4,w,dw./dt);%.*Hz.^2;
                                 %ntp = 13;
                                 %Pf = pmtm(this,(ntp:-1:1)/sum(1:ntp),'Tapers','sine',w,dw./dt);
                                 nwg = 4;
