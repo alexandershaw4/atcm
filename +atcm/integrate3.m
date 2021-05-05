@@ -1156,17 +1156,20 @@ if isfield(M,'y')
         %    pc(:,ipc) = pc(:,ipc).*H(:);
         %end
 %  
-%          weight = M.y{:}./max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
+          weight = M.FS(M.y{:});%./max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
 %                
           warning off;
 %          %pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
-%          pcx = atcm.fun.wcor([pc M.y{:}],weight).^2;
-%          pcx = pcx(1:end-1,end);
-%          [~,I]=sort(pcx,'descend'); % use components explaining top 20%
-%          these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
-%          I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
-         I = 1:size(pc,2);
-         b = atcm.fun.lsqnonneg(pc(:,I),yy);
+          pcx = atcm.fun.wcor([pc M.y{:}],weight).^2;
+          pcx = pcx(1:end-1,end);
+          [~,I]=sort(pcx,'descend'); % use components explaining top 20%
+          these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
+          I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
+          
+          b = ones(1,length(I));
+          
+%        I = 1:size(pc,2);
+ %        b = atcm.fun.lsqnonneg(pc(:,I),yy);
          pci = pc(:,I);
          %b = pinv(pci'*pci)*pci'*yy;
          Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
