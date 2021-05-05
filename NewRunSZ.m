@@ -169,6 +169,12 @@ for s = i;%1:length(Data.Datasets)
     DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     
+    % oscillations == no fixed point search
+    DCM.M.solvefixed=0;
+    DCM.M.x = zeros(1,8,7);
+    DCM.M.x(:,:,1)=-50;
+    DCM.M.ncompe = 47;
+    
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
