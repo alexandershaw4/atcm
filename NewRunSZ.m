@@ -30,6 +30,7 @@ clear global;
 % Data & Design
 %--------------------------------------------------------------------------
 Data.Datasets     = 'SZ_Datasets.txt';
+%Data.Datasets     = 'MeanDatasets.txt';
 %Data.Datasets     = 'PMP_Datasets.txt';  % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];              % std/dev
 Data.Design.name  = {'undefined'};         % condition names
@@ -160,7 +161,7 @@ for s = i;%1:length(Data.Datasets)
     %X = load('NewStartPoint.mat','Ep');
     %DCM.M.pE = X.Ep;
     
-    X = load('/Users/Alex/code/atcm/+atcm/+fun/Priors2021a.mat');
+    X = load('~/code/atcm/+atcm/+fun/Priors2021a.mat');
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
     % Feature function for the integrator

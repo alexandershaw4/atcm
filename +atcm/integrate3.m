@@ -262,7 +262,7 @@ for  c = 1:size(U.X,1)
     % integration, spectral response, firing etc. (subfunction)
     %----------------------------------------------------------------------
     [y{c},w,s{c},g{c},t{c},layers{c},noise{c},firing{c},QD{c},Spike{c},condel{c}] = ...
-        dodxdt(pst,f,v,Q,M,dt,w,drive,Kx,U,method,solvefp);
+        dodxdt(pst,f,v,Q,M,dt,w,drive,Kx,U,method,solvefp,c);
 
 end
 
@@ -275,7 +275,7 @@ other.condel=condel;
 end
 
 function [y,w,s,g,t,layers,noise,firing,QD,spike,condel] = ...
-                            dodxdt(t,f,v,P,M,dt,w,drive,Kx,U,method,solvefp)
+                            dodxdt(t,f,v,P,M,dt,w,drive,Kx,U,method,solvefp,ci)
 % Numerical integration, signal weighting and FFT of timeseries with
 % spline interpolation and smoothing
 
@@ -643,11 +643,11 @@ nf          = length(w);
 spike       = firings;
 
 
-[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx);
+[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci);
 t = drive;
 end
 
-function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx)
+function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci)
 
 % Spectral Response Options
 %--------------------------------------------------------------------------
@@ -983,7 +983,7 @@ for ins = 1:ns
                                 Pf = Pf(:);%.*Hz(:);
                             else
                                 %[Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
-                                Pf = pyulear(this,8,w,dw./dt);%.*Hz.^2;
+                                Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
                                 %Pf = pmtm(this,24,w,dw./dt,'eigen');
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
@@ -1125,7 +1125,7 @@ if isfield(M,'y')
         % LFP signal as Weighted sum of population spectra
         %------------------------------------------------------------------
         dat = squeeze(layers.iweighted(ins,:,:))';
-        yy  = squeeze(M.y{1}(:,ins,ins));
+        yy  = squeeze(M.y{ci}(:,ins,ins));
         if all( (size(dat,1)==1) && size(dat,2)==length(w) )
             dat = dat';
         end
@@ -1147,7 +1147,7 @@ if isfield(M,'y')
 %         pc=PfR';
         
         X  = Pf(:,ins,ins);
-        RC = atcm.fun.assa(X,30); % compute basis set
+        RC = atcm.fun.assa(X,10); % compute basis set
         pc = RC;
         
         %for ipc = 1:size(pc,2) % smooth the components
@@ -1166,9 +1166,9 @@ if isfield(M,'y')
 %          these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
 %          I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
          I = 1:size(pc,2);
-         %b = atcm.fun.lsqnonneg(pc(:,I),yy);
+         b = atcm.fun.lsqnonneg(pc(:,I),yy);
          pci = pc(:,I);
-         b = pinv(pci'*pci)*pci'*yy;
+         %b = pinv(pci'*pci)*pci'*yy;
          Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
          warning on;
         
@@ -1183,7 +1183,7 @@ if isfield(M,'y')
 
         X=[];I=[];RC=[];
         % return components in separate outputs
-        c = RC;X = I;
+        c = pci;X = b;
         meanpower={X c};
             
         % Add noise to (in frequency space) to this LFP channel spectrum
