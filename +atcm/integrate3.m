@@ -983,8 +983,9 @@ for ins = 1:ns
                                 Pf = Pf(:);%.*Hz(:);
                             else
                                 %[Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
-                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
-                                Pf = atcm.fun.pmtm(this,w./sum(w),'Tapers','sine',w,dw./dt);
+                                Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                %ntp = 13;
+                                %Pf = pmtm(this,(ntp:-1:1)/sum(1:ntp),'Tapers','sine',w,dw./dt);
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
