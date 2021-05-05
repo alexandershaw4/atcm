@@ -944,9 +944,9 @@ for ins = 1:ns
                             end
                             
                             % filter
-                            [pfp,pfi]=atcm.fun.padtimeseries(this);
-                            bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
-                            this = bpfpf(pfi);
+                            %[pfp,pfi]=atcm.fun.padtimeseries(this);
+                            %bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
+                            %this = bpfpf(pfi);
                             
 %                             comps = atcm.fun.assa(this,10);
 %                             
@@ -983,7 +983,7 @@ for ins = 1:ns
                                 Pf = Pf(:);%.*Hz(:);
                             else
                                 %[Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
-                                Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                Pf = pyulear(this,48,w,dw./dt);%.*Hz.^2;
                                 %ntp = 13;
                                 %Pf = pmtm(this,(ntp:-1:1)/sum(1:ntp),'Tapers','sine',w,dw./dt);
                                 nwg = 4;
@@ -1145,25 +1145,20 @@ if isfield(M,'y')
         X  = Pf(:,ins,ins);
         RC = atcm.fun.assa(X,10); % compute basis set
         pc = RC;
+        weight = M.FS(M.y{:})/max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
+        warning off;
+        pcx = atcm.fun.wcor([pc M.y{:}],weight).^2;
+        pcx = pcx(1:end-1,end);
+        [~,I]=sort(pcx,'descend'); % use components explaining top 20%
+        these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
+        I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
+        b = ones(1,length(I));
+        pci = pc(:,I);
+        %b = pinv(pci'*pci)*pci'*yy;
+        Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
+        warning on;
         
-          weight = M.FS(M.y{:})/max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
-          %weight = w';
-          warning off;
-%          %pcx = atcm.fun.wcor([pc Pf(:,ins,ins)],weight).^2;
-          pcx = atcm.fun.wcor([pc M.y{:}],weight).^2;
-          pcx = pcx(1:end-1,end);
-          [~,I]=sort(pcx,'descend'); % use components explaining top 20%
-          these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
-          I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
-          b = ones(1,length(I));
-%        I = 1:size(pc,2);
-%        b = atcm.fun.lsqnonneg(pc(:,I),yy);
-         pci = pc(:,I);
-         %b = pinv(pci'*pci)*pci'*yy;
-         Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
-         warning on;
-        
-      %  Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+        %  Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
         X=[];I=[];RC=[];
         % return components in separate outputs
         c = pci;X = b;
