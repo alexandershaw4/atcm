@@ -217,8 +217,8 @@ for s = 1:length(Data.Datasets)
     M.opts.hyperparams=1;        % include hyperparameter tuning of precision
     M.opts.fsd=0;                % don't use a fixed step derivative in finite diff computation
     
-    w = DCM.xY.Hz;
-    M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
+    %w = DCM.xY.Hz;
+    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     
     M.default_optimise([1 3 1],[15 4 4]);
     

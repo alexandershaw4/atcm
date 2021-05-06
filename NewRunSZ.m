@@ -200,8 +200,8 @@ for s = i;%1:length(Data.Datasets)
     M.opts.hyperparams=1;
     M.opts.fsd=0;
     
-    w = DCM.xY.Hz;
-    M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
+    %w = DCM.xY.Hz;
+    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     
     M.default_optimise([1 3 1],[15 4 4]);
     
