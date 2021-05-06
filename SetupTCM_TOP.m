@@ -108,27 +108,28 @@ for s = 1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tc_dev_dev;               % model function handle
+    DCM.M.f  = @atcm.tc_hilge;               % model function handle
     DCM.M.IS = @atcm.integrate3;              % Alex integrator/transfer function
-    %DCM.M.IS = 'spm_csd_mtf';              % default DCM transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;  % fft function for IS
     
     % Print Progress
     %----------------------------------------------------------------------
     fprintf('Running Dataset %d / %d\n',s,length(Data.Datasets));
     
+    fq = [4 90];
+    
     % Prepare Data
     %----------------------------------------------------------------------
     DCM.M.U            = sparse(diag(ones(Ns,1)));  %... ignore [modes]
     DCM.options.trials = tCode;                     %... trial code [GroupDataLocs]
     DCM.options.Tdcm   = [300 1300];                   %... peristimulus time
-    DCM.options.Fdcm   = [4 90];                    %... frequency window
+    DCM.options.Fdcm   = fq;                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
     DCM.options.han    = 0;                         %... apply hanning window
     DCM.options.h      = 4;                         %... number of confounds (DCT)
     DCM.options.DoData = 1;                         %... leave on [custom]
     %DCM.options.baseTdcm   = [-200 0];             %... baseline times [new!]
-    DCM.options.Fltdcm = [4 90];                    %... bp filter [new!]
+    DCM.options.Fltdcm = fq;                    %... bp filter [new!]
 
     DCM.options.analysis      = 'CSD';              %... analyse type
     DCM.xY.modality           = 'LFP';              %... ECD or LFP data? [LFP]
@@ -139,7 +140,7 @@ for s = 1:length(Data.Datasets)
     % Alex additions - 1010 = use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 4;
-    DCM.options.UseButterband = [4 90];
+    DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;        % use .5 Hz steps
     
@@ -149,7 +150,11 @@ for s = 1:length(Data.Datasets)
     
     % Subfunctions
     %----------------------------------------------------------------------
-    DCM = atcm.parameters(DCM,Ns);       % gets latet priors for tc nmm     
+    %DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
+    DCM = atcm.parameters(DCM,Ns,'~/code/atcm/+atcm/+fun/Priors2021b');
+    
+    DCM.M.pE.gaba = zeros(1,8);
+    DCM.M.pC.gaba = zeros(1,8)+1/16;
     
     % if using AOPTIM for inversion, invoke the linear model g(x) output by
     % placing data (DCM.xY.y) in model struct - DCM.M.y
@@ -161,7 +166,7 @@ for s = 1:length(Data.Datasets)
     
     % Final options for integrator
     DCM.M.fmethod = 'none';
-    DCM.M.DoEnv   = 1;
+    DCM.M.DoEnv   = 0;
     
     DCM.M.ncompe=0;
     DCM.M.envonly=1;
@@ -169,43 +174,51 @@ for s = 1:length(Data.Datasets)
     DCM.M.burnin = 300;
     DCM.M.solvefixed=1;
     DCM.M.DoHamming=0;
-    DCM.M.LFPsmooth=0;
+    DCM.M.LFPsmooth=12;
     DCM.M.usesmoothkernels=0;
     DCM.M.intmethod=2;
+    DCM.M.IncDCS=0;
     
-    DCM.M.IncDCS=1;    
-    
+    DCM.M.pC.d = zeros(8,1);
+    DCM.M.pE.L = -1.75;
+    DCM.M.pC.CV = zeros(1,8);
+    DCM.M.pC.T = [1 1 1 1]/16;
+            
+    DCM.M.InputType=0; % NOT OSCILLATION
+        
+    X = load('~/code/atcm/+atcm/+fun/Priors2021a.mat');
+    DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
     % Feature function for the integrator
+    %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
+    DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     
-    DCM = atcm.complete(DCM);cc
-    
+    % oscillations == no fixed point search
+    DCM.M.solvefixed=0;
+    DCM.M.x = zeros(1,8,7);
+    DCM.M.x(:,:,1)=-50;
+    DCM.M.ncompe = 47;
+    DCM.M.pC.CV = ones(1,8)/8;
+    DCM.M.pC.J([2 4])=1/8;
+    M.pC.S = ones(1,8)/16;
+        
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
     
-    % opt set 1.
-    M.opts.EnforcePriorProb=1;
-    M.opts.ismimo=0;
-    M.opts.doparallel=1;
-    M.opts.hyperparams=0;
-    M.opts.fsd=0;
+    % opt set 1.                   - DONT CHANGE THESE! - 
+    M.opts.EnforcePriorProb=0;   % don't force a bayesian approach
+    M.opts.ismimo=0;             % don't compute gradients as a MIMO
+    M.opts.doparallel=1;         % compute derivatives in parallel (parfor)
+    M.opts.hyperparams=1;        % include hyperparameter tuning of precision
+    M.opts.fsd=0;                % don't use a fixed step derivative in finite diff computation
     
     w = DCM.xY.Hz;
     M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
-    %M.opts.FS = @(x) x(:).^2.*(1:length(x))'.^2;  
     
-    M.default_optimise([1],[20]);
+    M.default_optimise([1 3 1],[15 4 4]);
     
-    M.update_parameters(M.Ep);
-    %M.opts.Q=[];
-    M.default_optimise([3 1],[10 20]);
-    Ep = spm_unvec(M.Ep,DCM.M.pE);
-    
-    save(DCM.name); close; clear global;
+    save(DCM.name); close; clear global;    
 
-    
-    
-    
 end

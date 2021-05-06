@@ -1,16 +1,15 @@
-function NewRunSZ(i)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data. 
 %
 % Besides the SPM built-ins, all the dependent functions are contained in
 % the +atcm/ package.
 %
-% I include here my script for applying to a dataset from age-matched
-% schizophrenia patients and controls.
+% I include here examples of how to set up both single-region and
+% multi-region models.
 %
 % As of late 2020, I am having more success using an alternative
 % optimisation routine 'aoptim', available at https://github.com/alexandershaw4/aoptim
-% This routine is similar to the DCM one (spm_nlsi_GN.m) - it still optimises 
+% This routine is similar to the DCM one (spm_nlsi)GN.m) - it still optimises 
 % free energy using a gradient descent, but has some extra options such as 
 % momentum parameters and line search. 
 %
@@ -19,25 +18,16 @@ function NewRunSZ(i)
 
 % EXAMPLE ONE NODE SETUP:
 %==========================================================================
-clear global;
-
-addpath(genpath('~/spm12'));
-addpath(genpath('/home/sapas10/code/atcm/'));
-addpath(genpath('/home/sapas10/code/aoptim/'));
-
-cd /cubric/scratch/sapas10/tcm/LauSZ/
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'SZ_Datasets.txt';
-%Data.Datasets     = 'Meansets.txt';
-%Data.Datasets     = 'PMP_Datasets.txt';  % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'PMP_Datasets.txt';  % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];              % std/dev
 Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'mTCM_';      % outputted DCM prefix
+Data.Prefix       = 'TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -50,9 +40,48 @@ C = [1]';          % input(s)
 L = sparse(1,1); 
 
 
+% EXAMPLE EIGHT NODE SETUP:
+%==========================================================================
+
+% % Data & Design
+% %--------------------------------------------------------------------------
+% Data.Datasets     = {'314_27934_VisAAL'};  % textfile list of LFP SPM datasets (.txt)
+% Data.Design.X     = [];              % std/dev
+% Data.Design.name  = {'Stim'};         % condition names
+% Data.Design.tCode = [1];             % condition codes in SPM
+% % l / r thal: 77/78
+% % l / r calc: 43/44
+% % l / r sup occ: 49/50 (dorsal stream)
+% % l / r inf occ: 53/54 (central stream)
+% Data.Design.Ic    = [77 78 43 44 49 50 53 54];          % channel indices
+% Data.Design.Sname = {'LTh' 'RTh' 'LV1' 'RV1' 'LSupOc' 'RSupOv' 'LInfOc' 'RInfOc'};  % channel (node) names
+% Data.Prefix       = 'TCM_';      % outputted DCM prefix
+% 
+% % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
+% %--------------------------------------------------------------------------
+% T = [...
+%     0 0 2 0 0 0 0 0;  % th
+%     0 0 0 2 0 0 0 0;  % th
+%     1 0 0 0 2 0 2 0;  % v1
+%     0 1 0 0 0 2 0 2;  % v1
+%     0 0 1 0 0 0 0 0;  % supoc
+%     0 0 0 1 0 0 0 0;  % supoc 
+%     0 0 1 0 0 0 0 0;  % infoc
+%     0 0 0 1 0 0 0 0 ];% infoc
+% 
+% F = (T==1);
+% B = (T==2);
+% C = [1 1 0 0 0 0 0 0]';      % inputs
+% L = sparse(8,8); 
+
+
+% THE REST IS COMMON ACROSS SETUPS: DONT EDIT, APART FROM 'PREPARE DATA'
+%--------------------------------------------------------------------------
+
+
 % Set up, over subjects
 %--------------------------------------------------------------------------
-for s = i;%1:length(Data.Datasets)
+for s = 1:length(Data.Datasets)
     
     % Data Naming & Design Matrix
     %----------------------------------------------------------------------
@@ -156,11 +185,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.T = [1 1 1 1]/16;
             
     DCM.M.InputType=0; % NOT OSCILLATION
-    
-    % load best so far
-    %X = load('NewStartPoint.mat','Ep');
-    %DCM.M.pE = X.Ep;
-    
+        
     X = load('~/code/atcm/+atcm/+fun/Priors2021a.mat');
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
@@ -176,25 +201,14 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.ncompe = 47;
     DCM.M.pC.CV = ones(1,8)/8;
     DCM.M.pC.J([2 4])=1/8;
-   
     M.pC.S = ones(1,8)/16;
-    
-    if s < 87
-        X = load('mTCM_Controls_MeanDataset');
-        DCM.M.pE = spm_unvec(X.M.Ep,DCM.M.pE);
-        fprintf('Using Control Mean Fit Priors\n');
-    else
-        X = load('mTCM_Patients_MeanDataset');
-        DCM.M.pE = spm_unvec(X.M.Ep,DCM.M.pE);
-        fprintf('Using Patient Mean Fit Priors\n');
-    end
-    
+        
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
     
-    % opt set 1.
-    M.opts.EnforcePriorProb=0;
+    % opt set 1.                   - DONT CHANGE THESE! - 
+    M.opts.EnforcePriorProb=0;   % don't force a bayesian 
     M.opts.ismimo=0;
     M.opts.doparallel=1;
     M.opts.hyperparams=1;
@@ -206,5 +220,5 @@ for s = i;%1:length(Data.Datasets)
     M.default_optimise([1 3 1],[15 4 4]);
     
     save(DCM.name); close; clear global;    
-    
+
 end
