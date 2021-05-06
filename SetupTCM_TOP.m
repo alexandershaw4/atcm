@@ -77,7 +77,7 @@ L = sparse(1,1);
 
 % THE REST IS COMMON ACROSS SETUPS: DONT EDIT, APART FROM 'PREPARE DATA'
 %--------------------------------------------------------------------------
-
+modelstore = fileparts(which('atcm.integrate3'));
 
 % Set up, over subjects
 %--------------------------------------------------------------------------
@@ -151,7 +151,7 @@ for s = 1:length(Data.Datasets)
     % Subfunctions
     %----------------------------------------------------------------------
     %DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
-    DCM = atcm.parameters(DCM,Ns,'~/code/atcm/+atcm/+fun/Priors2021b');
+    DCM = atcm.parameters(DCM,Ns,[modelstore '/+fun/Priors2021b']);
     
     DCM.M.pE.gaba = zeros(1,8);
     DCM.M.pC.gaba = zeros(1,8)+1/16;
@@ -186,7 +186,7 @@ for s = 1:length(Data.Datasets)
             
     DCM.M.InputType=0; % NOT OSCILLATION
         
-    X = load('~/code/atcm/+atcm/+fun/Priors2021a.mat');
+    X = load([modelstore '/+fun/Priors2021a.mat']);
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
     % Feature function for the integrator
@@ -203,6 +203,9 @@ for s = 1:length(Data.Datasets)
     DCM.M.pC.J([2 4])=1/8;
     M.pC.S = ones(1,8)/16;
         
+    X = load([modelstore '/+fun/NewControlPriors'],'pE');
+    DCM.M.pE = X.pE;
+    
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
