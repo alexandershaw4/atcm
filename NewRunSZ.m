@@ -176,8 +176,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.ncompe = 47;
     DCM.M.pC.CV = ones(1,8)/8;
     DCM.M.pC.J([2 4])=1/8;
-   
-    M.pC.S = ones(1,8)/16;
+    DCM.M.pC.S = ones(1,8)/16;
     
     if s < 87
         X = load('mTCM_Controls_MeanDataset');
@@ -201,7 +200,7 @@ for s = i;%1:length(Data.Datasets)
     M.opts.fsd=0;
     
     %w = DCM.xY.Hz;
-    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
+    %3M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     
     M.default_optimise([1 3 1],[15 4 4]);
     

@@ -1,78 +1,28 @@
-% Top level script showing how to apply the thalamo-cortical neural mass
-% model decribed in Shaw et al 2020 NeuroImage, to M/EEG data. 
-%
-% Besides the SPM built-ins, all the dependent functions are contained in
-% the +atcm/ package.
-%
-% I include here examples of how to set up both single-region and
-% multi-region models.
-%
-% As of late 2020, I am having more success using an alternative
-% optimisation routine 'aoptim', available at https://github.com/alexandershaw4/aoptim
-% This routine is similar to the DCM one (spm_nlsi)GN.m) - it still optimises 
-% free energy using a gradient descent, but has some extra options such as 
-% momentum parameters and line search. 
-%
-%
-% AS2020
 
-% EXAMPLE ONE NODE SETUP:
+% EXAMPLE TWO NODE SETUP:
 %==========================================================================
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'PMP_Datasets.txt';  % textfile list of LFP SPM datasets (.txt)
-Data.Design.X     = [];              % std/dev
-Data.Design.name  = {'undefined'};         % condition names
-Data.Design.tCode = [1];             % condition codes in SPM
-Data.Design.Ic    = [1];             % channel indices
-Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'TCM_';      % outputted DCM prefix
+Data.Datasets     = 'KETDEP.txt';  % textfile list of LFP SPM datasets (.txt)
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
+Data.Design.X     = [];              % std/dev
+Data.Design.name  = {'Undefined'};         % condition names
+Data.Design.tCode = [1];             % condition codes in SPM
+Data.Design.Ic    = [1 2];          % channel indices
+Data.Design.Sname = {'Frontal' 'Parietal'};  % channel (node) names
+Data.Prefix       = 'mTCM_';      % outputted DCM prefix
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
 %--------------------------------------------------------------------------
-T = [... % this is a 1-node model; nothing to put here...
-    0];
+T = [...
+    0 1 ;
+    2 0 ];
+
 F = (T==1);
 B = (T==2);
-C = [1]';          % input(s)
-L = sparse(1,1); 
-
-
-% EXAMPLE EIGHT NODE SETUP:
-%==========================================================================
-
-% % Data & Design
-% %--------------------------------------------------------------------------
-% Data.Datasets     = {'314_27934_VisAAL'};  % textfile list of LFP SPM datasets (.txt)
-% Data.Design.X     = [];              % std/dev
-% Data.Design.name  = {'Stim'};         % condition names
-% Data.Design.tCode = [1];             % condition codes in SPM
-% % l / r thal: 77/78
-% % l / r calc: 43/44
-% % l / r sup occ: 49/50 (dorsal stream)
-% % l / r inf occ: 53/54 (central stream)
-% Data.Design.Ic    = [77 78 43 44 49 50 53 54];          % channel indices
-% Data.Design.Sname = {'LTh' 'RTh' 'LV1' 'RV1' 'LSupOc' 'RSupOv' 'LInfOc' 'RInfOc'};  % channel (node) names
-% Data.Prefix       = 'TCM_';      % outputted DCM prefix
-% 
-% % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
-% %--------------------------------------------------------------------------
-% T = [...
-%     0 0 2 0 0 0 0 0;  % th
-%     0 0 0 2 0 0 0 0;  % th
-%     1 0 0 0 2 0 2 0;  % v1
-%     0 1 0 0 0 2 0 2;  % v1
-%     0 0 1 0 0 0 0 0;  % supoc
-%     0 0 0 1 0 0 0 0;  % supoc 
-%     0 0 1 0 0 0 0 0;  % infoc
-%     0 0 0 1 0 0 0 0 ];% infoc
-% 
-% F = (T==1);
-% B = (T==2);
-% C = [1 1 0 0 0 0 0 0]';      % inputs
-% L = sparse(8,8); 
+C = [1 1]';      % inputs
+L = sparse(2,2); 
 
 
 % THE REST IS COMMON ACROSS SETUPS: DONT EDIT, APART FROM 'PREPARE DATA'
@@ -180,14 +130,14 @@ for s = 1:length(Data.Datasets)
     DCM.M.IncDCS=0;
     
     DCM.M.pC.d = zeros(8,1);
-    DCM.M.pE.L = -1.75;
+    DCM.M.pE.L = repmat(-1.75,[Ns 1]);
     DCM.M.pC.CV = zeros(1,8);
-    DCM.M.pC.T = [1 1 1 1]/16;
+    DCM.M.pC.T = repmat([1 1 1 1]/16,[Ns 1]);
             
     DCM.M.InputType=0; % NOT OSCILLATION
         
-    X = load([modelstore '/+fun/Priors2021a.mat']);
-    DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
+    %X = load([modelstore '/+fun/Priors2021a.mat']);
+    %DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
     % Feature function for the integrator
     %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
@@ -196,15 +146,15 @@ for s = 1:length(Data.Datasets)
     
     % oscillations == no fixed point search
     DCM.M.solvefixed=0;
-    DCM.M.x = zeros(1,8,7);
+    DCM.M.x = zeros(Ns,8,7);
     DCM.M.x(:,:,1)=-50;
     DCM.M.ncompe = 47;
     DCM.M.pC.CV = ones(1,8)/8;
     DCM.M.pC.J([2 4])=1/8;
     DCM.M.pC.S = ones(1,8)/16;
         
-    X = load([modelstore '/+fun/NewControlPriors'],'pE');
-    DCM.M.pE = X.pE;
+    %X = load([modelstore '/+fun/NewControlPriors'],'pE');
+    %DCM.M.pE = X.pE;
     
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------

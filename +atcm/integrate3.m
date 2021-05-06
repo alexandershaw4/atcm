@@ -1145,9 +1145,9 @@ if isfield(M,'y')
         X  = Pf(:,ins,ins);
         RC = atcm.fun.assa(X,10); % compute basis set
         pc = RC;
-        weight = M.FS(M.y{:})/max(M.y{:});% M.FS(M.y{:}); % use data spectrum as weights
+        weight = M.FS(yy./max(yy));% M.FS(M.y{:}); % use data spectrum as weights
         warning off;
-        pcx = atcm.fun.wcor([pc M.y{:}],weight).^2;
+        pcx = atcm.fun.wcor([pc yy],weight).^2;
         pcx = pcx(1:end-1,end);
         [~,I]=sort(pcx,'descend'); % use components explaining top 20%
         these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
