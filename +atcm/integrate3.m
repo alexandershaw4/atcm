@@ -947,7 +947,7 @@ for ins = 1:ns
                             [pfp,pfi]=atcm.fun.padtimeseries(this);
                             bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
                             this = bpfpf(pfi);
-                            
+                            %this=this';
 %                             comps = atcm.fun.assa(this,10);
 %                             
 %                             for ic = 1:size(comps,2)
@@ -1143,7 +1143,7 @@ if isfield(M,'y')
         % Compute singular spectrum analysis [ssa], fir comps
         %------------------------------------------------------------------
         X  = Pf(:,ins,ins);
-        RC = atcm.fun.assa(X,10); % compute basis set
+        RC = atcm.fun.assa(X,11); % compute basis set
         pc = RC;
         weight = M.FS(yy./max(yy));% M.FS(M.y{:}); % use data spectrum as weights
         warning off;

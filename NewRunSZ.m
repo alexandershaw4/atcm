@@ -173,7 +173,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.solvefixed=0;
     DCM.M.x = zeros(1,8,7);
     DCM.M.x(:,:,1)=-50;
-    DCM.M.ncompe = 47;
+    DCM.M.ncompe = 60;
     DCM.M.pC.CV = ones(1,8)/8;
     DCM.M.pC.J([2 4])=1/8;
     DCM.M.pC.S = ones(1,8)/16;
@@ -199,8 +199,11 @@ for s = i;%1:length(Data.Datasets)
     M.opts.hyperparams=1;
     M.opts.fsd=0;
     
+    % add user-defined plot function
+    M.opts.userplotfun = @aodcmplotfun;
+    
     %w = DCM.xY.Hz;
-    %3M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
+    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     
     M.default_optimise([1 3 1],[15 4 4]);
     
