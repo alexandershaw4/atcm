@@ -1168,8 +1168,13 @@ if isfield(M,'y')
             pc(:,I) = pc(:,I).^(1*exp(P.e(ipc)));
         end
         
+        signal = b(:)'*pc(:,I)';
+        signal = atcm.fun.HighResMeanFilt(signal,1,4);
+        %signal = sqrt( (signal.^2) + (hilbert(signal).^2) );
+        
+        Pf(:,ins,ins) = exp(P.L(ins))*signal;
         %b = pinv(pci'*pci)*pci'*yy;
-        Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
+        %Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
         warning on;
         
         %  Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
