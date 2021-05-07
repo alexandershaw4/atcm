@@ -1169,7 +1169,7 @@ if isfield(M,'y')
         end
         
         signal = b(:)'*pc(:,I)';
-        signal = atcm.fun.HighResMeanFilt(signal,1,4);
+        %signal = atcm.fun.HighResMeanFilt(signal,1,4);
         %signal = sqrt( (signal.^2) + (hilbert(signal).^2) );
         
         Pf(:,ins,ins) = exp(P.L(ins))*signal;
