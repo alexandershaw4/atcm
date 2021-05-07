@@ -975,7 +975,10 @@ for ins = 1:ns
                             if ncompe > 0
                                 this=this';
                                 [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
-                                %Pfmean = squeeze(Pfmean);
+                                Pfmean = squeeze(Pfmean);
+                                [~,I]=max(corr(Pfmean,M.y{ci}))
+                                Pf=Pfmean(:,I);
+                                
                                 %Pf = spm_vec(max(Pfmean'));
                                 Pf=spm_vec(Pf);
                                 
