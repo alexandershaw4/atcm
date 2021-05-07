@@ -976,16 +976,19 @@ for ins = 1:ns
                                 this=this';
                                 [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
                                 Pfmean = squeeze(Pfmean);
-                                [~,I]=max(corr(Pfmean,M.y{ci}))
-                                Pf=Pfmean(:,I);
+                                %[~,I]=max(corr(Pfmean,M.y{ci}))
+                                %Pf=Pfmean(:,I);
                                 
-                                %Pf = spm_vec(max(Pfmean'));
+                                Pf = spm_vec(max(Pfmean'));
                                 Pf=spm_vec(Pf);
                                 
                                 
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
+                                
+                                Pf = Pf.^2;
+                                
                             else
                                 [Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
                                 %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
@@ -1156,10 +1159,15 @@ if isfield(M,'y')
         pcx = atcm.fun.wcor([pc yy],weight).^2;
         pcx = pcx(1:end-1,end);
         [~,I]=sort(pcx,'descend'); % use components explaining top 20%
-        these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
+        these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.3);
         I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
         b = ones(1,length(I));
         pci = pc(:,I);
+        
+        for ipc = 1:3
+            pc(:,I) = pc(:,I).^(1*exp(P.e(ipc)));
+        end
+        
         %b = pinv(pci'*pci)*pci'*yy;
         Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
         warning on;

@@ -21,11 +21,11 @@ function NewRunSZ(i)
 %==========================================================================
 clear global;
 
-addpath(genpath('~/spm12'));
-addpath(genpath('/home/sapas10/code/atcm/'));
-addpath(genpath('/home/sapas10/code/aoptim/'));
-
-cd /cubric/scratch/sapas10/tcm/LauSZ/
+% addpath(genpath('~/spm12'));
+% addpath(genpath('/home/sapas10/code/atcm/'));
+% addpath(genpath('/home/sapas10/code/aoptim/'));
+% 
+% cd /cubric/scratch/sapas10/tcm/LauSZ/
 
 % Data & Design
 %--------------------------------------------------------------------------
@@ -187,6 +187,10 @@ for s = i;%1:length(Data.Datasets)
         DCM.M.pE = spm_unvec(X.M.Ep,DCM.M.pE);
         fprintf('Using Patient Mean Fit Priors\n');
     end
+    
+    DCM.M.pE.e = [0 0 0];
+    DCM.M.pC.e = [1 1 1]/32;
+    DCM.M.pE.L = -2.6;
     
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
