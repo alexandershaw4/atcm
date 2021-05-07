@@ -974,21 +974,18 @@ for ins = 1:ns
                                                         
                             if ncompe > 0
                                 this=this';
-                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
-                                %Pfmean = squeeze(Pfmean);
-                                %Pf = spm_vec(max(Pfmean'));
-                                Pf=spm_vec(Pf);
-                                
+                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,1:.5:,ncompe);
+                                Pfmean = squeeze(Pfmean);
+                                Pf = spm_vec(max(Pfmean'));
                                 
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
                             else
-                                [Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
-                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                %[Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
+                                Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
                                 %ntp = 13;
                                 %Pf = pmtm(this,(ntp:-1:1)/sum(1:ntp),'Tapers','sine',w,dw./dt);
-                                Pf=spm_vec(Pf);
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
