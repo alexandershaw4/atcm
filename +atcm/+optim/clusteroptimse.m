@@ -735,9 +735,16 @@ Y  = (DD.xY.y);
 try
     %E  = sum( Q*(spm_vec(Y) - real(spm_vec(yy))).^2 );
     
-    ee = spm_vec(Y) - spm_vec(yy);
-    E  = (ee'*Q*ee).^2;
+    ee = (spm_vec(Y) - spm_vec(yy)).^2;
+    
+    %ee = 100*( (spm_vec(Y) - spm_vec(yy)) ./ spm_vec(Y) );
+    
+    E  = (ee'*Q*ee);
     %E = sum(e(:).^2);
+    
+    %E = -(spm_logdet(Q)./length(Q) - (ee'*Q*ee)/2 - length(spm_vec(Y))*log(8*atan(1))/2);
+    
+    E=real(E);
     
 catch
     E  = sum( (spm_vec(Y) - real(spm_vec(yy))).^2 );

@@ -110,7 +110,7 @@ for s = i;%1:length(Data.Datasets)
 
     % Alex additions - 1010 = use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 4;
+    DCM.options.FFTSmooth     = 1;
     DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;        % use .5 Hz steps

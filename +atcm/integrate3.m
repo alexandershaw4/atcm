@@ -381,6 +381,7 @@ DoSpecResp = 1;
 %--------------------------------------------------------------------------
 M.pst = t;
 v     = spm_vec(M.x);
+v0    = v;
 
 if WithDelays == 21
     % pre reqs. for int with bilinear jac-get Jacobian and its derivatives
@@ -487,12 +488,8 @@ switch IntMethod
                     for j = 1:N
                         
                         v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));   
-                        %v = v + ( (Q.*del)*f(spm_unvec(v,M.x),drive(i,:),P,M));
                         
-                        %[f0,dfdx,D] = f(spm_unvec(v,M.x),drive(i,:),P,M);
-                        %Q       = (spm_expm(dt*D*dfdx/N) - speye(n,n))*spm_inv(dfdx);
-                        
-                        %v = v + del'.*Q*f0;
+                        v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M));  
                         
                         % Ozaki 1992 numerical method:
                         % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
@@ -504,7 +501,8 @@ switch IntMethod
                 
                 % Expansion point - i.e. deviation around fixed point
                 if ~IsStochastic
-                    y(:,i) = v - spm_vec(M.x);                    
+                    y(:,i) = v - spm_vec(M.x);  
+                    y0(:,i) = v0 - spm_vec(M.x); 
                 else
                     y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
                 end
@@ -630,6 +628,8 @@ switch IntMethod
 end
 
 warning on;
+
+y = y-y0;
 
 % Reshape to model state space outputs
 %--------------------------------------------------------------------------
