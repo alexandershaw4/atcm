@@ -190,7 +190,7 @@ for s = i;%1:length(Data.Datasets)
     
     DCM.M.pE.e = [0 0 0];
     DCM.M.pC.e = [1 1 1]/32;
-    DCM.M.pE.L = -2.6;
+    DCM.M.pE.L = -3;
     DCM.M.pC.R = [1 0 0]/8;
     
     % Optimise BASLEINE                                                  1

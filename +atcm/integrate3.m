@@ -629,6 +629,7 @@ end
 
 warning on;
 
+% make the voltage changes input-induced
 y = y-y0;
 
 % Reshape to model state space outputs
