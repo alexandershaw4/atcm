@@ -1165,7 +1165,7 @@ if isfield(M,'y')
         pci = pc(:,I);
         
         for ipc = 1:3
-            pc(:,I) = pc(:,I).^(1*exp(P.e(ipc)));
+            pc(:,I(ipc)) = pc(:,I(ipc)).^(1*exp(P.e(ipc)));
         end
         
         signal = b(:)'*pc(:,I)';
