@@ -155,7 +155,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.CV = zeros(1,8);
     DCM.M.pC.T = [1 1 1 1]/16;
             
-    DCM.M.InputType=0; % NOT OSCILLATION
+    DCM.M.InputType=1; % NOT OSCILLATION
     
     % load best so far
     %X = load('NewStartPoint.mat','Ep');
@@ -190,8 +190,8 @@ for s = i;%1:length(Data.Datasets)
     
     DCM.M.pE.e = [0 0 0];
     DCM.M.pC.e = [1 1 1]/32;
-    DCM.M.pE.L = -3;
-    DCM.M.pC.R = [1 0 0]/8;
+    DCM.M.pE.L = -2.5;
+    DCM.M.pC.R = [1 1 1]/8;
     
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
