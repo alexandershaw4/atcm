@@ -110,7 +110,7 @@ for s = i;%1:length(Data.Datasets)
 
     % Alex additions - 1010 = use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 3;
+    DCM.options.FFTSmooth     = 4;
     DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;        % use .5 Hz steps
@@ -156,11 +156,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.T = [1 1 1 1]/16;
             
     DCM.M.InputType=1; % NOT OSCILLATION
-    
-    % load best so far
-    %X = load('NewStartPoint.mat','Ep');
-    %DCM.M.pE = X.Ep;
-    
+        
     X = load('~/code/atcm/+atcm/+fun/Priors2021a.mat');
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
@@ -178,21 +174,14 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.J([2 4])=1/8;
     DCM.M.pC.S = ones(1,8)/16;
     
-    if s < 87
-        X = load('mTCM_Controls_MeanDataset');
-        DCM.M.pE = spm_unvec(X.M.Ep,DCM.M.pE);
-        fprintf('Using Control Mean Fit Priors\n');
-    else
-        X = load('mTCM_Patients_MeanDataset');
-        DCM.M.pE = spm_unvec(X.M.Ep,DCM.M.pE);
-        fprintf('Using Patient Mean Fit Priors\n');
-    end
-    
-    DCM.M.pE.e = [0 0 0];
-    DCM.M.pC.e = [1 1 1]/32;
     DCM.M.pE.L = -2.5;
     DCM.M.pC.R = [1 1 1]/8;
+    DCM.M.pE.R = [0 0 0];
     
+    DCM.M.pE.Ly = 0;
+    DCM.M.pC.Ly = 1/8;
+
+
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
@@ -201,8 +190,9 @@ for s = i;%1:length(Data.Datasets)
     M.opts.EnforcePriorProb=0;
     M.opts.ismimo=0;
     M.opts.doparallel=1;
-    M.opts.hyperparams=1;
+    M.opts.hyperparams=0;
     M.opts.fsd=0;
+    M.opts.corrweight = 1; % weight error by correlation (good for spectra)
     
     % add user-defined plot function
     M.opts.userplotfun = @aodcmplotfun;

@@ -28,6 +28,12 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 % time responses of the system. Channel noise (exponetial decay functions)
 % are computed and returned.
 %
+% The numerical integration is performed twice: once with no input to the
+% system and once with the specified input. The spectrum of each are
+% computed and subtracted ensuring that parameter effects are stimulus
+% related rather than intrinsic dynamics of the system, but without
+% removing induced (ie non-phase locked) effects.
+%
 % Set DCM.M.IS = @atcm.integrate3 to use this function with DCM as a 
 % replacement for spm_csd_mtf. 
 %
@@ -165,7 +171,7 @@ switch InputType
         
         % For oscillatory inputs...
         %------------------------------------------------------------------
-        mu    = 1*(P.R(1));                      % mean amplitude
+        mu    = 1*exp(P.R(1));                      % mean amplitude
         mf    = 10*exp(P.R(2));                      % frequency
         drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
                      %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
@@ -177,6 +183,10 @@ switch InputType
         scale1 = 8  * exp(P.R(2));
         drive  = atcm.fun.makef(pst,delay,scale1,16*exp(P.R(3)));
         
+        sust = (max(drive));
+        intcpt = atcm.fun.findthenearest(drive,sust);
+        drive(intcpt:end) = sust;%*wave(intcpt:end);
+        
     case 3
         % NOISE
         %------------------------------------------------------------------
@@ -184,7 +194,6 @@ switch InputType
         mu    = exp(P.R(1));              % mean amplitude
         hfn   = randn(length(pst),1) + (sqrt(-1)*randn(length(pst),1)*1/32);
         drive = hfn*mu;   % amplitude (constant) over time
-        drive = mu.*anoise(w,2*length(pst));
         drive = drive(1:length(pst));
         
     case 4
@@ -210,7 +219,6 @@ switch InputType
         Gu = Gu.*Mu;
         Gu = exp(P.a(1))*Mu;
 
-        
         [Pks,PksAmps]=findpeaks(Gu,w);
         for i = 1:length(Pks)
             gx(i,:) = PksAmps(i) * sin(2*pi*Pks(i)*pst);
@@ -347,9 +355,6 @@ end
 if npp == 8
     del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
     del = repmat(del,[1 nk]);
-    %inwd = exp(P.ID2).*[1 1 1 1 1 1 1 1];
-    %inwd = repmat(inwd,[1 nk]);
-    %del = 1./(del'*inwd);
     del=1./del;
     if ns > 1
         if ~isfield(P,'delay')
@@ -381,6 +386,7 @@ DoSpecResp = 1;
 %--------------------------------------------------------------------------
 M.pst = t;
 v     = spm_vec(M.x);
+v0    = v;
 
 if WithDelays == 21
     % pre reqs. for int with bilinear jac-get Jacobian and its derivatives
@@ -395,20 +401,8 @@ else
     IsStochastic = 0;
 end
 
-% if solvefp
-%    v    = spm_vec(atcm.fun.solvefixedpoint(P,M,drive(1)));
-% end
-
 % Frequency steps: dw
 dw = 1./(w(2)-w(1));
-
-
-% % do a burn-in - 
-% for i = 1:1200
-%     burny(i,:) = spm_vec(v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M)));
-%     v = spm_vec(burny(i,:));
-% end
-% v = spm_robust_average(burny,1)';
 
 switch IntMethod
 
@@ -483,17 +477,9 @@ switch IntMethod
                     % baseline
                     v = v;
                 else
-                    
                     for j = 1:N
-                        
                         v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));   
-                        %v = v + ( (Q.*del)*f(spm_unvec(v,M.x),drive(i,:),P,M));
-                        
-                        %[f0,dfdx,D] = f(spm_unvec(v,M.x),drive(i,:),P,M);
-                        %Q       = (spm_expm(dt*D*dfdx/N) - speye(n,n))*spm_inv(dfdx);
-                        
-                        %v = v + del'.*Q*f0;
-                        
+                        v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M));  
                         % Ozaki 1992 numerical method:
                         % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
                         %[fx,dfdx] = f(v,drive(i),P,M);
@@ -504,11 +490,11 @@ switch IntMethod
                 
                 % Expansion point - i.e. deviation around fixed point
                 if ~IsStochastic
-                    y(:,i) = v - spm_vec(M.x);                    
+                    y(:,i) = v - spm_vec(M.x);  
+                    y0(:,i) = v0 - spm_vec(M.x); 
                 else
                     y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
                 end
-                
                 
             elseif WithDelays == 101
                 % logistic equation with harvest as an integration
@@ -642,8 +628,23 @@ firing      = S;
 nf          = length(w);
 spike       = firings;
 
+yy = spm_unvec(y0,y);
 
+% system spectral response with input
 [y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci);
+% system 
+[y0,s1,g,noise,layers1] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci);
+
+% remove non-stimulus related oscillations without removing induced
+y = abs(y-y0);
+y = atcm.fun.aenv(y,18);
+y = atcm.fun.HighResMeanFilt(y,1,4);
+y = full(exp(P.Ly)*y);
+
+% continuous time difference (evoked only)
+s = spm_unvec( spm_vec(s)-spm_vec(s1), s);
+layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
+
 t = drive;
 end
 
@@ -966,6 +967,15 @@ for ins = 1:ns
 %                             b = atcm.fun.lsqnonneg(Pfc,M.y{:});
 %                             
 %                             Pf = Pfc*b;
+
+
+%                             if Ji(ij) ~= 2
+%                                 cut = atcm.fun.findthenearest(w,45);
+%                                 this = atcm.fun.bandpassfilter(this,1./dt,[w(1) cut]);
+%                             else
+%                                 cut = atcm.fun.findthenearest(w,45);
+%                                 this = atcm.fun.bandpassfilter(this,1./dt,[cut w(end)]);
+%                             end
                             
                             ncompe = 100;
                             if isfield(M,'ncompe')
@@ -974,23 +984,59 @@ for ins = 1:ns
                                                         
                             if ncompe > 0
                                 this=this';
-                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,1:.5:,ncompe);
+                                
+                                test = atcm.fun.assa(this',10)';
+                                                                
+                                this = sum(test(1:3,:),1);
+                                
+                                [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
                                 Pfmean = squeeze(Pfmean);
+                                %[~,I]=max(corr(Pfmean,M.y{ci}))
+                                %Pf=Pfmean(:,I);
+                                
                                 Pf = spm_vec(max(Pfmean'));
+                                Pf=spm_vec(Pf);
+                                
                                 
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
+                                
+                                Pf = Pf.^2;
+                                
                             else
-                                %[Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
+                                
+                                test = atcm.fun.assa(this',10)';
+                                                                
+                                this = sum(test(1:10,:),1)';
+                                
+                               % [Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
+                                
+                                %for i = 1:10; Ppf(i,:) = atcm.fun.Afft(test(i,:),dw./dt,w); end
+                                
+                                
+                                %if ij ==1
+                                %b = atcm.fun.lsqnonneg(Ppf',M.y{ci});
+                                %else
+                                %    b = atcm.fun.lsqnonneg(Ppf',M.y{ci}-pf1);
+                                %end
+                                
+                                %Pf = b'*Ppf;
+                                
+                                %if ij == 1
+                                %    pf1 = Pf;
+                                %end
+                                
                                 Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
                                 %ntp = 13;
                                 %Pf = pmtm(this,(ntp:-1:1)/sum(1:ntp),'Tapers','sine',w,dw./dt);
+                                Pf=spm_vec(Pf);
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
                             end
-                                                       
+                                           
+                            
                             DoEnv = 1;
                             if isfield(M,'DoEnv')
                                 DoEnv=M.DoEnv;
@@ -1142,24 +1188,52 @@ if isfield(M,'y')
                                                                             
         % Compute singular spectrum analysis [ssa], fir comps
         %------------------------------------------------------------------
-        X  = Pf(:,ins,ins);
-        RC = atcm.fun.assa(X,11); % compute basis set
-        pc = RC;
-        weight = M.FS(yy./max(yy));% M.FS(M.y{:}); % use data spectrum as weights
-        warning off;
-        pcx = atcm.fun.wcor([pc yy],weight).^2;
-        pcx = pcx(1:end-1,end);
-        [~,I]=sort(pcx,'descend'); % use components explaining top 20%
-        these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.2);
-        I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
-        b = ones(1,length(I));
-        pci = pc(:,I);
-        %b = pinv(pci'*pci)*pci'*yy;
-        Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
-        warning on;
-        
-        %  Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+%          X  = Pf(:,ins,ins);
+%          
+%          cut = atcm.fun.findthenearest(w,40);
+%          X0 = X(1:cut);
+%          X1 = X(cut+1:end);
+%          
+%          sm0 = 1*exp(P.sm(1));
+%          sm1 = 6*exp(P.sm(2));
+%          
+%          X0 = atcm.fun.HighResMeanFilt(X0,1,sm0);
+%          X1 = atcm.fun.HighResMeanFilt(X1,1,sm1);
+%          
+%          Pf(:,ins,ins) = full([X0;X1]);
+         
+         %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(full([X0;X1]),1,2);
+         
+         
+%         RC = atcm.fun.assa(X,11); % compute basis set
+%         pc = RC;
+%         weight = M.FS(yy./max(yy));% M.FS(M.y{:}); % use data spectrum as weights
+%         warning off;
+%         pcx = atcm.fun.wcor([pc yy],weight).^2;
+%         pcx = pcx(1:end-1,end);
+%         [~,I]=sort(pcx,'descend'); % use components explaining top 20%
+%         these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.3);
+%         I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
+%         b = ones(1,length(I));
+%         pci = pc(:,I);
+%         
+%         for ipc = 1:3
+%             pc(:,I(ipc)) = pc(:,I(ipc)).^(1*exp(P.e(ipc)));
+%         end
+%         
+%         signal = b(:)'*pc(:,I)';
+%         %signal = atcm.fun.HighResMeanFilt(signal,1,4);
+%         %signal = sqrt( (signal.^2) + (hilbert(signal).^2) );
+%         
+%         Pf(:,ins,ins) = exp(P.L(ins))*signal;
+%         %b = pinv(pci'*pci)*pci'*yy;
+%         %Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
+%         warning on;
+
+
+          Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
         X=[];I=[];RC=[];
+        b=[];pci=[];
         % return components in separate outputs
         c = pci;X = b;
         meanpower={X c};

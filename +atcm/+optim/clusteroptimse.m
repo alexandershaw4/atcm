@@ -744,7 +744,7 @@ try
     
     %E = -(spm_logdet(Q)./length(Q) - (ee'*Q*ee)/2 - length(spm_vec(Y))*log(8*atan(1))/2);
     
-    E=real(E);
+    E=real(exp(E));
     
 catch
     E  = sum( (spm_vec(Y) - real(spm_vec(yy))).^2 );
