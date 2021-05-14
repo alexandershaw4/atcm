@@ -628,18 +628,23 @@ timeseries  = y;
 firing      = S;
 nf          = length(w);
 spike       = firings;
+yy          = spm_unvec(y0,y);
 
-yy = spm_unvec(y0,y);
+series.States_without = yy;
+series.States_with_inp = y;
 
 % system spectral response with input
 [y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci);
+
 % system spectral response without input (intrinsic dynamics / resonances)
 [y0,s1,g,noise,layers1] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci);
 
 series.with_inp = y;
 series.without_inp = y0;
 
-% remove non-stimulus related oscillations without removing induced
+% - remove non-stimulus related oscillations without removing induced
+% - smooth without changing peak locations (aenv):
+%    ~ y = ( y^2 + hilb(grad(y))^2 )^1/2
 y = abs(y-y0);
 y = atcm.fun.aenv(y,18);
 y = atcm.fun.HighResMeanFilt(y,1,4);

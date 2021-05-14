@@ -269,7 +269,7 @@ for  c = 1:size(U.X,1)
         
     % integration, spectral response, firing etc. (subfunction)
     %----------------------------------------------------------------------
-    [y{c},w,s{c},g{c},t{c},layers{c},noise{c},firing{c},QD{c},Spike{c},condel{c}] = ...
+    [y{c},w,s{c},g{c},t{c},layers{c},noise{c},firing{c},QD{c},Spike{c},condel{c},series{c}] = ...
         dodxdt(pst,f,v,Q,M,dt,w,drive,Kx,U,method,solvefp,c);
 
 end
@@ -280,9 +280,10 @@ other.QD = QD;
 other.Spike = Spike;
 other.drive = drive;
 other.condel=condel;
+other.series = series;
 end
 
-function [y,w,s,g,t,layers,noise,firing,QD,spike,condel] = ...
+function [y,w,s,g,t,layers,noise,firing,QD,spike,condel,series] = ...
                             dodxdt(t,f,v,P,M,dt,w,drive,Kx,U,method,solvefp,ci)
 % Numerical integration, signal weighting and FFT of timeseries with
 % spline interpolation and smoothing
@@ -627,15 +628,23 @@ timeseries  = y;
 firing      = S;
 nf          = length(w);
 spike       = firings;
+yy          = spm_unvec(y0,y);
 
-yy = spm_unvec(y0,y);
+series.States_without = yy;
+series.States_with_inp = y;
 
 % system spectral response with input
 [y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci);
-% system 
+
+% system spectral response without input (intrinsic dynamics / resonances)
 [y0,s1,g,noise,layers1] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci);
 
-% remove non-stimulus related oscillations without removing induced
+series.with_inp = y;
+series.without_inp = y0;
+
+% - remove non-stimulus related oscillations without removing induced
+% - smooth without changing peak locations (aenv):
+%    - y = ( y.^2
 y = abs(y-y0);
 y = atcm.fun.aenv(y,18);
 y = atcm.fun.HighResMeanFilt(y,1,4);
