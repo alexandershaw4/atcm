@@ -269,7 +269,7 @@ for  c = 1:size(U.X,1)
         
     % integration, spectral response, firing etc. (subfunction)
     %----------------------------------------------------------------------
-    [y{c},w,s{c},g{c},t{c},layers{c},noise{c},firing{c},QD{c},Spike{c},condel{c}] = ...
+    [y{c},w,s{c},g{c},t{c},layers{c},noise{c},firing{c},QD{c},Spike{c},condel{c},series{c}] = ...
         dodxdt(pst,f,v,Q,M,dt,w,drive,Kx,U,method,solvefp,c);
 
 end
