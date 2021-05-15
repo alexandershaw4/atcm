@@ -21,11 +21,11 @@ function NewRunSZ(i)
 %==========================================================================
 clear global;
 
-% addpath(genpath('~/spm12'));
-% addpath(genpath('/home/sapas10/code/atcm/'));
-% addpath(genpath('/home/sapas10/code/aoptim/'));
-% 
-% cd /cubric/scratch/sapas10/tcm/LauSZ/
+addpath(genpath('~/spm12'));
+addpath(genpath('/home/sapas10/code/atcm/'));
+addpath(genpath('/home/sapas10/code/aoptim/'));
+
+cd /cubric/scratch/sapas10/tcm/LauSZ/
 
 % Data & Design
 %--------------------------------------------------------------------------
@@ -168,8 +168,8 @@ for s = i;%1:length(Data.Datasets)
     % oscillations == no fixed point search
     DCM.M.solvefixed=0;
     DCM.M.x = zeros(1,8,7);
-    DCM.M.x(:,:,1)=-50;
-    DCM.M.ncompe = 60;
+    DCM.M.x(:,:,1)=-70;
+    DCM.M.ncompe =50;
     DCM.M.pC.CV = ones(1,8)/8;
     DCM.M.pC.J([2 4])=1/8;
     DCM.M.pC.S = ones(1,8)/16;
