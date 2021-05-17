@@ -353,7 +353,10 @@ try
    %N = min([N 4]);
 end
 
-if npp == 8
+
+% Se
+
+if npp == 8 
     del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
     del = repmat(del,[1 nk]);
     del=1./del;
@@ -365,6 +368,21 @@ if npp == 8
     end
     condel=del;
 end
+
+if npp == 6 
+    del = exp(P.ID).*[2 1/4 1/2 8 1/2 4]/2.4;
+    del = repmat(del,[1 nk]);
+    del=1./del;
+    if ns > 1
+        if ~isfield(P,'delay')
+            del = (spm_vec(repmat(del,[ns 1])))';
+        else
+        end
+    end
+    condel=del;
+end
+
+
 if npp == 4 % cmc
     del = exp(P.ID).*[2 1/4 1/2 4]/2.4;
     del = repmat(del,[1 nk]);
@@ -644,7 +662,7 @@ series.without_inp = y0;
 
 % - remove non-stimulus related oscillations without removing induced
 % - smooth without changing peak locations (aenv):
-%    - y = ( y.^2
+%    ~ y = ( y^2 + hilb(grad(y))^2 )^1/2
 y = abs(y-y0);
 y = atcm.fun.aenv(y,18);
 y = atcm.fun.HighResMeanFilt(y,1,4);

@@ -353,8 +353,24 @@ try
    %N = min([N 4]);
 end
 
-if npp == 8
+
+% Set up custom delay vectors: 8-pop t-c model, 6-pop cort model and 4-pop
+% cmc model
+%--------------------------------------------------------------------------
+if npp == 8 
     del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
+    del = repmat(del,[1 nk]);
+    del=1./del;
+    if ns > 1
+        if ~isfield(P,'delay')
+            del = (spm_vec(repmat(del,[ns 1])))';
+        else
+        end
+    end
+    condel=del;
+end
+if npp == 6 
+    del = exp(P.ID).*[2 1/4 1/2 8 1/2 4]/2.4;
     del = repmat(del,[1 nk]);
     del=1./del;
     if ns > 1
@@ -378,6 +394,8 @@ if npp == 4 % cmc
     condel=del;
 end
  
+
+
 % initial firing rate
 Curfire = zeros(size(M.x,2),1)';
 firings = [];
@@ -646,9 +664,21 @@ series.without_inp = y0;
 % - smooth without changing peak locations (aenv):
 %    ~ y = ( y^2 + hilb(grad(y))^2 )^1/2
 y = abs(y-y0);
-y = atcm.fun.aenv(y,18);
-y = atcm.fun.HighResMeanFilt(y,1,4);
+
+for i = 1:ns
+    y(:,i,i) = atcm.fun.aenv(y(:,i,i),18);
+    y(:,i,i) = atcm.fun.HighResMeanFilt(y(:,i,i),1,4);
+end
+for i = 1:ns
+    for j = 1:ns
+        if i~=j
+            y(:,i,j) = y(:,i,i).*conj(y(:,j,j));
+        end
+    end
+end
+
 y = full(exp(P.Ly)*y);
+    
 
 % continuous time difference (evoked only)
 s = spm_unvec( spm_vec(s)-spm_vec(s1), s);
