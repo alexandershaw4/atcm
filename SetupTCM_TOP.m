@@ -184,44 +184,52 @@ for s = 1:length(Data.Datasets)
     DCM.M.pC.CV = zeros(1,8);
     DCM.M.pC.T = [1 1 1 1]/16;
             
-    DCM.M.InputType=0; % NOT OSCILLATION
+    DCM.M.InputType=1; % NOT OSCILLATION
         
-    X = load([modelstore '/+fun/Priors2021a.mat']);
+    X = load('~/code/atcm/+atcm/+fun/Priors2021a.mat');
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
-    % Feature function for the integrator
-    %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
+    % Copmletemodel spec & initialise
     DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     
-    % oscillations == no fixed point search
+    % We want oscillations == no fixed point search to start, reset mV
     DCM.M.solvefixed=0;
     DCM.M.x = zeros(1,8,7);
-    DCM.M.x(:,:,1)=-50;
-    DCM.M.ncompe = 47;
+    DCM.M.x(:,:,1)=-70;
+    
+    DCM.M.ncompe =50;
     DCM.M.pC.CV = ones(1,8)/8;
     DCM.M.pC.J([2 4])=1/8;
     DCM.M.pC.S = ones(1,8)/16;
-        
-    X = load([modelstore '/+fun/NewControlPriors'],'pE');
-    DCM.M.pE = X.pE;
     
+    DCM.M.pE.L = -2.5;
+    DCM.M.pC.R = [1 1 1]/8;
+    DCM.M.pE.R = [0 0 0];
+    
+    DCM.M.pE.Ly = 0;
+    DCM.M.pC.Ly = 1/8;
+
+
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
     
-    % opt set 1.                   - DONT CHANGE THESE! - 
-    M.opts.EnforcePriorProb=0;   % don't force a bayesian approach
-    M.opts.ismimo=0;             % don't compute gradients as a MIMO
-    M.opts.doparallel=1;         % compute derivatives in parallel (parfor)
-    M.opts.hyperparams=1;        % include hyperparameter tuning of precision
-    M.opts.fsd=0;                % don't use a fixed step derivative in finite diff computation
+    % opt set 1.
+    M.opts.EnforcePriorProb=0;
+    M.opts.ismimo=0;
+    M.opts.doparallel=1;
+    M.opts.hyperparams=0;
+    M.opts.fsd=0;
+    M.opts.corrweight = 1; % weight error by correlation (good for spectra)
+    
+    % add user-defined plot function
+    M.opts.userplotfun = @aodcmplotfun;
     
     %w = DCM.xY.Hz;
     %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     
     M.default_optimise([1 3 1],[15 4 4]);
     
-    save(DCM.name); close; clear global;    
-
+    save(DCM.name); close; clear global; 
 end
