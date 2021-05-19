@@ -181,6 +181,8 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE.Ly = 0;
     DCM.M.pC.Ly = 1/8;
 
+    out = atcm.fun.fit_spectrum(DCM.xY.Hz,DCM.xY.y{:});
+    DCM.xY.y{1} = out.yprime;
 
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------

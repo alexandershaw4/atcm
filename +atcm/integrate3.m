@@ -678,8 +678,9 @@ for i = 1:ns
 end
 
 y = full(exp(P.Ly)*y);
-    
 
+
+    
 % continuous time difference (evoked only)
 s = spm_unvec( spm_vec(s)-spm_vec(s1), s);
 layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
