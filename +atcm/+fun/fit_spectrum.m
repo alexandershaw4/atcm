@@ -1,10 +1,10 @@
-function O = fit_spectrum(w,y,priorF)
+function O = fit_spectrum(w,y,priorF,varargin)
 % an *approximate* implementation of the fooof algorithm
 %
 % breaks a spectrum of x-axis values, w, and y-axis values, y;
 % (e.g. plot(w,y) )
 %
-% into,   y = aperiodic + (skew) gmm
+% into,   y = aperiodic + (skewed) gmm
 %
 % where,  - aperiodic is a 2nd order poly with fixed start/end points
 %         - spectral peaks are modelled as a n-dim GMM with starting
@@ -32,40 +32,73 @@ function O = fit_spectrum(w,y,priorF)
 % For fooof proper (python) see:
 % Donoghue et al, 2020 NatNeuro: https://fooof-tools.github.io/fooof/
 
+if nargin < 3 || isempty(priorF)
+    priorF = [10 15 40 60];
+end
+
+
+% optional inputs ... 
+fitap   = 1;
+NumPeak = 0;
+for i = 1:length(varargin)
+    if strcmp(varargin{i},'aperiodic'); A = varargin{i+1}; b = varargin{i+2}; fitap = 0;end
+    if strcmp(varargin{i},'order'); NumPeak = varargin{i+1}; end
+    
+end
+    
+% Algorithm....
+%==========================================================================
 
 w = w(:);
-y = smooth(y(:));
+y = y(:);
 yorig = y;
-
 
 % (1.) Fit aperiodic part as a 2nd order poly with fixed start and end points
 %--------------------------------------------------------------------------
-iC = [1 length(y)];
-N  = 2;
-A  = w.^[0:N]; 
-C  = A(iC,:);                   % and the constrained points subset
-b  = lse(A,y,C,y(iC));
-aper = A*b;
+% % solves A*x = b for X in a least squares sense, given C*x = d
+% % usage: x = lse(A,b,C,d)
+% %
+% % Minimizes norm(A*x - b),
+% % subject to C*x = d
+% if fitap
+%     iC = [1 length(y)];
+%     N  = [0,-1,-2];                        % force negative exponent
+%     A  = log(w).^N; 
+%     A(1,:) = 0;                     % fix inf start point
+%     C  = A(iC,:);                   % and the constrained points subset
+%     b  = lse( (A), log(y), (C), (y(iC)));
+%     aper = A*b;
+% else
+%     aper = A*b;
+% end
+
+[expn,aper] = constr_oof(w,y);
 
 % remove aperiodic component
 y = y - aper;
+N = 0;
 
-% return first guess parts
-O.priorfit.aperiodoc = aper;
-O.priorfit.A = A;
-O.priorfit.b = b;
+
+% If just specified order, find N - initial points manually
+if NumPeak > 0
+    % flag to find peaks
+    [~,LOC] = findpeaks(y,w,'NPeaks',NumPeak);
+    priorF  = LOC(:)';
+end
+
 
 % (2.) Next fit the remianing data with parameterised skewed gaussians
 %--------------------------------------------------------------------------
-[err,X1,P,fx] = fitmodel(priorF,A,b,N,w,y,yorig);
+[err,X1,P,fx] = fitmodel(priorF,aper,expn,N,w,y,yorig);
 
 % Construct output structure
-O.aperiodic = A*spm_vec(X1(1:N+1));
-O.error    = err;
-O.Peaks    = spm_unvec(X1(N+2:end),P);
-O.yprime   = fx(X1);
-O.A        = A;
-O.b        = spm_vec(X1(1:N+1));
+O.aperiodic = aper;
+O.expn      = -expn;
+O.error     = err;
+O.Peaks     = spm_unvec(X1(2:end),P);
+O.yprime    = fx(X1);
+%O.A        = A;
+%O.b        = spm_vec(X1(1:N+1));
 O.w        = w;
 O.yinput   = yorig;
 O.w        = w;
@@ -76,7 +109,7 @@ for i = 1:length(priorF)
     P.Amp    = O.Peaks.Amp(i);
     P.Wid    = O.Peaks.Wid(i);
     P.Skew   = O.Peaks.Skew(i);
-    O.c(i,:) = atcm.fun.makef(w,P);    
+    O.c(i,:) = makegauskew(w,P);    
 end
 
 O.notes = {'model is aperiod + gmm. aper = A*b and gmm = c'};
@@ -96,33 +129,94 @@ PKS = y(LOCS);
 % build a skew gauss GMM & fit it
 P.Freq = w(LOCS);
 P.Amp  = PKS;
-P.Wid  = 2*ones(NPK,1);
+P.Wid  = (w(2)-w(1))*ones(NPK,1);
 P.Skew = zeros(NPK,1);
 
-% skew function (see sub funcs)
+% fit peaks holding aperiodic steady
+%--------------------------------------------------------------------
 x0 = (spm_vec(P));
+
+V = zeros(NPK*4,NPK*3);
+V(1:NPK*2,1:NPK*2) = eye(NPK*2);
+V(end-(NPK-1):end,end-(NPK-1):end)=eye(NPK);
+
 f  = @(x,w) (makegauskew(w,spm_unvec((x),P)));
 g  = @(x) sum( (y - f(x,w)).^2 );
 
 opts  = optimset('Display','off');
-[X,F] = fminsearch(g,x0,opts);
+
+%[X] = lsqcurvefit(f,x0,w,y,[],[],opts);
+
+[X,F] = fmincon(g,x0,[],[],[],[],zeros(size(x0)),inf*ones(size(x0)),[],opts);
+%[X,F] = fminsearch(g,x0,opts);
 
 % save initial fits
 O.priorfit.x0 = X;
 
 % build a combination model: slope + gmm == A*b + f(x,w)
+%--------------------------------------------------------------------
 px = [b(:); X(:)];
-fx = @(x) (A*spm_vec(x(1:N+1))) + f(x(N+2:end),w) ;
-gx = @(x) sum( (yorig - fx(x)).^2 );
+%fx = @(x) (A*spm_vec(x(1:N+1))) + f(x(N+2:end),w) ;
+%fx = @(x) fxx(w,x(1),yorig([1 end])) + f(x(2:end),w) ;
 
-[X1,F1] = fminsearch(gx,px,opts);
+fx = @(x) fxx(w,b,yorig([1 end])) + f(x(2:end),w) ;
 
-ffx = @(x,w) (A*spm_vec(x(1:N+1))) + f(x(N+2:end),w) ;
-[X1,resnorm,residual,~,~,~,J] = lsqcurvefit(ffx,X1,w,yorig,[],[]);
+%gx = @(x) sum( (yorig - fx(x)).^2 );
+
+%ffx = @(x,w) (A*spm_vec(x(1:N+1))) + f(x(N+2:end),w) ;
+%ffx = @(x,w) (A*b) + f(x(N+2:end),w) ;
+
+ffx = @(w,x) fx(x);
+
+opts = optimoptions('lsqcurvefit');
+opts.OptimalityTolerance = 0;
+opts.StepTolerance = 0;
+opts.MaxFunctionEvaluations=1e12;
+
+[X1,resnorm,residual,~,~,~,J] = lsqcurvefit(ffx,px,w,yorig,[],[],opts);
 err = sum(residual.^2);
+
 
 end
 
+function X = gaussfix(w,Fq,Amp,Wid,Skew)
+
+if nargin==2 && isstruct(Fq)
+   w    = w;
+   Skew = Fq.Skew;
+   Wid  = Fq.Wid;
+   Amp  = Fq.Amp;
+   Fq   = Fq.Freq;
+end
+
+Wid = Wid*0 + 4;
+
+X = makegauskew(w,Fq,Amp,Wid,Skew);
+
+end
+
+function [X1,aper] = constr_oof(w,y)
+
+w = w(:);
+y = y(:);
+n = 1;
+c = [y(1) y(end)];
+
+% f(w,n,c)
+f = @(w,x) fxx(w,x,c);
+
+opts  = optimset('Display','off');
+[X1,resnorm,residual,~,~,~,J] = lsqcurvefit(f,n,w,y,[],[],opts);
+aper = f(w,X1);
+
+end
+
+function m = fxx(w,n,c)
+% constrained one over w
+m  = (w.^-n); m = [m(2:end); m(end)];
+dy = spm_vec( linspace(c(1),c(2),length(w)) );
+m  = rescale(m) .* dy;
+end
 
 
 function X = makegauskew(w,Fq,Amp,Wid,Skew)
@@ -337,7 +431,7 @@ switch solverflag
       rdiag = abs(diag(R));
     end
     crank = sum((rdiag(1)*Ctol) <= rdiag);
-    if crank >= p
+    if crank > p
       error 'Overly constrained problem.'
     end
     

@@ -652,10 +652,11 @@ series.States_without = yy;
 series.States_with_inp = y;
 
 % system spectral response with input
-[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci);
+[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1);
 
 % system spectral response without input (intrinsic dynamics / resonances)
-[y0,s1,g,noise,layers1] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci);
+[y0,s1,g,noise,layers1] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci,2);
+
 
 series.with_inp = y;
 series.without_inp = y0;
@@ -667,7 +668,7 @@ y = abs(y-y0);
 
 for i = 1:ns
     y(:,i,i) = atcm.fun.aenv(y(:,i,i),18);
-    y(:,i,i) = atcm.fun.HighResMeanFilt(y(:,i,i),1,4);
+    %y(:,i,i) = atcm.fun.HighResMeanFilt(y(:,i,i),1,4);
 end
 for i = 1:ns
     for j = 1:ns
@@ -678,9 +679,9 @@ for i = 1:ns
 end
 
 y = full(exp(P.Ly)*y);
-
-
     
+
+
 % continuous time difference (evoked only)
 s = spm_unvec( spm_vec(s)-spm_vec(s1), s);
 layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
@@ -688,7 +689,7 @@ layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
 t = drive;
 end
 
-function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci)
+function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,type)
 
 % Spectral Response Options
 %--------------------------------------------------------------------------
@@ -1026,7 +1027,7 @@ for ins = 1:ns
                                 this=this';
                                 
                                 test = atcm.fun.assa(this',10)';
-                                                                
+                                                                                                
                                 this = sum(test(1:3,:),1);
                                 
                                 [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
@@ -1050,7 +1051,7 @@ for ins = 1:ns
                                                                 
                                 this = sum(test(1:10,:),1)';
                                 
-                               % [Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
+                                [Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
                                 
                                 %for i = 1:10; Ppf(i,:) = atcm.fun.Afft(test(i,:),dw./dt,w); end
                                 
@@ -1067,7 +1068,7 @@ for ins = 1:ns
                                 %    pf1 = Pf;
                                 %end
                                 
-                                Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
                                 %ntp = 13;
                                 %Pf = pmtm(this,(ntp:-1:1)/sum(1:ntp),'Tapers','sine',w,dw./dt);
                                 Pf=spm_vec(Pf);
@@ -1271,7 +1272,7 @@ if isfield(M,'y')
 %         warning on;
 
 
-          Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+        Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
         X=[];I=[];RC=[];
         b=[];pci=[];
         % return components in separate outputs

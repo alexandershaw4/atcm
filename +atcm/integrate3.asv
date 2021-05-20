@@ -652,10 +652,11 @@ series.States_without = yy;
 series.States_with_inp = y;
 
 % system spectral response with input
-[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci);
+[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1);
 
 % system spectral response without input (intrinsic dynamics / resonances)
-[y0,s1,g,noise,layers1] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci);
+[y0,s1,g,noise,layers1] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci,2);
+
 
 series.with_inp = y;
 series.without_inp = y0;
@@ -679,10 +680,7 @@ end
 
 y = full(exp(P.Ly)*y);
     
-out = atcm.fun.fit_spectrum(w,y);
-y = out.yprime;
 
-y = [out.a
 
 % continuous time difference (evoked only)
 s = spm_unvec( spm_vec(s)-spm_vec(s1), s);
@@ -691,7 +689,7 @@ layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
 t = drive;
 end
 
-function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci)
+function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,type)
 
 % Spectral Response Options
 %--------------------------------------------------------------------------
@@ -1029,6 +1027,17 @@ for ins = 1:ns
                                 this=this';
                                 
                                 test = atcm.fun.assa(this',10)';
+                                
+                                for ipf = 1:10
+                                    PfComps(ipf,:) = atcm.fun.AfftSmooth(test(ipf,:),dw/dt,w,ncompe);
+                                end
+                                
+                                if ij == 1
+                                    clear AllComps
+                                    AllComps = PfComps;
+                                else
+                                    AllComps = [AllComps; PfComps];
+                                end
                                                                 
                                 this = sum(test(1:3,:),1);
                                 
@@ -1274,7 +1283,10 @@ if isfield(M,'y')
 %         warning on;
 
 
-          Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+        
+
+
+        Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
         X=[];I=[];RC=[];
         b=[];pci=[];
         % return components in separate outputs
