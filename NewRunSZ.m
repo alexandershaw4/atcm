@@ -21,11 +21,11 @@ function NewRunSZ(i)
 %==========================================================================
 clear global;
 
-% addpath(genpath('~/spm12'));
-% addpath(genpath('/home/sapas10/code/atcm/'));
-% addpath(genpath('/home/sapas10/code/aoptim/'));
-% 
-% cd /cubric/scratch/sapas10/tcm/LauSZ/
+addpath(genpath('~/spm12'));
+addpath(genpath('/home/sapas10/code/atcm/'));
+addpath(genpath('/home/sapas10/code/aoptim/'));
+ 
+cd /cubric/scratch/sapas10/tcm/LauSZ/
 
 % Data & Design
 %--------------------------------------------------------------------------
@@ -155,7 +155,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.CV = zeros(1,8);
     DCM.M.pC.T = [1 1 1 1]/16;
             
-    DCM.M.InputType=1; % NOT OSCILLATION
+    DCM.M.InputType=2; % NOT OSCILLATION
         
     X = load('~/code/atcm/+atcm/+fun/Priors2021a.mat');
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
@@ -169,7 +169,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.solvefixed=0;
     DCM.M.x = zeros(1,8,7);
     DCM.M.x(:,:,1)=-70;
-    DCM.M.ncompe =50;
+    DCM.M.ncompe =0;
     DCM.M.pC.CV = ones(1,8)/8;
     DCM.M.pC.J([2 4])=1/8;
     DCM.M.pC.S = ones(1,8)/16;
@@ -178,19 +178,34 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.R = [1 1 1]/8;
     DCM.M.pE.R = [0 0 0];
     
-    DCM.M.pE.Ly = 0;
+    DCM.M.ppE=DCM.M.pE;
+    
+    DCM.M.pE.Ly = 2;
     DCM.M.pC.Ly = 1/8;
+
+    % Set Q
+    y  = spm_vec(DCM.xY.y{1});
+    w  = spm_vec(DCM.xY.Hz);
+    [~,LO] = findpeaks(smooth(y),w,'NPeak',4);
+    Qw = zeros(size(w))+1;
+    for ip = 1:length(LO)
+        i0(ip)=atcm.fun.findthenearest(w,LO(ip));
+    end
+    Qw(i0)=4;
+    Qw=diag(Qw);
     
 
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
     
+    M.opts.Q = Qw;
+    
     % opt set 1.
     M.opts.EnforcePriorProb=0;
     M.opts.ismimo=0;
     M.opts.doparallel=1;
-    M.opts.hyperparams=0;
+    M.opts.hyperparams=1;
     M.opts.fsd=0;
     M.opts.corrweight = 1; % weight error by correlation (good for spectra)
     

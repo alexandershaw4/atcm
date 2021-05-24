@@ -182,8 +182,9 @@ switch InputType
         delay  = 60 + P.R(1);             % bump
         scale1 = 8  * exp(P.R(2));
         drive  = atcm.fun.makef(pst,delay,scale1,16*exp(P.R(3)));
+        drive(1)=0;
         
-        sust = (max(drive));
+        sust = (max(drive))*.75;
         intcpt = atcm.fun.findthenearest(drive,sust);
         drive(intcpt:end) = sust;%*wave(intcpt:end);
         
@@ -655,7 +656,8 @@ series.States_with_inp = y;
 [y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1);
 
 % system spectral response without input (intrinsic dynamics / resonances)
-[y0,s1,g,noise,layers1] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci,2);
+M.y{ci} = M.y{ci}*0;
+[y0,s1,g,noise,layers1] = spectral_response(M.ppE,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci,2);
 
 
 series.with_inp = y;
@@ -664,10 +666,13 @@ series.without_inp = y0;
 % - remove non-stimulus related oscillations without removing induced
 % - smooth without changing peak locations (aenv):
 %    ~ y = ( y^2 + hilb(grad(y))^2 )^1/2
-y = abs(y-y0);
+%y = abs(y-y0);
+
+y = y+y0;
 
 for i = 1:ns
-    y(:,i,i) = atcm.fun.aenv(y(:,i,i),18);
+    %y(:,i,i) = atcm.fun.aenv(y(:,i,i),18);
+    %y(:,i,i) = atcm.fun.aenvelope(y(:,i,i),8);
     %y(:,i,i) = atcm.fun.HighResMeanFilt(y(:,i,i),1,4);
 end
 for i = 1:ns
@@ -986,9 +991,9 @@ for ins = 1:ns
                             end
                             
                             % filter
-                            [pfp,pfi]=atcm.fun.padtimeseries(this);
-                            bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
-                            this = bpfpf(pfi);
+                            %[pfp,pfi]=atcm.fun.padtimeseries(this);
+                            %bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
+                            %this = bpfpf(pfi);
                             %this=this';
 %                             comps = atcm.fun.assa(this,10);
 %                             
@@ -1047,28 +1052,53 @@ for ins = 1:ns
                                 
                             else
                                 
-                                test = atcm.fun.assa(this',10)';
+                                test = atcm.fun.assa(this',50)';
                                                                 
-                                this = sum(test(1:10,:),1)';
+                                %this = sum(test(1:3,:),1)';
                                 
-                                [Pf,Hz]  = atcm.fun.Afft(this',dw/dt,w);
+                                [u,s,v] = spm_svd(cov(test'));
+                                pc  = u'*test;
+                                %s   = diag(full(s));
+                                %ncp = atcm.fun.findthenearest(cumsum(s)./sum(s),0.95);
+                                ncp=1:4;
                                 
-                                %for i = 1:10; Ppf(i,:) = atcm.fun.Afft(test(i,:),dw./dt,w); end
+                                %this = sum(pc(ncp,:),1)';
                                 
+                                %rr = atcm.fuh.wcor([pc;M.y{:}],M.Q);
+                                
+                                % could use a weighted correlation
+                                % incorporating Q-matrix to find best
+                                % comps?
+                                %
+                                %[Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
+                                
+                                %Fbox = fit(w.',Pf.','fourier8');
+                                %Pf = Fbox(w);
+                                
+                                %for i = 1:10; Ppf(i,:) = atcm.fun.AfftSmooth(pc(i,:),dw./dt,w); end
+                                
+                                for i = 1:10; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
+                                                                
+                                %[u,s,v]=spm_svd(cov(Ppf'));
+                                                                
+                                %Pf = spm_vec(u(:,1)'*Ppf);
                                 
                                 %if ij ==1
-                                %b = atcm.fun.lsqnonneg(Ppf',M.y{ci});
+                                %b = atcm.fun.lsqnonneg(PfC',M.y{ci});
+                                
+                                %Pf = b(:)'*PfC;
+                                
                                 %else
-                                %    b = atcm.fun.lsqnonneg(Ppf',M.y{ci}-pf1);
+                                    b = atcm.fun.lsqnonneg(Ppf',M.y{ci});
                                 %end
                                 
-                                %Pf = b'*Ppf;
+                                Pf = b'*Ppf;
                                 
                                 %if ij == 1
                                 %    pf1 = Pf;
                                 %end
                                 
-                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+%                                 %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
                                 %ntp = 13;
                                 %Pf = pmtm(this,(ntp:-1:1)/sum(1:ntp),'Tapers','sine',w,dw./dt);
                                 Pf=spm_vec(Pf);
