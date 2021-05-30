@@ -1089,7 +1089,7 @@ for ins = 1:ns
                                 %Pf = b(:)'*PfC;
                                 
                                 %else
-                                    b = atcm.fun.lsqnonneg(Ppf',M.y{ci});
+                                    b = atcm.fun.lsqnonneg(Ppf',M.y{ci}(:,ins,ins));
                                 %end
                                 
                                 Pf = b'*Ppf;
