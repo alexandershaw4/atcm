@@ -1343,8 +1343,8 @@ if isfield(M,'y')
                 %Pf(:,i,j) = Pf(:,i,j) + Gn(:);
                 if j ~= i
                     % Cross spectral noise / innovations
-                   % Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);
-                   % Pf(:,i,j) = Pf(:,j,i);
+                    %Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);
+                    %Pf(:,i,j) = Pf(:,j,i);
                 end
             end
         end
