@@ -657,6 +657,7 @@ series.States_with_inp = y;
 
 % system spectral response without input (intrinsic dynamics / resonances)
 M.y{ci} = M.y{ci}*0;
+M.ppE.L = P.L;
 [y0,s1,g,noise,layers1] = spectral_response(M.ppE,M,yy,w,npp,nk,ns,t,nf,yy,dt,dfdx,ci,2);
 
 
@@ -770,10 +771,10 @@ noise.Gs = Gs;
 % steady-state (generating oscillations).
     
 % Optional burn in - i.e. take transform of n:end ms instead of 0:end...
-burn = findthenearest(300,t); 
+burn = atcm.fun.findthenearest(300,t); 
 
 if isfield(M,'burnin')
-    burn = findthenearest(M.burnin,t); 
+    burn = atcm.fun.findthenearest(M.burnin,t); 
 end
 
 % Generate weighted (principal cells) signal - g & fft(g)i
