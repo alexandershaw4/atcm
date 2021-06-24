@@ -172,7 +172,7 @@ switch InputType
         % For oscillatory inputs...
         %------------------------------------------------------------------
         mu    = 1*exp(P.R(1));                      % mean amplitude
-        mf    = 10*exp(P.R(2));                      % frequency
+        mf    = 1*exp(P.R(2));                      % frequency
         drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
                      %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
                     

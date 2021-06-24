@@ -34,7 +34,7 @@ f  = fs * (0:(L/2))/L;
 if size(signal,1) == 1
     data1  = signal(1,:);
     data1  = fft(data1);
-    data1  =  abs(data1/L);
+    data1  =   abs(data1/L);
     L2     = floor(L/2);
     Pf     = data1(1:L2+1);
     if varargin{1}

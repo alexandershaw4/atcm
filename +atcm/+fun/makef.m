@@ -37,7 +37,7 @@ try Amp ; catch Amp = 2; end
 % offset negative values in w
 mw  = min(w);
 X   = 0*w;
-f   = findthenearest(Fq,w);
+f   = atcm.fun.findthenearest(Fq,w);
 f   = f(1);
 
 w   = w - mw;
