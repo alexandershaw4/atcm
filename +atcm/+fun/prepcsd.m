@@ -214,6 +214,12 @@ for i = 1:Ne;
     %c = D.pickconditions(condlabels{trial(i)});
     c = D.indtrial(condlabels(trial(i)), 'GOOD');
     
+    if isfield(DCM.options,'TrialIndices')
+        fprintf('Using only specified trial range...\n');
+        c = c(DCM.options.TrialIndices);
+    end
+    
+    
     % use only the first 512 trial
     %----------------------------------------------------------------------
     %try c = c(1:512); end
