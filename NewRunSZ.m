@@ -212,6 +212,9 @@ for s = i;%1:length(Data.Datasets)
     % add user-defined plot function
     M.opts.userplotfun = @aodcmplotfun;
     
+    %M.opts.mleselect=1;
+    %M.opts.EnforcePriorProb=1;
+    
     %w = DCM.xY.Hz;
     %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     
