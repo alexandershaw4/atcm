@@ -34,7 +34,7 @@ f  = fs * (0:(L/2))/L;
 if size(signal,1) == 1
     data1  = signal(1,:);
     data1  = fft(data1);
-    data1  =   abs(data1/L);
+    data1  = (data1/L);
     L2     = floor(L/2);
     Pf     = data1(1:L2+1);
     if varargin{1}
@@ -42,6 +42,8 @@ if size(signal,1) == 1
         warning off
         try
             SPf = spline(f,data1(1:L2+1),Hz);
+            i   = SPf < 0;
+            SPf(i) = -SPf(i);
         catch
             SPf = Hz*0;
         end
@@ -69,10 +71,10 @@ for s1 = 1:size(signal,1)
 %         Pxy    = abs(Pxy  /L);
 %         Pyx    = abs(Pyx  /L);
         
-        data1  = abs(data1/L);
-        data2  = abs(data2/L);
-        Pxy    = abs(Pxy  /L);
-        Pyx    = abs(Pyx  /L);
+        data1  = (data1/L);
+        data2  = (data2/L);
+        Pxy    = (Pxy  /L);
+        Pyx    = (Pyx  /L);
         
         L2          = floor(L/2);
         Pf(:,s1,s1) = data1(1:L2+1);
@@ -88,6 +90,9 @@ for s1 = 1:size(signal,1)
             SPf(:,s1,s2) = spline(f,Pxy  (1:L2+1),Hz);
             SPf(:,s2,s1) = spline(f,Pyx  (1:L2+1),Hz);
             warning on;
+            
+            i      = SPf < 0;
+            SPf(i) = -SPf(i);
         end
     end     
 end
