@@ -86,6 +86,12 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 %                 = 8  ... 8th-order Runge-Kutta w/ delays
 %                 = 45 ... 4th order Runge-Kutta w/ delays
 %
+% Time series decomposition 
+% -------------------------------------
+% Set M.decompose = 'ssa'   - singular spectrum analysis algorithm
+%                 = 'fourier' - fit a fourier series
+%
+%
 % Selecting Spectral (transfer) Method
 % -------------------------------------
 % Set M.fmethod = 'dmd' ... use dynamic mode decomposition to identify 
@@ -1053,33 +1059,54 @@ for ins = 1:ns
                                 
                             else
                                 
-                                test = atcm.fun.assa(this',50)';
-                                                                
+                                method = 'ssa';
+                                if isfield(M,'decompose') && ~isempty(M.decompose)
+                                    method = M.decompose;
+                                end
+                                %fprintf('using decomposition method %s\n',method);
+                                
+                                switch method
+                                    case 'ssa'
+                                
+                                        test = atcm.fun.assa(this',50)';
+                                               
+                                    case 'fourier'
+                                        this = highpass(this,2,1./dt);
+                                
+                                        c = fit(t(burn:end),this','Fourier8');
+                                        xx = t(burn:end);
+                                
+                                        cx(1,:) = c.a0 + c.a1*cos(1*xx*c.w) + c.b1*sin(1*xx*c.w);
+                                        cx(2,:) = c.a0 + c.a2*cos(2*xx*c.w) + c.b2*sin(2*xx*c.w);
+                                        cx(3,:) = c.a0 + c.a3*cos(3*xx*c.w) + c.b3*sin(3*xx*c.w);
+                                        cx(4,:) = c.a0 + c.a4*cos(4*xx*c.w) + c.b4*sin(4*xx*c.w);
+                                        cx(5,:) = c.a0 + c.a5*cos(5*xx*c.w) + c.b5*sin(5*xx*c.w);
+                                        cx(6,:) = c.a0 + c.a6*cos(6*xx*c.w) + c.b6*sin(6*xx*c.w);
+                                        cx(7,:) = c.a0 + c.a7*cos(7*xx*c.w) + c.b7*sin(7*xx*c.w);
+                                        cx(8,:) = c.a0 + c.a8*cos(8*xx*c.w) + c.b8*sin(8*xx*c.w);
+
+                                        test = cx;
+                                end
+                                
                                 %this = sum(test(1:3,:),1)';
                                 
-                                [u,s,v] = spm_svd(cov(test'));
-                                pc  = u'*test;
-                                %s   = diag(full(s));
-                                %ncp = atcm.fun.findthenearest(cumsum(s)./sum(s),0.95);
-                                ncp=1:4;
+                                switch method
+                                    case 'ssa'
+                                        [u,s,v] = spm_svd(cov(test'));
+                                        pc  = u'*test;
+                                        nn= 10;
+                                        if ns == 1
+                                            for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
+                                        else
+                                            for i = 1:nn; Ppf(i,:) = atcm.fun.Afft( pc(i,:), dw./dt, w) ; end
+                                        end
+                                    case 'fourier'
+                                        [u,s,v] = spm_svd(cov(test'));
+                                        pc  = u'*test;
+                            
+                                        for i = 1:size(pc,1); Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
+                                end
                                 
-                                %this = sum(pc(ncp,:),1)';
-                                
-                                %rr = atcm.fuh.wcor([pc;M.y{:}],M.Q);
-                                
-                                % could use a weighted correlation
-                                % incorporating Q-matrix to find best
-                                % comps?
-                                %
-                                %[Pf,Hz]  = atcm.fun.Afft(this,dw/dt,w);
-                                
-                                %Fbox = fit(w.',Pf.','fourier8');
-                                %Pf = Fbox(w);
-                                
-                                %for i = 1:10; Ppf(i,:) = atcm.fun.AfftSmooth(pc(i,:),dw./dt,w); end
-                                
-                                for i = 1:10; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
-                                                                
                                 %[u,s,v]=spm_svd(cov(Ppf'));
                                                                 
                                 %Pf = spm_vec(u(:,1)'*Ppf);
@@ -1090,10 +1117,14 @@ for ins = 1:ns
                                 %Pf = b(:)'*PfC;
                                 
                                 %else
-                                    b = atcm.fun.lsqnonneg(Ppf',M.y{ci}(:,ins,ins));
+                                    b = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
                                 %end
                                 
                                 Pf = b'*Ppf;
+                                
+                                if isfield(P,'iL');
+                                    Pf = real(Pf) + sqrt(-1)*exp(P.iL(ins))*imag(Pf);
+                                end
                                 
                                 %if ij == 1
                                 %    pf1 = Pf;
