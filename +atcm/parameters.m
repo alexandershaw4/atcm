@@ -60,13 +60,13 @@ else
     pE.A{3} = A{1}*32 - 32; 
     pC.A{3} = A{1}/8;
 
-    % [Extrinsic T->T] rt -> rt & rl
+    % [Extrinsic rt -> rl]
     AA      = A{1} | A{2};
     
     pE.A{4} = AA*32 - 32; 
     pC.A{4} = AA/8;
     
-    % [Extrinsic T->T] rl -> rt & rl
+    % [Extrinsic rl -> rt]
     pE.A{5} = AA*32 - 32; 
     pC.A{5} = AA/8;
 
@@ -180,6 +180,8 @@ else
     pE.Hh = pr.pE.Hh;
     pC.Hh = pr.pC.Hh;
     
+    % parameters in try-catch are optional: the model only uses them if
+    % they're specified...
     try
         pE.ID = pr.pE.ID;
         pC.ID = pr.pC.ID;

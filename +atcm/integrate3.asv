@@ -1095,11 +1095,8 @@ for ins = 1:ns
                                         [u,s,v] = spm_svd(cov(test'));
                                         pc  = u'*test;
                                         nn= 10;
-                                        if ns == 1
-                                            for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
-                                        else
-                                            for i = 1:nn; Ppf(i,:) = atcm.fun.Afft( pc(i,:), dw./dt, w) ; end
-                                        end
+                                        %for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
+                                        for i = 1:nn; Ppf(i,:) = atcm.fun.Afft( pc(i,:), dw./dt, w) ; end
                                     case 'fourier'
                                         [u,s,v] = spm_svd(cov(test'));
                                         pc  = u'*test;
@@ -1117,14 +1114,10 @@ for ins = 1:ns
                                 %Pf = b(:)'*PfC;
                                 
                                 %else
-                                    b = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
+                                    b = atcm.fun.lsqnonneg(Ppf',M.y{ci}(:,ins,ins));
                                 %end
                                 
                                 Pf = b'*Ppf;
-                                
-                                if isfield(P,'iL');
-                                    Pf = real(Pf) + sqrt(-1)*exp(P.iL(ins))*imag(Pf);
-                                end
                                 
                                 %if ij == 1
                                 %    pf1 = Pf;

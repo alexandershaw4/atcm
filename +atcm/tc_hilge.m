@@ -103,6 +103,9 @@ G    = full(P.H);
 G    = exp(G);
 
 % nmda matrix
+%P.Hn=P.H;
+%P.Hn(3,3)=P.nmda;
+
 Gn = full(P.Hn);
 Gn = exp(Gn);
 %Gn = exp(full(G));

@@ -271,6 +271,10 @@ for i = 1:nr
         c   = constr(Px');
         LB  = (Px-(c'*sf));
         UB  = (Px+(c'*sf));  
+        
+        flipme = find((UB-LB)<0);
+        LB(flipme)=-LB(flipme);
+        
         DD.doplot = 0;
         opts = optimoptions('surrogateopt','PlotFcn','surrogateoptplot');
         opts.ObjectiveLimit = 0.05;
@@ -488,6 +492,12 @@ for i = 1:nr
         c   = constr(Px');
         LB  = (Px-(c'*sf));
         UB  = (Px+(c'*sf));
+        
+        %flipme = find((UB-LB)<0);
+        %LB(flipme)=-LB(flipme);
+        
+        LB = Px(:)-2;
+        UB = Px(:)+2;
         
         [X,F(i)] = bads(@optimi,Px(:)',LB',UB',LB',UB');
         

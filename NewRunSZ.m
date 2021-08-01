@@ -210,7 +210,7 @@ for s = i;%1:length(Data.Datasets)
     M.opts.corrweight = 1; % weight error by correlation (good for spectra)
     
     % add user-defined plot function
-    M.opts.userplotfun = @aodcmplotfun;
+   % M.opts.userplotfun = @aodcmplotfun;
     
     %M.opts.mleselect=1;
     %M.opts.EnforcePriorProb=1;
