@@ -58,12 +58,12 @@ function [f,J,Q,D] = tc_hilge(x,u,P,M,m)
 %
 % Notes, changes, updates:
 %
-% Extrinsics connection matrices [ampa but AN{n} is nmda equiv]:
-% A{1} = Forward  SP -> SS & DP
-% A{2} = Backward DP -> SP & SI
-% A{3} = Back/Lat TP -> SS & TP
-% A{4} = Inter-Thal [B] RT -> RC
-% A{5} = Inter-Thal [F] RC -> RT
+% Extrinsics connection matrices:
+% A{1} = Forward SP -> SS & DP
+% A{2} = Forward SP -> SS & DP
+% A{3} = Forward SP -> SS & DP
+% A{4} = Forward SP -> SS & DP
+% A{5} = Forward SP -> SS & DP
 %--------------------------------------------------------------------------
 
 

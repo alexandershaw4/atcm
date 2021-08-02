@@ -22,6 +22,6 @@ dP = spm_unvec(Ep-pE,Qp);
 %==========================================================================
 warning('off','SPM:negativeVariance');
 dp  = spm_vec(Ep) - spm_vec(pE);
-Pp  = spm_unvec(1 - spm_Ncdf(0,abs(dp),diag(Cp)),Qp);
+Pp  = spm_unvec(1 - spm_Ncdf(0,full(abs(dp)),(Cp)),Qp);
 warning('on', 'SPM:negativeVariance');
  
