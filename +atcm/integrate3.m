@@ -677,18 +677,18 @@ series.without_inp = y0;
 
 y = y+y0;
 
-for i = 1:ns
-    %y(:,i,i) = atcm.fun.aenv(y(:,i,i),18);
-    %y(:,i,i) = atcm.fun.aenvelope(y(:,i,i),8);
-    %y(:,i,i) = atcm.fun.HighResMeanFilt(y(:,i,i),1,4);
-end
-for i = 1:ns
-    for j = 1:ns
-        if i~=j
-            y(:,i,j) = y(:,i,i).*conj(y(:,j,j));
-        end
-    end
-end
+% for i = 1:ns
+%     %y(:,i,i) = atcm.fun.aenv(y(:,i,i),18);
+%     %y(:,i,i) = atcm.fun.aenvelope(y(:,i,i),8);
+%     %y(:,i,i) = atcm.fun.HighResMeanFilt(y(:,i,i),1,4);
+% end
+% for i = 1:ns
+%     for j = 1:ns
+%         if i~=j
+%             y(:,i,j) = y(:,i,i).*conj(y(:,j,j));
+%         end
+%     end
+% end
 
 y = full(exp(P.Ly)*y);
     
@@ -1107,30 +1107,14 @@ for ins = 1:ns
                                         for i = 1:size(pc,1); Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                 end
                                 
-                                %[u,s,v]=spm_svd(cov(Ppf'));
-                                                                
-                                %Pf = spm_vec(u(:,1)'*Ppf);
-                                
-                                %if ij ==1
-                                %b = atcm.fun.lsqnonneg(PfC',M.y{ci});
-                                
-                                %Pf = b(:)'*PfC;
-                                
-                                %else
-                                    b = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
-                                %end
-                                
+                                b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
                                 Pf = b'*Ppf;
                                 
                                 if isfield(P,'iL');
                                     Pf = real(Pf) + sqrt(-1)*exp(P.iL(ins))*imag(Pf);
                                 end
                                 
-                                %if ij == 1
-                                %    pf1 = Pf;
-                                %end
-                                
-%                                 %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
                                 %ntp = 13;
                                 %Pf = pmtm(this,(ntp:-1:1)/sum(1:ntp),'Tapers','sine',w,dw./dt);
                                 Pf=spm_vec(Pf);
@@ -1149,6 +1133,7 @@ for ins = 1:ns
                                % timseries moving average smoothing
                                [padp,indp] = atcm.fun.padtimeseries(Pf);
                                Pfs = atcm.fun.tsmovavg(padp','t',12);
+                               Pfs = full(atcm.fun.HighResMeanFilt(Pfs,1,2));
                                %Pfs = atcm.fun.tsmovavg(Pfs,'t',8);
                                %Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
                                Pf = Pfs(indp);
@@ -1370,12 +1355,12 @@ if isfield(M,'y')
     if addnoise
         for i = 1:ns
             for j = 1:ns
-                % Autospectral noise / innovations
+                % Autospectral noise / innovations [P.b]
                 %Pf(:,i,j) = Pf(:,i,j) + Gn(:);
                 if j ~= i
-                    % Cross spectral noise / innovations
-                    %Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);
-                    %Pf(:,i,j) = Pf(:,j,i);
+                    % Cross spectral noise / innovations [P.c]
+                    Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);
+                    Pf(:,i,j) = Pf(:,j,i);
                 end
             end
         end
