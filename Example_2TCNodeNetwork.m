@@ -1,7 +1,6 @@
 function Example_2TCNodeNetwork(i)
 
-
-% EXAMPLE ONE NODE SETUP:
+% EXAMPLE TWO NODE NETWORK SETUP:
 %==========================================================================
 clear global;
 
@@ -220,6 +219,7 @@ for s = i;%1:length(Data.Datasets)
         end
     end
     
+    % construct the matrix
     Qw = diag([diag(QQ{1,1}); diag(QQ{2,1}); diag(QQ{1,2}); diag(QQ{2,2})]);
     
     % rescale spectra
@@ -230,11 +230,11 @@ for s = i;%1:length(Data.Datasets)
     
     % Optimise [aka invert]                                              1
     %----------------------------------------------------------------------
-    M = AODCM(DCM);
+    M = AODCM(DCM);             % generate optimisation object wrapper [AO.m]
     
-    M.opts.Q = Qw;
+    M.opts.Q = Qw;              % precision matrix
     
-    M.opts.FS = DCM.M.FS;
+    M.opts.FS = DCM.M.FS;       % feature selection function handle
     
     % opt set 1.
     M.opts.EnforcePriorProb=0;
