@@ -1096,9 +1096,10 @@ for ins = 1:ns
                                         pc  = u'*test;
                                         nn= 10;
                                         if ns == 1
-                                            for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
+                                            %for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
+                                            for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
                                         else
-                                            for i = 1:nn; Ppf(i,:) = atcm.fun.Afft( pc(i,:), dw./dt, w) ; end
+                                            for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ; end
                                         end
                                     case 'fourier'
                                         [u,s,v] = spm_svd(cov(test'));
@@ -1133,7 +1134,10 @@ for ins = 1:ns
                                % timseries moving average smoothing
                                [padp,indp] = atcm.fun.padtimeseries(Pf);
                                Pfs = atcm.fun.tsmovavg(padp','t',12);
-                               Pfs = full(atcm.fun.HighResMeanFilt(Pfs,1,2));
+                               
+                               %Pfs = atcm.fun.aenv(padp',40);
+                               
+                               %Pfs = full(atcm.fun.HighResMeanFilt(Pfs,1,2));
                                %Pfs = atcm.fun.tsmovavg(Pfs,'t',8);
                                %Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
                                Pf = Pfs(indp);

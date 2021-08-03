@@ -25,7 +25,7 @@ addpath(genpath('~/spm12'));
 addpath(genpath('/home/sapas10/code/atcm/'));
 addpath(genpath('/home/sapas10/code/aoptim/'));
  
-cd /cubric/scratch/sapas10/tcm/LauSZ/
+%cd /cubric/scratch/sapas10/tcm/LauSZ/
 
 % Data & Design
 %--------------------------------------------------------------------------
@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'mTCM_';      % outputted DCM prefix
+Data.Prefix       = 'NewTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -122,7 +122,7 @@ for s = i;%1:length(Data.Datasets)
     % Subfunctions
     %----------------------------------------------------------------------
     %DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
-    DCM = atcm.parameters(DCM,Ns,'~/code/atcm/+atcm/+fun/Priors2021b');
+    DCM = atcm.parameters(DCM,Ns,'~/Dropbox/code/atcm/+atcm/+fun/Priors2021b');
     
     DCM.M.pE.gaba = zeros(1,8);
     DCM.M.pC.gaba = zeros(1,8)+1/16;
@@ -157,13 +157,17 @@ for s = i;%1:length(Data.Datasets)
             
     DCM.M.InputType=2; % NOT OSCILLATION
         
-    X = load('~/code/atcm/+atcm/+fun/Priors2021a.mat');
+    X = load('~/Dropbox/code/atcm/+atcm/+fun/Priors2021a.mat');
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
     % Feature function for the integrator
     %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
+    
+    imscale = sum(spm_vec(abs(real(DCM.xY.y{:})))) ./ sum(spm_vec(abs(imag(DCM.xY.y{:}))));
+    DCM.M.FS = @(x) [real(x) ; imscale*imag(x) ];
+
     
     % oscillations == no fixed point search
     DCM.M.solvefixed=0;
@@ -182,18 +186,22 @@ for s = i;%1:length(Data.Datasets)
     
     DCM.M.pE.Ly = 2;
     DCM.M.pC.Ly = 1/8;
+    
+    DCM.M.pE.iL = 0;
+    DCM.M.pC.iL = 1/8;
 
     % Set Q
     y  = spm_vec(DCM.xY.y{1});
     w  = spm_vec(DCM.xY.Hz);
-    [~,LO] = findpeaks(smooth(y),w,'NPeak',4);
+    [~,LO] = findpeaks(real(smooth(y)),w,'NPeak',4);
     Qw = zeros(size(w))+1;
     for ip = 1:length(LO)
         i0(ip)=atcm.fun.findthenearest(w,LO(ip));
     end
     Qw(i0)=4;
     Qw=diag(Qw);
-    
+
+    DCM.M.DoEnv   = 1;
 
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
@@ -201,10 +209,12 @@ for s = i;%1:length(Data.Datasets)
     
     M.opts.Q = Qw;
     
+    M.opts.FS = DCM.M.FS;  
+     
     % opt set 1.
     M.opts.EnforcePriorProb=0;
     M.opts.ismimo=0;
-    M.opts.doparallel=1;
+    M.opts.doparallel=0;
     M.opts.hyperparams=1;
     M.opts.fsd=0;
     M.opts.corrweight = 1; % weight error by correlation (good for spectra)
