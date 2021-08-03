@@ -393,7 +393,12 @@ for i = 1:Ne;
         
         if isfield(DCM.options,'han') && DCM.options.han
             % apply hanning window
-           P = P .* rescale(kaiser(Nf,2.5),.01,1)'.^.2;
+            if Nc==1
+                P = P .* rescale(kaiser(Nf,2.5),.01,1)'.^.2;
+            else
+                wind = rescale(kaiser(Nf,2.5),.01,1)';
+                P = P .* repmat(wind(:),[1 Nc,Nc]).^.2;
+            end
         end
         
         try

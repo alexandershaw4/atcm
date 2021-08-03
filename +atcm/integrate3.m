@@ -1133,7 +1133,7 @@ for ins = 1:ns
                                % timseries moving average smoothing
                                [padp,indp] = atcm.fun.padtimeseries(Pf);
                                Pfs = atcm.fun.tsmovavg(padp','t',12);
-                             %  Pfs = full(atcm.fun.HighResMeanFilt(Pfs,1,2));
+                               Pfs = full(atcm.fun.HighResMeanFilt(Pfs,1,2));
                                %Pfs = atcm.fun.tsmovavg(Pfs,'t',8);
                                %Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
                                Pf = Pfs(indp);
