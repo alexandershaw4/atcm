@@ -1096,8 +1096,8 @@ for ins = 1:ns
                                         pc  = u'*test;
                                         nn= 10;
                                         if ns == 1
-                                            %for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
-                                            for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
+                                            for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
+                                            %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
                                         else
                                             for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ; end
                                         end
