@@ -165,8 +165,8 @@ for s = i;%1:length(Data.Datasets)
     DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     
-    imscale = sum(spm_vec(abs(real(DCM.xY.y{:})))) ./ sum(spm_vec(abs(imag(DCM.xY.y{:}))));
-    DCM.M.FS = @(x) [real(x) ; imscale*imag(x) ];
+    %imscale = sum(spm_vec(abs(real(DCM.xY.y{:})))) ./ sum(spm_vec(abs(imag(DCM.xY.y{:}))));
+    %DCM.M.FS = @(x) [real(x) ; imscale*imag(x) ];
 
     
     % oscillations == no fixed point search
@@ -187,8 +187,8 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE.Ly = 2;
     DCM.M.pC.Ly = 1/8;
     
-    DCM.M.pE.iL = 0;
-    DCM.M.pC.iL = 1/8;
+    %DCM.M.pE.iL = 0;
+    %DCM.M.pC.iL = 1/8;
 
     % Set Q
     y  = spm_vec(DCM.xY.y{1});
@@ -209,7 +209,7 @@ for s = i;%1:length(Data.Datasets)
     
     M.opts.Q = Qw;
     
-    M.opts.FS = DCM.M.FS;  
+    %M.opts.FS = DCM.M.FS;  
      
     % opt set 1.
     M.opts.EnforcePriorProb=0;
