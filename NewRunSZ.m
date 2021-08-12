@@ -201,7 +201,13 @@ for s = i;%1:length(Data.Datasets)
     Qw(i0)=4;
     Qw=diag(Qw);
 
-    DCM.M.DoEnv   = 1;
+    % load reduced 24-parameter model...these were found by fitting a model
+    % with lots of params to all the datasets and looking at which
+    % parameters had moved, on median, the furtherest prom the priors
+    load NewVmaxPriors.mat
+    DCM.M.pC=Vmax;
+    
+    %DCM.M.DoEnv   = 1;
 
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
@@ -214,7 +220,7 @@ for s = i;%1:length(Data.Datasets)
     % opt set 1.
     M.opts.EnforcePriorProb=0;
     M.opts.ismimo=0;
-    M.opts.doparallel=0;
+    M.opts.doparallel=1;
     M.opts.hyperparams=1;
     M.opts.fsd=0;
     M.opts.corrweight = 1; % weight error by correlation (good for spectra)
