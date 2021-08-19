@@ -16,7 +16,7 @@ function [f,J,Q,D] = tc_hilge(x,u,P,M,m)
 % B  = -100 / 200 ms (GABA-B)
 % f  = -40
 %
-% FORMAT [f,J,Q,D] = atcm.tcm_nomh(x,u,P,M)
+% FORMAT [f,J,Q,D] = atcm.tcm_hilge(x,u,P,M)
 %
 % x - states and covariances
 %
