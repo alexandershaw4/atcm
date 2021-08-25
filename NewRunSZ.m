@@ -214,26 +214,26 @@ for s = i;%1:length(Data.Datasets)
     % parameters corresponding to the CMC13 connections!
     
      pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-%     
-%     %       ss sp si dp di tp rt rl
+     
+    %       ss sp si dp di tp rt rl
     pC.H = [1  0  0  0  0  0  0  0;
             1  1  1  0  0  0  0  0;
             0  1  1  0  0  0  0  0;
-            0  1  0  1  1  0  0  0;
-            0  0  0  0  0  0  0  0;
+            0  1  0  0  1  0  0  0;
+            0  0  0  1  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  0  0  0  0  0;
-            0  0  0  1  0  0  0  0]/8;
+            0  0  0  0  0  0  0  0]/8;
         
     pC.Hn= [0  0  0  0  0  0  0  0;
-            1  1  0  0  0  0  0  0;
+            1  0  0  0  0  0  0  0;
             0  1  0  0  0  0  0  0;
-            0  0  0  0  0  0  0  0;
-            0  0  0  0  0  0  0  0;
+            0  1  0  0  0  0  0  0;
+            0  0  0  1  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  0  0  0  0  0;
-            0  0  0  0  0  1  0  0]/8;   
-%         
+            0  0  0  0  0  0  0  0]/8; 
+        
 %     pC.ID(2) = 1/8;
 %     pC.J(2)  = 1/8;
 %     pC.CV    = [1 1 1 1 1 1 1 1]/8;
@@ -243,9 +243,7 @@ for s = i;%1:length(Data.Datasets)
 %     
      DCM.M.pC=pC;
 
-
     %DCM.M.pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-    
 %     DCM.M.pC.H([2 3],2)  = 1/8;
 %     DCM.M.pC.Hn([2 3],2) = 1/8;
 %     DCM.M.pC.H([2 3],3)  = 1/8;
@@ -255,8 +253,7 @@ for s = i;%1:length(Data.Datasets)
     
     DCM.M.pE.f = zeros(1,8);
     DCM.M.pC.f = ones(1,8)/8;
-    
-    DCM.M.pC.Ly=1/8;
+    DCM.M.pC.Ly= 1/8;
         
 
     % Optimise BASLEINE                                                  1

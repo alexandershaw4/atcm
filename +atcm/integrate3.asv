@@ -504,7 +504,7 @@ switch IntMethod
                     v = v;
                 else
                     for j = 1:N
-                        v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));   
+                        v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M,Curfire));   
                         v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M));  
                         % Ozaki 1992 numerical method:
                         % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
@@ -629,6 +629,9 @@ switch IntMethod
             V        = spm_unvec(v,M.x);
             Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);
             S(:,:,i) = Curfire;
+            
+            Curfire  = Curfire.*exp(P.f);
+            
             try
                 fired     = find(squeeze(V(:,:,1)) >= VR);
                 firings   = [firings; [i+0*fired',fired'] ];
@@ -1096,13 +1099,24 @@ for ins = 1:ns
                                 
                                 switch method
                                     case 'ssa'
-                                        [u,s,v] = spm_svd(cov(test'));
-                                        pc = u'*test;
-                                        nn = 10;
+                                        %[u,s,v] = spm_svd(cov(test'));
+                                        %pc = u'*test;
+                                        %pc = test;
+                                        %nn = 10;
                                         if ns == 1
+                                            pc = test;
+                                            nn = size(test,1);
                                             for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
+                                            
+                                            specvar = corr(real(M.y{ci}(:,ins,ins)),real(Ppf)').^2;
+                                            [~,I]=sort(specvar,'descend');
+                                            
+                                            
                                         else
+                                            [u,s,v] = spm_svd(cov(test'));
+                                            pc = u'*test;
+                                            nn = 10;
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ; end
                                             for i = 1:nn; Ppf(i,:) = atcm.fun.Afft( pc(i,:), dw./dt, w) ; 
                                                           Ppf(i,:) = full(atcm.fun.HighResMeanFilt(Ppf(i,:),1,12)); 
@@ -1118,8 +1132,11 @@ for ins = 1:ns
                                 b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
                                 Pf = b'*Ppf;
                                 
-                                r = corr(real(Ppf)',real(M.y{ci}(:,ins,ins)));
-                                [~,I]=sort(abs(r),'descend');
+%                                 r = corr(real(Ppf)',real(M.y{ci}(:,ins,ins))).^2;
+%                                 [~,I]=sort(abs(r),'descend');
+%                                 thr = atcm.fun.findthenearest(cumsum(abs(r(I)))./sum(abs(r)),0.9);
+%                                 inc = I(1:thr);
+%                                 Pf = sum(Ppf(inc,:));
                                 
                                 
                                 if isfield(P,'iL');
