@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'Match13TCM_';      % outputted DCM prefix
+Data.Prefix       = 'firingTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -204,18 +204,18 @@ for s = i;%1:length(Data.Datasets)
     % load reduced 24-parameter model...these were found by fitting a model
     % with lots of params to all the datasets and looking at which
     % parameters had moved, on median, the furtherest prom the priors
-    load NewVmaxPriors.mat
-    DCM.M.pC=Vmax;
-    DCM.M.pC.Mh(8)=1/8;
-    DCM.M.pC.Hh(2)=1/8;
-    DCM.M.pC.L=0;
+%     load NewVmaxPriors.mat
+%     DCM.M.pC=Vmax;
+%     DCM.M.pC.Mh(8)=1/8;
+%     DCM.M.pC.Hh(2)=1/8;
+%     DCM.M.pC.L=0;
     
     % New august 18th 2021: Try fititng with only the synaptioc
     % parameters corresponding to the CMC13 connections!
     
-    pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-    
-    %       ss sp si dp di tp rt rl
+     pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
+%     
+%     %       ss sp si dp di tp rt rl
     pC.H = [1  0  0  0  0  0  0  0;
             1  1  1  0  0  0  0  0;
             0  1  1  0  0  0  0  0;
@@ -226,22 +226,38 @@ for s = i;%1:length(Data.Datasets)
             0  0  0  1  0  0  0  0]/8;
         
     pC.Hn= [0  0  0  0  0  0  0  0;
-            1  0  0  0  0  0  0  0;
+            1  1  0  0  0  0  0  0;
             0  1  0  0  0  0  0  0;
-            0  1  0  0  0  0  0  0;
+            0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  0  0  0  0  0;
-            0  0  0  0  0  0  0  0]/8;   
-        
-    pC.ID(2) = 1/8;
-    pC.J(2)  = 1/8;
-    pC.CV    = [1 1 1 1 1 1 1 1]/8;
-    pC.Ly    = 1/8;
+            0  0  0  0  0  1  0  0]/8;   
+%         
+%     pC.ID(2) = 1/8;
+%     pC.J(2)  = 1/8;
+%     pC.CV    = [1 1 1 1 1 1 1 1]/8;
+%     pC.Ly    = 1/8;
+%     pC.L     = 1/8;
+%     pC.T([2 3])=1/8;
+%     
+     DCM.M.pC=pC;
+
+
+    %DCM.M.pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
     
-    DCM.M.pC=pC;
+%     DCM.M.pC.H([2 3],2)  = 1/8;
+%     DCM.M.pC.Hn([2 3],2) = 1/8;
+%     DCM.M.pC.H([2 3],3)  = 1/8;
+%     
+%     DCM.M.pC.H([1 2],8) = 1/8;
+%     DCM.M.pC.H(8,6) = 1/8;
+    
+    DCM.M.pE.f = zeros(1,8);
+    DCM.M.pC.f = ones(1,8)/8;
+    
+    DCM.M.pC.Ly=1/8;
         
-    %DCM.M.DoEnv   = 1;
 
     % Optimise BASLEINE                                                  1
     %----------------------------------------------------------------------
@@ -268,7 +284,7 @@ for s = i;%1:length(Data.Datasets)
     %w = DCM.xY.Hz;
     %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     
-    M.default_optimise([1 1 3 1],[5 5 4 4]);
+    M.default_optimise([1 1 1 3 1],[5 5 5 4 4]);
     
     save(DCM.name); close; clear global;    
     

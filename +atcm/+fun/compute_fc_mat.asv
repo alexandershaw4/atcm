@@ -23,7 +23,6 @@ end
 
 % fill upper triangular
 r = r + tril(r)';
-p = p + tril(p)';
 
 Z=kzscorenan(r);
 

@@ -192,28 +192,8 @@ GIa = zeros(8,8);
 % Excitatory (np x np): AMPA & NMDA
 %--------------------------------------------------------------------------
 % This is a simplified, predictive-coding friendly excitatory architecture
-%           ss  sp  si  dp  di  tp  rt  rl   
-GEa(1,:) = [0   0   0   0   0   2   0   2]/1;
-GEa(2,:) = [4   0   0   0   0   0   0   0]/1;
-GEa(3,:) = [4   4   0   0   0   0   0   0]/1; 
-GEa(4,:) = [0   4   0   0   0   0   0   0]/1;
-GEa(5,:) = [0   0   0   4   0   0   0   0]/1;
-GEa(6,:) = [0   0   0   2   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
-GEa(7,:) = [0   0   0   0   0   0   0   2]/1; 
-GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
-
-% Trying out some additional synapses - RL->SP&DP, TP->RT & DP->RL/RT
-GEa(1,:) = [0   0   0   0   0   2   0   2]/1;
-GEa(2,:) = [6   0   0   0   0   0   0   1]/1;
-GEa(3,:) = [0   8   0   0   0   0   0   0]/1; 
-GEa(4,:) = [0   6   0   0   0   2   0   1]/1;
-GEa(5,:) = [0   0   0   4   0   2   0   0]/1;
-GEa(6,:) = [0   0   0   6   0   0   0   1/4]/1; % added RL->TP [Ghodrati 2017]
-GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
-GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
-
-
 % NEW - BASED ON HILGETAG PAPER
+%           ss  sp  si  dp  di  tp  rt  rl   
 GEa(1,:) = [0   4   0   0   0   2   0   2]/1;
 GEa(2,:) = [6   4   0   0   0   0   0   1]/1;
 GEa(3,:) = [0   8   0   4   0   4   0   0]/1; 
@@ -223,31 +203,12 @@ GEa(6,:) = [0   0   0   6   0   0   0   1/4]/1;
 GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
 GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
-%GEa = GEa/2;
-
-
 % added TP>SI = 2 (was 0)
-
 GEa = GEa/8;
-
-%GEa = GEa*(3*exp(P.ex));
-
 GEa = GEa .* ~eye(np);
-%GEa = GEa * .8;
 GEa = GEa + eye(np);      % KILLED
-
-%GEa = GEa*exp(P.Gs);
-
-
 GEn = GEa;
-
 GEn = GEn + (eye(8)/8);
-
-%GEa(2,2)=16;
-
-
-% overwrite separate nmda matrix
-%Gn = G;
 
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
@@ -261,33 +222,8 @@ GIa(6,:) = [0   0   0   0   32  8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   32]; 
 
-%GIa(2,2)=32;
-
-% GIa(3,3)=4;
-% GIa(1,3)=0;
-% 
-% GIa(3,5)=8;
-% GIa(5,3)=2;
-
-% SI->TP was 8, now 32
-
-% GIa(1,:) = [16  0   8   0   0   0   0   0 ];
-% GIa(2,:) = [0   32  16  0   0   0   0   0 ]; %spsp was 16
-% GIa(3,:) = [0   0   32  0   32  0   0   0 ];
-% GIa(4,:) = [0   0   0   8   12  0   0   0 ];
-% GIa(5,:) = [0   0   32  0   16  0   0   0 ];
-% GIa(6,:) = [0   0   0   0   32  8   0   0 ];
-% GIa(7,:) = [0   0   0   0   0   0   32  0 ];
-% GIa(8,:) = [0   0   0   0   0   0   8   32]; 
-
-%GIa = GIa*(4*exp(P.in));
-
 GIa = GIa/2;
-
-
-%GIa = GIa * exp(P.GIs);
-
-GIb      = GIa;
+GIb = GIa;
 
 if IncludeMH
     
@@ -296,13 +232,9 @@ if IncludeMH
     VM   = -70;                            % reversal potential m-channels          
     VH   = -30;                            % reversal potential h-channels 
 
-    %GIm  = eye(8)*4/10;                    % local TP & RL expression only
-    %GIm  = sparse([6 8],[6 8],1/10,8,8);
     GIm  = sparse([6 8],[6 8],4,8,8);
-    %GIm = full(sparse([6 8 3 5 7],[6 8 3 5 7],1/4,8,8));
     Mh   = diag(exp(P.Mh));
 
-    %GIh      = full(sparse([6 8],[6 8],1/10,8,8));
     GIh      = full(sparse([6 8],[6 8],4   ,8,8)); % 1/4
     Hh       = exp(P.Hh);
     GIh(6,6) = GIh(6,6)*Hh(1);
@@ -320,11 +252,6 @@ KI  = exp(-P.T(:,2))*1000/16;           % inhibitory rate constants (GABAa)
 KN  = exp(-P.T(:,3))*1000/100;          % excitatory rate constants (NMDA)
 KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
 
-% KE  = exp(-P.T(:,:,1))*1000/4;            % excitatory rate constants (AMPA)
-% KI  = exp(-P.T(:,:,2))*1000/16;           % inhibitory rate constants (GABAa)
-% KN  = exp(-P.T(:,:,3))*1000/100;          % excitatory rate constants (NMDA)
-% KB  = exp(-P.T(:,:,4))*1000/200;          % excitatory rate constants (NMDA)
-
 % now using faster AMPA and GABA-A dynamics based on this book:
 % https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
 
@@ -332,13 +259,11 @@ KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
 %KN  = exp(-P.T(:,3))*1000/150;          % excitatory rate constants (NMDA)
 KI  = exp(-P.T(:,2))*1000/6;           % inhibitory rate constants (GABAa)
 
-
 % Trial effects on time constants: AMPA & NMDA only
 if isfield(P,'T1')
     KE = KE + P.T1(1);
     KN = KN + P.T1(2);
 end
-
 
 % Voltages [reversal potentials] (mV)
 %--------------------------------------------------------------------------
@@ -352,8 +277,6 @@ VB   = -100;                              % reversal of GABA-B
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
 CV   = exp(P.CV).*      [128 128 128  128 64  128  64  64*2]/1000;  
-
-
 
 % leak conductance - fixed
 %--------------------------------------------------------------------------
@@ -476,33 +399,21 @@ for i = 1:ns
         %pop_rates = [1 1 2 1 1 1 1/8 1/8];
         pop_rates = [1 1 1 1 1 1 1 1];
         pop_rates = pop_rates.*exp(P.pr);
-        
         gabaa_rate = pop_rates .* exp(P.gaba);
         
         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
         f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*gabaa_rate);
         f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)*pop_rates);
         f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)*pop_rates);
-
-%         f(i,:,2) = (E'     - x(i,:,2)).* (KE(:,:));
-%         f(i,:,3) = (I'     - x(i,:,3)).* (KI(:,:));
-%         f(i,:,5) = (IB'    - x(i,:,5)).* (KB(:,:));
-%         f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(:,:));
         
         if IncludeMH
             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:)*pop_rates );
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:)*pop_rates );
         end
         
-        
         % c.f. synaptic delays + conduction delays
         %------------------------------------------------------------------
-        %DV       = 1./[1 1 1 2.2 1 2 8 8]; 
-        %DV       = 1./[2 1 1 2.2 1 2 1 2]; 
-        %DV       = 1./[1 1 2 1   2 1 1 1]; 
-        
-        %DV       = 1./[1 1 .2 2 .4 2 .8 1];
-        DV = 1./[1 1 1 1 1 1 1 1];
+        DV = 1./[1 1 1 1 1 1 1 1]; % this is usually switched off
         if isfield(P,'TV')
             DV       = DV.*exp(P.TV);
             f(i,:,2) = f(i,:,2) .* DV;  % AMPA
@@ -564,43 +475,12 @@ TC = 3; %20;
 %CT = 60;
 %TC = 20;
 
-
 Tc              = zeros(np,np);
 Tc([7 8],[1:6]) = CT  * exp(P.D0(1)); % L6->thal
 Tc([1:6],[7 8]) = TC  * exp(P.D0(2)); % thal->ss
-
 %Tc = Tc.*~~(GEa | GIa);
-
 Tc = -Tc / 1000;
 Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
-
-% if isfield(P,'ID')
-%     % ignore..... doesn't trigger  unless you have an entry in P 'ID'
-%     %-----------------------------------------------------------------
-%     % intrisc delays
-%     ID = [0 0 0 1 0 1 1 1];
-%     ID = [1 .2 .1 1 .2 1 .4 1];
-%     ID = [2 1  .1 2 .2 2 .4 2]; % this 
-%        
-%     ID = [1 1 .5 1 .5 1 .5 1]*(.6); % this 
-%     
-%     %ID = double(~~GEa | ~~GIa);
-%     %ID = (repmat(ID,[8 1]).*~eye(8)+diag(ID)).* double(~~GEa | ~~GIa);
-%     
-%     %ID = (repmat(ID,[8 1])).* double(~~GEa | ~~GIa);
-%     
-%     %ID = diag(ID) + 1e-2*double(~~GEa | ~~GIa);
-%     
-%     ID = -ID.*exp(P.ID)/1000;
-%     %ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
-%     %IDm = ID+ID';
-%     %IDm = IDm.*~eye(8);
-%     %IDm = IDm + diag(ID);
-%     IDm=ID;
-%     ID = kron(ones(nk,nk),kron(diag(ID),eye(ns,ns)));
-%     Tc = Tc + ID;
-% end
-
 
 % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
 %--------------------------------------------------------------------------

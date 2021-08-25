@@ -504,7 +504,7 @@ switch IntMethod
                     v = v;
                 else
                     for j = 1:N
-                        v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M,Curfire));   
+                        v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));   
                         v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M));  
                         % Ozaki 1992 numerical method:
                         % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
@@ -629,9 +629,6 @@ switch IntMethod
             V        = spm_unvec(v,M.x);
             Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);
             S(:,:,i) = Curfire;
-            
-            Curfire  = Curfire.*exp(P.f);
-            
             try
                 fired     = find(squeeze(V(:,:,1)) >= VR);
                 firings   = [firings; [i+0*fired',fired'] ];
@@ -1121,11 +1118,8 @@ for ins = 1:ns
                                 b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
                                 Pf = b'*Ppf;
                                 
-%                                 r = corr(real(Ppf)',real(M.y{ci}(:,ins,ins))).^2;
-%                                 [~,I]=sort(abs(r),'descend');
-%                                 thr = atcm.fun.findthenearest(cumsum(abs(r(I)))./sum(abs(r)),0.9);
-%                                 inc = I(1:thr);
-%                                 Pf = sum(Ppf(inc,:));
+                                r = corr(real(Ppf)',real(M.y{ci}(:,ins,ins)));
+                                [~,I]=sort(abs(r),'descend');
                                 
                                 
                                 if isfield(P,'iL');
