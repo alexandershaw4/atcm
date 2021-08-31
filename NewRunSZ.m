@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'firingTCM_';      % outputted DCM prefix
+Data.Prefix       = 'm13_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -68,6 +68,12 @@ for s = i;%1:length(Data.Datasets)
     DCM.xY.Ic    = Data.Design.Ic;    % channel indices
     DCM.Sname    = Data.Design.Sname; % channel names
         
+    
+    if exist(DCM.name);
+        fprintf('Skipping model %d/%d - already exists!\n( %s )\n',i,length(Data.Datasets),DCM.name);
+        continue;
+    end
+    
     % Extrinsic Connectivity - Model Space
     %----------------------------------------------------------------------
     DCM.A{1} = F;
@@ -195,9 +201,16 @@ for s = i;%1:length(Data.Datasets)
     w  = spm_vec(DCM.xY.Hz);
     [~,LO] = findpeaks(real(smooth(y)),w,'NPeak',4);
     Qw = zeros(size(w))+1;
+    i0=[];
     for ip = 1:length(LO)
         i0(ip)=atcm.fun.findthenearest(w,LO(ip));
     end
+    
+    if isempty(i0)
+        [~,i0] = max(real(smooth(y)));
+        i0
+    end
+    
     Qw(i0)=4;
     Qw=diag(Qw);
 
@@ -251,8 +264,8 @@ for s = i;%1:length(Data.Datasets)
 %     DCM.M.pC.H([1 2],8) = 1/8;
 %     DCM.M.pC.H(8,6) = 1/8;
     
-    DCM.M.pE.f = zeros(1,8);
-    DCM.M.pC.f = ones(1,8)/8;
+%     DCM.M.pE.f = zeros(1,8);
+%     DCM.M.pC.f = ones(1,8)/8;
     DCM.M.pC.Ly= 1/8;
         
 
@@ -272,12 +285,12 @@ for s = i;%1:length(Data.Datasets)
     M.opts.fsd=0;
     M.opts.corrweight = 1; % weight error by correlation (good for spectra)
     
+    % to force low dimensional hyperparameter tuning of step sizes,
+    % use step_method=6
+    
     % add user-defined plot function
    % M.opts.userplotfun = @aodcmplotfun;
-    
-    %M.opts.mleselect=1;
-    %M.opts.EnforcePriorProb=1;
-    
+        
     %w = DCM.xY.Hz;
     %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
     

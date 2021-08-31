@@ -504,8 +504,13 @@ switch IntMethod
                     v = v;
                 else
                     for j = 1:N
-                        v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M,Curfire));   
-                        v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M));  
+                        if isfield(P,'f')
+                            v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M,Curfire));   
+                            v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M)); 
+                        else
+                            v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));   
+                            v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M)); 
+                        end
                         % Ozaki 1992 numerical method:
                         % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
                         %[fx,dfdx] = f(v,drive(i),P,M);
@@ -630,7 +635,9 @@ switch IntMethod
             Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);
             S(:,:,i) = Curfire;
             
-            Curfire  = Curfire.*exp(P.f);
+            if isfield(P,'f')
+                Curfire  = Curfire.*exp(P.f);
+            end
             
             try
                 fired     = find(squeeze(V(:,:,1)) >= VR);
@@ -1100,8 +1107,14 @@ for ins = 1:ns
                                 switch method
                                     case 'ssa'
                                         [u,s,v] = spm_svd(cov(test'));
+%                                         [u,s] = eig(cov(real(test')));
+%                                         s = diag(s);
+%                                         [~,I]=sort(s,'descend');
+%                                         thr = atcm.fun.findthenearest(cumsum(s(I))./sum(s(I)),0.9);
+%                                         u = u(:,I);
+                                        
                                         pc = u'*test;
-                                        nn = 12;
+                                        nn = 12;%thr;
                                         if ns == 1
                                             for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
