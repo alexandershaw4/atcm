@@ -10,7 +10,11 @@ end
 
 % compute envelope
 for i = 1:n
-    y = rescale(real( real(y + sqrt( (y.^2) + (hilbert(gradient(y)).^2)) )),S(1),S(2));
+    if all(S~=0)
+        y = rescale(real( real(y + sqrt( (y.^2) + (hilbert(gradient(y)).^2)) )),S(1),S(2));
+    else
+        y = real( real(y + sqrt( (y.^2) + (hilbert(gradient(y)).^2)) ));
+    end
 end
 
 e = y;

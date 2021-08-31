@@ -1,4 +1,4 @@
-function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
+function [y,w,s,g,t,pst,layers,other] = integrate3bk(P,M,U,varargin)
 % Numerical integration and spectral response of a neural mass model.
 % This is the NETWORK version, which handles networks of connected models,
 % and with different trial types. This version (atcm.integrate3) has a number 
@@ -96,7 +96,12 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 % -------------------------------------
 % Set M.fmethod = 'dmd' ... use dynamic mode decomposition to identify 
 %                           frequency modes in the intgrated timeseries
+%               = 'instantaneous' ... estimate instantaneous frequency and
+%                            amplitude from the phase of the int'd series
+%               = 'svd'  ... use an svd-based PCA to idenfiy frequencies in
+%                            integrated timseries
 %               = 'none' ... just use an fft (or smooth fft) of the data
+%               = 'timefreq' ... do a time-frequency decomp and average it
 %
 % Note - when using 'none', optionally specify whether to take the
 % envelope of this spiky spectrum using M.DoEnv (flag 0/1) and how many
@@ -357,7 +362,7 @@ end
 
 
 % Set up custom delay vectors: 8-pop t-c model, 6-pop cort model and 4-pop
-% cmc model... this could be passed in M rather than hard coded...
+% cmc model
 %--------------------------------------------------------------------------
 if npp == 8 
     del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
@@ -396,6 +401,8 @@ if npp == 4 % cmc
     condel=del;
 end
  
+
+
 % initial firing rate
 Curfire = zeros(size(M.x,2),1)';
 firings = [];
@@ -702,8 +709,8 @@ y = full(exp(P.Ly)*y);
 
 
 % continuous time difference (evoked only)
-s = spm_unvec( spm_vec(s)+spm_vec(s1), s);
-%layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
+s = spm_unvec( spm_vec(s)-spm_vec(s1), s);
+layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
 
 t = drive;
 end
@@ -830,6 +837,10 @@ fmethod = 'none'; % none, svd, dmd, timefreq ...
 if isfield(M,'fmethod')
     fmethod = M.fmethod;
 end
+if M.timefreq
+    % force, non-negotiable for time-frequency models...
+    fmethod = 'timefreq';
+end
 
 % Whe using DMD remove the ~principal component first
 %--------------------------------------------------------------------------
@@ -877,6 +888,45 @@ for ins = 1:ns
         case {'kpca' 'dmd' 'instantaneous' 'svd' 'none' 'glm' 'fooof' 'timefreq' 'eig'}
             switch fmethod
                 
+                case 'timefreq'
+                    
+                    if ~isfield(M,'nw')
+                        M.nw = 30;
+                    end
+                    
+                    tfmat = 0;
+                    for ij = 1:length(Ji)
+                        % load the virtual sensor and run a timefrequency analysis
+                        cfg.baseline = 'relchange';
+                        cfg.sampletimes = double(M.pst);
+                        cfg.fsample = 1./dt;
+                        cfg.filterorder = 4;
+                        FoI = linspace(w(1),w(end),M.nw);
+
+                        %MatDat = real(J(:)'*yx);
+                        MatDat = real(yx(Ji(ij),:));
+                        
+                        tf{i} = atcm.fun.bert_singlechannel([MatDat],cfg,FoI,[-1 0]);
+                        y = double(tf{i}.agram);
+                        y = double(atcm.fun.HighResMeanFilt(y,1,2));
+                        tfmat = tfmat + ( Ji(ij)*y );
+                    end
+                    
+                    y = exp(P.L)*tfmat;
+                    s = yx;
+                    g = ts;
+                    noise = [];
+                    layers.iweighted = yx;
+                    return;                
+                
+                case 'kpca'
+                    
+                    x = yx(1:8,:);
+                    kpca = KernelPca(x', 'gaussian', 'gamma', 2.5, 'AutoScale', true);
+                    M0 = length(find(Ji));
+                    Eigenvectors = project(kpca, x', M0)';
+                    
+                    
                 case 'dmd'
                 [Eigenvalues, Eigenvectors, ModeAmplitudes, ModeFrequencies, ...
                     GrowthRates, POD_Mode_Energies] = atcm.fun.dmd((yx), length(Ji), dt);
@@ -892,8 +942,29 @@ for ins = 1:ns
 %                 [W,eigs] = eig(Atilde);
 %                 Phi = X2*V*pinv(full(S))*W;
 %                 Eigenvectors = Phi'*yx;
+                case 'instantaneous'                    
+                    yx(1,:) = yx(1,:)*0.2;
+                    yx(2,:) = yx(2,:)*0.8;
+                    yx(3,:) = yx(3,:)*0.1;
+                    yx(4,:) = yx(4,:)*0.2;
+                    yx(5,:) = yx(5,:)*0.1;
+                    yx(6,:) = yx(6,:)*0.2;
+                    yx(7,:) = yx(7,:)*0.05;
+                    yx(8,:) = yx(8,:)*0.1;
+                    [Eigenvectors,s,v] = svd(yx);
+                    Eigenvectors = Eigenvectors'*yx;       
+                case 'svd'
+                   % [Eigenvectors,s,v] = svd(cov(real(yx)'));
+                    [Eigenvectors,s,v] = svd(real(yx));
+                    Eigenvectors = Eigenvectors'*yx; 
                 case {'none' 'fooof' 'timefreq' 'eig'}
                     Eigenvectors = yx;
+                case 'glm'
+                    % project 8 series onto 4 components, onto 1
+                    W = ones(8,4)/(8*4);
+                    W = W .* repmat(P.W1(:) ,[1 4]); % 8x1
+                    W = W .* repmat(P.W2(:)',[8 1]);
+                    Eigenvectors = W'*yx;
             end
             warning on;
 
@@ -910,6 +981,27 @@ for ins = 1:ns
                 try
                     switch fmethod
                                          
+                        
+                        case {'timefreq'}
+                            data = Eigenvectors(Ji(ij),burn:end);
+                        
+                        case 'eig'
+                                J     = dfdx;
+                                [v,s] = eig(full(J),'nobalance');
+                                s     = diag(s);
+                                s     = 1j*imag(s) + real(s) - exp(real(s));
+                                
+                                [vv,uu,ss]=svd(Eigenvectors*Eigenvectors');
+                                dvdu  = pinv(vv);
+
+                                for k = 1:length(s)
+                                    Sk       = 1./(1j*2*pi*w - s(k));
+                                    %S(k,:) = dvdu(k,:)*Sk;
+                                    SS(k,:) =Sk;
+                                end
+                                spec = dvdu*SS;
+                                Pf = exp(P.J(Ji(ij))) * spec(Ji(ij),:)';
+                            
                         case {'none','dmd','svd' 'kpca'}
                             % just a smoothed fft of the (contributing)states
                             switch fmethod
@@ -918,6 +1010,39 @@ for ins = 1:ns
                                 case 'svd' ;this = Eigenvectors(ij,burn:end);
                                 case 'kpca';this = y0(burn:end);
                             end
+                            
+                            % filter
+                            %[pfp,pfi]=atcm.fun.padtimeseries(this);
+                            %bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
+                            %this = bpfpf(pfi);
+                            %this=this';
+%                             comps = atcm.fun.assa(this,10);
+%                             
+%                             for ic = 1:size(comps,2)
+%                                 %Pfc(:,ic) = pyulear(comps(:,ic),8,w,dw./dt);
+%                                 Pfc(:,ic) = atcm.fun.AfftSmooth(comps(:,ic)',dw/dt,w,8);
+%                             end
+%                             
+%                             
+%                             pcx = corr(Pfc, M.y{:}).^2;
+%                             pcx = pcx(1:end-1,end);
+%                             [~,I]=sort(pcx,'descend'); % use components explaining top 20%
+%                             these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.8);
+%                             I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
+%                             Pfc = Pfc(:,I);
+%                             
+%                             b = atcm.fun.lsqnonneg(Pfc,M.y{:});
+%                             
+%                             Pf = Pfc*b;
+
+
+%                             if Ji(ij) ~= 2
+%                                 cut = atcm.fun.findthenearest(w,45);
+%                                 this = atcm.fun.bandpassfilter(this,1./dt,[w(1) cut]);
+%                             else
+%                                 cut = atcm.fun.findthenearest(w,45);
+%                                 this = atcm.fun.bandpassfilter(this,1./dt,[cut w(end)]);
+%                             end
                             
                             ncompe = 100;
                             if isfield(M,'ncompe')
@@ -928,17 +1053,22 @@ for ins = 1:ns
                                 this=this';
                                 
                                 test = atcm.fun.assa(this',10)';
+                                                                                                
                                 this = sum(test(1:3,:),1);
                                 
                                 [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
                                 Pfmean = squeeze(Pfmean);
+                                %[~,I]=max(corr(Pfmean,M.y{ci}))
+                                %Pf=Pfmean(:,I);
                                 
                                 Pf = spm_vec(max(Pfmean'));
                                 Pf=spm_vec(Pf);
                                 
+                                
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
+                                
                                 Pf = Pf.^2;
                                 
                             else
@@ -947,6 +1077,7 @@ for ins = 1:ns
                                 if isfield(M,'decompose') && ~isempty(M.decompose)
                                     method = M.decompose;
                                 end
+                                %fprintf('using decomposition method %s\n',method);
                                 
                                 switch method
                                     case 'ssa'
@@ -971,15 +1102,20 @@ for ins = 1:ns
                                         test = cx;
                                 end
                                 
+                                %this = sum(test(1:3,:),1)';
+                                
                                 switch method
                                     case 'ssa'
-                                        [u,s,v] = spm_svd(cov(test'));                                        
+                                        [u,s,v] = spm_svd(cov(test'));
+%                                         [u,s] = eig(cov(real(test')));
+%                                         s = diag(s);
+%                                         [~,I]=sort(s,'descend');
+%                                         thr = atcm.fun.findthenearest(cumsum(s(I))./sum(s(I)),0.9);
+%                                         u = u(:,I);
+                                        
                                         pc = u'*test;
-                                        %nn = min(12,size(pc,1));%thr;
-                                        nn=12;
-                                        pc = pc(1:nn,:);
+                                        nn = 12;%thr;
                                         if ns == 1
-                                            clear Ppf
                                             for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
                                             
@@ -999,19 +1135,26 @@ for ins = 1:ns
                                 b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
                                 Pf = b'*Ppf;
                                 
-                                layers.ssa_pc{ins,ij,:,:} = pc;
-                                layers.ssa_b{ins,ij,:} = b;
-                                layers.pst_burn = t(burn:end);
+%                                 r = corr(real(Ppf)',real(M.y{ci}(:,ins,ins))).^2;
+%                                 [~,I]=sort(abs(r),'descend');
+%                                 thr = atcm.fun.findthenearest(cumsum(abs(r(I)))./sum(abs(r)),0.9);
+%                                 inc = I(1:thr);
+%                                 Pf = sum(Ppf(inc,:));
+                                
                                 
                                 if isfield(P,'iL');
                                     Pf = real(Pf) + sqrt(-1)*exp(P.iL(ins))*imag(Pf);
                                 end
                                 
+                                %Pf = pyulear(this,12,w,dw./dt);%.*Hz.^2;
+                                %ntp = 13;
+                                %Pf = pmtm(this,(ntp:-1:1)/sum(1:ntp),'Tapers','sine',w,dw./dt);
                                 Pf=spm_vec(Pf);
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
                             end
+                                           
                             
                             DoEnv = 1;
                             if isfield(M,'DoEnv')
@@ -1022,13 +1165,49 @@ for ins = 1:ns
                                % optimisable timseries moving average smoothing
                                [padp,indp] = atcm.fun.padtimeseries(Pf);
                                Pfs = atcm.fun.tsmovavg(padp','t',12);
+                               
                                %Pfs = atcm.fun.aenv(padp',40);
+                               
                                %Pfs = full(atcm.fun.HighResMeanFilt(Pfs,1,2));
                                %Pfs = atcm.fun.tsmovavg(Pfs,'t',8);
                                %Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
                                Pf = Pfs(indp);
                                Pf=Pf(:);
                             end
+                            
+                            % store 
+                            Pf0(ins,ij,:) = Pf;
+                            
+                            %PfAll(ins,ij,:,:) = Pfc;
+                                                                                    
+                        case 'instantaneous'
+                            % compute the instantaneous frequencies
+                            % and amplitudes
+                            [ifq,iit] = instfreq(y0(burn:end),1/dt);
+                            tburn = t(burn:end)/1000;
+
+                            ufq = unique(round(ifq));
+                            rfq = round(ifq);
+                            
+                            % amplitudes - find time indices
+                            for it = 1:length(iit)
+                                [~,this(it)] = min(abs(iit(it)-tburn));
+                            end
+                            
+                            % instant amp
+                            yh = hilbert(y0);
+                            amps = abs(yh(this+burn));
+                            
+                            % gen gauss bumps
+                            spec = w*0;
+                            for iq = 1:length(ufq)
+                                q  = ufq(iq);
+                                qw = length( ifq(find(ufq(iq)==rfq)) );
+                                amplitude = mean( amps(find(ufq(iq)==rfq)) );
+                                pd  = makedist('normal','mu',q,'sigma', 2*(qw));
+                                spec = spec + ( abs(amplitude) * pdf(pd,w));
+                            end
+                            Pf = spec(:)/iq;
                     end
                 catch
                     % catch when model goes awol (NaN)
@@ -1130,12 +1309,55 @@ if isfield(M,'y')
             Pf(:,ins,ins) = Mm;
         end
                                                                             
-        % Electrode gain
+        % Compute singular spectrum analysis [ssa], fir comps
+        %------------------------------------------------------------------
+%          X  = Pf(:,ins,ins);
+%          
+%          cut = atcm.fun.findthenearest(w,40);
+%          X0 = X(1:cut);
+%          X1 = X(cut+1:end);
+%          
+%          sm0 = 1*exp(P.sm(1));
+%          sm1 = 6*exp(P.sm(2));
+%          
+%          X0 = atcm.fun.HighResMeanFilt(X0,1,sm0);
+%          X1 = atcm.fun.HighResMeanFilt(X1,1,sm1);
+%          
+%          Pf(:,ins,ins) = full([X0;X1]);
+         
+         %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(full([X0;X1]),1,2);
+         
+         
+%         RC = atcm.fun.assa(X,11); % compute basis set
+%         pc = RC;
+%         weight = M.FS(yy./max(yy));% M.FS(M.y{:}); % use data spectrum as weights
+%         warning off;
+%         pcx = atcm.fun.wcor([pc yy],weight).^2;
+%         pcx = pcx(1:end-1,end);
+%         [~,I]=sort(pcx,'descend'); % use components explaining top 20%
+%         these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.3);
+%         I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
+%         b = ones(1,length(I));
+%         pci = pc(:,I);
+%         
+%         for ipc = 1:3
+%             pc(:,I(ipc)) = pc(:,I(ipc)).^(1*exp(P.e(ipc)));
+%         end
+%         
+%         signal = b(:)'*pc(:,I)';
+%         %signal = atcm.fun.HighResMeanFilt(signal,1,4);
+%         %signal = sqrt( (signal.^2) + (hilbert(signal).^2) );
+%         
+%         Pf(:,ins,ins) = exp(P.L(ins))*signal;
+%         %b = pinv(pci'*pci)*pci'*yy;
+%         %Pf(:,ins,ins) = exp(P.L(ins))* b(:)'*pc(:,I)'; % project low dim version
+%         warning on;
+
+
         Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
-        
-        % return components in separate outputs
         X=[];I=[];RC=[];
         b=[];pci=[];
+        % return components in separate outputs
         c = pci;X = b;
         meanpower={X c};
             
@@ -1148,6 +1370,7 @@ if isfield(M,'y')
                 Pf(i,ins,ins) = sq(Pf(i,ins,ins))*diag(Gu(i,ins))*sq(Pf(i,ins,ins));
             end
         end
+        
         
     end                                            % end loop over sources
 
