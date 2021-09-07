@@ -1018,6 +1018,21 @@ for ins = 1:ns
                                 b  = atcm.fun.lsqnonneg(real(Pfsm)',real(M.y{ci}(:,ins,ins)));
                                 Pf = b'*Pfsm;
                                 
+%                                 for ic = 1:nn
+%                                     Ppfs(ic,:) = full(atcm.fun.HighResMeanFilt(Ppf(ic,:),1,4));
+%                                     Ppfs(ic,:) = full(atcm.fun.HighResMeanFilt(Ppfs(ic,:),1,4));
+%                                 end
+%                                 
+%                                 for ic = 1:nn
+%                                     opt = [Ppf(ic,:); Ppfs(ic,:)];
+%                                     b   = atcm.fun.lsqnonneg(real(opt)',real(M.y{ci}(:,ins,ins)));
+%                                     selected(ic,:) = b'*opt;
+%                                 end
+%                                 
+%                                 b = ones(size(selected,1),1);
+%                                 Pf = b'*selected;
+                                
+                                
                                 % return the orthogonal VMD components
                                 layers.ssa_pc{ins,ij,:,:} = pc;
                                 layers.ssa_b{ins,ij,:} = b;

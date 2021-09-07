@@ -1010,13 +1010,23 @@ for ins = 1:ns
                                 
                                 % optimimse the 'smoothness' of the spectrum using positively-constrained lm
                                 % but without a constant term - since P.L is the constant
-                                %Pfsm(1,:) = Pf;
+                                Pfsm(1,:) = Pf;
                                 Pfsm(2,:) = full(atcm.fun.HighResMeanFilt(Pf,1,4));
-                                %Pfsm(3,:) = full(atcm.fun.HighResMeanFilt(Pfsm(2,:),1,4));
+                                Pfsm(2,:) = full(atcm.fun.HighResMeanFilt(Pfsm(2,:),1,4));
                                 %Pfsm(4,:) = full(atcm.fun.HighResMeanFilt(Pf,1,16));
                                 
-                                %b  = atcm.fun.lsqnonneg(real(Pfsm)',real(M.y{ci}(:,ins,ins)));
-                                %Pf = b'*Pfsm;
+                                b  = atcm.fun.lsqnonneg(real(Pfsm)',real(M.y{ci}(:,ins,ins)));
+                                Pf = b'*Pfsm;
+                                
+                                for ic = 1:nn
+                                    Ppfs(ic,:) = full(atcm.fun.HighResMeanFilt(Ppf(ic,:),1,4));
+                                    Ppfs(ic,:) = full(atcm.fun.HighResMeanFilt(Ppfs(ic,:),1,4));
+                                end
+                                
+                                for ic = 1:nn
+                                    opt = [Ppf(ic,:); Ppfs(ic,:)];
+                                    b   = atcm.fun.lsqnonneg(real(opt)',real(M.y{ci}(:,ins,ins)));
+                                    
                                 
                                 % return the orthogonal VMD components
                                 layers.ssa_pc{ins,ij,:,:} = pc;
