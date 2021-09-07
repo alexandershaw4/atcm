@@ -952,7 +952,7 @@ for ins = 1:ns
                                     case 'ssa'
                                 
                                         %test = atcm.fun.assa(this',50)';
-                                        test = vmd(real(this),'NumIMFs',5);
+                                        test = atcm.fun.vmd(real(this),'NumIMFs',5);
                                         test=test';
                                                
                                     case 'fourier'
