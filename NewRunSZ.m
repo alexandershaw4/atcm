@@ -125,7 +125,7 @@ for s = i;%1:length(Data.Datasets)
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;      
     
-    % Subfunctions
+    % Subfunctions and priors
     %----------------------------------------------------------------------
     %DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
     DCM = atcm.parameters(DCM,Ns,'~/Dropbox/code/atcm/+atcm/+fun/Priors2021b');
@@ -167,6 +167,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
     
     % Feature function for the integrator
+    %----------------------------------------------------------------------
     %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
@@ -174,13 +175,13 @@ for s = i;%1:length(Data.Datasets)
     %imscale = sum(spm_vec(abs(real(DCM.xY.y{:})))) ./ sum(spm_vec(abs(imag(DCM.xY.y{:}))));
     %DCM.M.FS = @(x) [real(x) ; imscale*imag(x) ];
 
-    
-    % oscillations == no fixed point search
-    DCM.M.solvefixed=0;
-    DCM.M.x = zeros(1,8,7);
-    DCM.M.x(:,:,1)=-70;
-    DCM.M.ncompe =0;
-    DCM.M.pC.CV = ones(1,8)/8;
+    % other model options
+    %----------------------------------------------------------------------
+    DCM.M.solvefixed=0;      % oscillations == no fixed point search
+    DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
+    DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
+    DCM.M.ncompe =0;         % no component analysis
+    DCM.M.pC.CV = ones(1,8)/8; 
     DCM.M.pC.J([2 4])=1/8;
     DCM.M.pC.S = ones(1,8)/16;
     
@@ -196,7 +197,8 @@ for s = i;%1:length(Data.Datasets)
     %DCM.M.pE.iL = 0;
     %DCM.M.pC.iL = 1/8;
 
-    % Set Q
+    % Set Q - a precision operator
+    %----------------------------------------------------------------------
     y  = spm_vec(DCM.xY.y{1});
     w  = spm_vec(DCM.xY.Hz);
     [~,LO] = findpeaks(real(smooth(y)),w,'NPeak',4);
@@ -213,28 +215,37 @@ for s = i;%1:length(Data.Datasets)
     
     Qw(i0)=4;
     Qw=diag(Qw);
-
-    % load reduced 24-parameter model...these were found by fitting a model
-    % with lots of params to all the datasets and looking at which
-    % parameters had moved, on median, the furtherest prom the priors
-%     load NewVmaxPriors.mat
-%     DCM.M.pC=Vmax;
-%     DCM.M.pC.Mh(8)=1/8;
-%     DCM.M.pC.Hh(2)=1/8;
-%     DCM.M.pC.L=0;
     
     % New august 18th 2021: Try fititng with only the synaptioc
     % parameters corresponding to the CMC13 connections!
-    
-     pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
+    %----------------------------------------------------------------------
+    pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
      
     %       ss sp si dp di tp rt rl
-    pC.H = [1  0  0  0  0  0  0  0;
+%     pC.H = [1  0  1  0  0  0  0  1;
+%             1  1  1  0  0  0  0  1;
+%             0  1  1  0  0  0  0  0;
+%             0  1  0  1  1  0  0  0;
+%             0  0  0  1  1  0  0  0;
+%             0  0  0  1  1  0  0  0;
+%             0  0  0  0  0  0  0  0;
+%             0  0  0  0  0  1  0  1]/8;
+%         
+%     pC.Hn= [0  0  0  0  0  0  0  1;
+%             1  0  0  0  0  0  0  1;
+%             0  1  0  0  0  0  0  0;
+%             0  1  0  0  0  0  0  0;
+%             0  0  0  1  0  0  0  0;
+%             0  0  0  1  0  0  0  0;
+%             0  0  0  0  0  0  0  0;
+%             0  0  0  0  0  1  0  0]/8; 
+        
+    pC.H = [0  0  1  0  0  0  0  0;
             1  1  1  0  0  0  0  0;
             0  1  1  0  0  0  0  0;
-            0  1  0  0  1  0  0  0;
+            0  1  0  1  1  0  0  0;
             0  0  0  1  0  0  0  0;
-            0  0  0  1  0  0  0  0;
+            0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0]/8;
         
@@ -243,40 +254,25 @@ for s = i;%1:length(Data.Datasets)
             0  1  0  0  0  0  0  0;
             0  1  0  0  0  0  0  0;
             0  0  0  1  0  0  0  0;
-            0  0  0  1  0  0  0  0;
+            0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0]/8; 
         
-%     pC.ID(2) = 1/8;
-%     pC.J(2)  = 1/8;
-%     pC.CV    = [1 1 1 1 1 1 1 1]/8;
-%     pC.Ly    = 1/8;
-%     pC.L     = 1/8;
-%     pC.T([2 3])=1/8;
-%     
-     DCM.M.pC=pC;
-
-    %DCM.M.pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-%     DCM.M.pC.H([2 3],2)  = 1/8;
-%     DCM.M.pC.Hn([2 3],2) = 1/8;
-%     DCM.M.pC.H([2 3],3)  = 1/8;
-%     
-%     DCM.M.pC.H([1 2],8) = 1/8;
-%     DCM.M.pC.H(8,6) = 1/8;
-    
-%     DCM.M.pE.f = zeros(1,8);
-%     DCM.M.pC.f = ones(1,8)/8;
+    pC.ID([2]) = 1/8;
+     
+    DCM.M.pC=pC;
     DCM.M.pC.Ly= 1/8;
-        
-
-    % Optimise BASLEINE                                                  1
+    
+    % depolarisation of SPs is the only necessary contributor to MEG
+    DCM.M.pE.J(2) = log(1.1);
+    DCM.M.pE.J(4) = -1000;
+    
+    % Optimise                                                           1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
     
     M.opts.Q = Qw;
-    
-    %M.opts.FS = DCM.M.FS;  
-     
+         
     % opt set 1.
     M.opts.EnforcePriorProb=0;
     M.opts.ismimo=0;
@@ -284,7 +280,7 @@ for s = i;%1:length(Data.Datasets)
     M.opts.hyperparams=1;
     M.opts.fsd=0;
     M.opts.corrweight = 1; % weight error by correlation (good for spectra)
-    
+        
     % to force low dimensional hyperparameter tuning of step sizes,
     % use step_method=6
     

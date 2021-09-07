@@ -951,7 +951,9 @@ for ins = 1:ns
                                 switch method
                                     case 'ssa'
                                 
-                                        test = atcm.fun.assa(this',50)';
+                                        %test = atcm.fun.assa(this',50)';
+                                        test = vmd(real(this),'NumIMFs',5);
+                                        test=test';
                                                
                                     case 'fourier'
                                         this = highpass(this,2,1./dt);
@@ -973,13 +975,19 @@ for ins = 1:ns
                                 
                                 switch method
                                     case 'ssa'
+                                        % ensure the components found
+                                        % through Variational mode
+                                        % decomposition are orthogonal
                                         [u,s,v] = spm_svd(cov(test'));                                        
                                         pc = u'*test;
-                                        %nn = min(12,size(pc,1));%thr;
-                                        nn=12;
+                                        nn = min(12,size(pc,1));%thr;
+                                        %nn=12;
+                                        %nn=3;
                                         pc = pc(1:nn,:);
+                                        
                                         if ns == 1
                                             clear Ppf
+                                            % autoregressive spectral method for VMD components
                                             for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
                                             
@@ -996,9 +1004,21 @@ for ins = 1:ns
                                         for i = 1:size(pc,1); Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                 end
                                 
-                                b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
+                                %b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
+                                b = ones(size(Ppf,1),1);
                                 Pf = b'*Ppf;
                                 
+                                % optimimse the 'smoothness' of the spectrum using positively-constrained lm
+                                % but without a constant term - since P.L is the constant
+                                Pfsm(1,:) = Pf;
+                                Pfsm(2,:) = full(atcm.fun.HighResMeanFilt(Pf,1,4));
+                                Pfsm(2,:) = full(atcm.fun.HighResMeanFilt(Pfsm(2,:),1,4));
+                                %Pfsm(4,:) = full(atcm.fun.HighResMeanFilt(Pf,1,16));
+                                
+                                b  = atcm.fun.lsqnonneg(real(Pfsm)',real(M.y{ci}(:,ins,ins)));
+                                Pf = b'*Pfsm;
+                                
+                                % return the orthogonal VMD components
                                 layers.ssa_pc{ins,ij,:,:} = pc;
                                 layers.ssa_b{ins,ij,:} = b;
                                 layers.pst_burn = t(burn:end);

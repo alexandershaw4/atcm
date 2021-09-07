@@ -159,7 +159,7 @@ SA   = [1   0   1   0   0;   %  SS    % added TP->SP
         0   0   0   0   1;   %  rt % 0 in ket study
         0   0   0   1   0]/8;%  rc % 0 in ket study
     
-    %SA(:,[3 4 5]) = 0; % For ket study
+    SA(:,[3 4 5]) = 0; % For ket study
     
     
 % % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
@@ -173,7 +173,7 @@ SNMDA = [1   0   1   0   0;   %  SS
          0   0   0   0   1;   %  rt % 0 in ket study
          0   0   0   1   0]/8;%  rc % 0 in ket study
 
-     %SNMDA(:,[3 4 5]) = 0; % For ket study
+     SNMDA(:,[3 4 5]) = 0; % For ket study
      
 % intrinsic connectivity switches
 %--------------------------------------------------------------------------    

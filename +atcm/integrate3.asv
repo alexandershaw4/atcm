@@ -96,12 +96,7 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 % -------------------------------------
 % Set M.fmethod = 'dmd' ... use dynamic mode decomposition to identify 
 %                           frequency modes in the intgrated timeseries
-%               = 'instantaneous' ... estimate instantaneous frequency and
-%                            amplitude from the phase of the int'd series
-%               = 'svd'  ... use an svd-based PCA to idenfiy frequencies in
-%                            integrated timseries
 %               = 'none' ... just use an fft (or smooth fft) of the data
-%               = 'timefreq' ... do a time-frequency decomp and average it
 %
 % Note - when using 'none', optionally specify whether to take the
 % envelope of this spiky spectrum using M.DoEnv (flag 0/1) and how many
@@ -362,7 +357,7 @@ end
 
 
 % Set up custom delay vectors: 8-pop t-c model, 6-pop cort model and 4-pop
-% cmc model
+% cmc model... this could be passed in M rather than hard coded...
 %--------------------------------------------------------------------------
 if npp == 8 
     del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
@@ -401,8 +396,6 @@ if npp == 4 % cmc
     condel=del;
 end
  
-
-
 % initial firing rate
 Curfire = zeros(size(M.x,2),1)';
 firings = [];
@@ -709,8 +702,8 @@ y = full(exp(P.Ly)*y);
 
 
 % continuous time difference (evoked only)
-s = spm_unvec( spm_vec(s)-spm_vec(s1), s);
-layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
+s = spm_unvec( spm_vec(s)+spm_vec(s1), s);
+%layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
 
 t = drive;
 end
@@ -837,10 +830,6 @@ fmethod = 'none'; % none, svd, dmd, timefreq ...
 if isfield(M,'fmethod')
     fmethod = M.fmethod;
 end
-if M.timefreq
-    % force, non-negotiable for time-frequency models...
-    fmethod = 'timefreq';
-end
 
 % Whe using DMD remove the ~principal component first
 %--------------------------------------------------------------------------
@@ -888,45 +877,6 @@ for ins = 1:ns
         case {'kpca' 'dmd' 'instantaneous' 'svd' 'none' 'glm' 'fooof' 'timefreq' 'eig'}
             switch fmethod
                 
-                case 'timefreq'
-                    
-                    if ~isfield(M,'nw')
-                        M.nw = 30;
-                    end
-                    
-                    tfmat = 0;
-                    for ij = 1:length(Ji)
-                        % load the virtual sensor and run a timefrequency analysis
-                        cfg.baseline = 'relchange';
-                        cfg.sampletimes = double(M.pst);
-                        cfg.fsample = 1./dt;
-                        cfg.filterorder = 4;
-                        FoI = linspace(w(1),w(end),M.nw);
-
-                        %MatDat = real(J(:)'*yx);
-                        MatDat = real(yx(Ji(ij),:));
-                        
-                        tf{i} = atcm.fun.bert_singlechannel([MatDat],cfg,FoI,[-1 0]);
-                        y = double(tf{i}.agram);
-                        y = double(atcm.fun.HighResMeanFilt(y,1,2));
-                        tfmat = tfmat + ( Ji(ij)*y );
-                    end
-                    
-                    y = exp(P.L)*tfmat;
-                    s = yx;
-                    g = ts;
-                    noise = [];
-                    layers.iweighted = yx;
-                    return;                
-                
-                case 'kpca'
-                    
-                    x = yx(1:8,:);
-                    kpca = KernelPca(x', 'gaussian', 'gamma', 2.5, 'AutoScale', true);
-                    M0 = length(find(Ji));
-                    Eigenvectors = project(kpca, x', M0)';
-                    
-                    
                 case 'dmd'
                 [Eigenvalues, Eigenvectors, ModeAmplitudes, ModeFrequencies, ...
                     GrowthRates, POD_Mode_Energies] = atcm.fun.dmd((yx), length(Ji), dt);
@@ -942,29 +892,8 @@ for ins = 1:ns
 %                 [W,eigs] = eig(Atilde);
 %                 Phi = X2*V*pinv(full(S))*W;
 %                 Eigenvectors = Phi'*yx;
-                case 'instantaneous'                    
-                    yx(1,:) = yx(1,:)*0.2;
-                    yx(2,:) = yx(2,:)*0.8;
-                    yx(3,:) = yx(3,:)*0.1;
-                    yx(4,:) = yx(4,:)*0.2;
-                    yx(5,:) = yx(5,:)*0.1;
-                    yx(6,:) = yx(6,:)*0.2;
-                    yx(7,:) = yx(7,:)*0.05;
-                    yx(8,:) = yx(8,:)*0.1;
-                    [Eigenvectors,s,v] = svd(yx);
-                    Eigenvectors = Eigenvectors'*yx;       
-                case 'svd'
-                   % [Eigenvectors,s,v] = svd(cov(real(yx)'));
-                    [Eigenvectors,s,v] = svd(real(yx));
-                    Eigenvectors = Eigenvectors'*yx; 
                 case {'none' 'fooof' 'timefreq' 'eig'}
                     Eigenvectors = yx;
-                case 'glm'
-                    % project 8 series onto 4 components, onto 1
-                    W = ones(8,4)/(8*4);
-                    W = W .* repmat(P.W1(:) ,[1 4]); % 8x1
-                    W = W .* repmat(P.W2(:)',[8 1]);
-                    Eigenvectors = W'*yx;
             end
             warning on;
 
@@ -981,27 +910,6 @@ for ins = 1:ns
                 try
                     switch fmethod
                                          
-                        
-                        case {'timefreq'}
-                            data = Eigenvectors(Ji(ij),burn:end);
-                        
-                        case 'eig'
-                                J     = dfdx;
-                                [v,s] = eig(full(J),'nobalance');
-                                s     = diag(s);
-                                s     = 1j*imag(s) + real(s) - exp(real(s));
-                                
-                                [vv,uu,ss]=svd(Eigenvectors*Eigenvectors');
-                                dvdu  = pinv(vv);
-
-                                for k = 1:length(s)
-                                    Sk       = 1./(1j*2*pi*w - s(k));
-                                    %S(k,:) = dvdu(k,:)*Sk;
-                                    SS(k,:) =Sk;
-                                end
-                                spec = dvdu*SS;
-                                Pf = exp(P.J(Ji(ij))) * spec(Ji(ij),:)';
-                            
                         case {'none','dmd','svd' 'kpca'}
                             % just a smoothed fft of the (contributing)states
                             switch fmethod
@@ -1010,39 +918,6 @@ for ins = 1:ns
                                 case 'svd' ;this = Eigenvectors(ij,burn:end);
                                 case 'kpca';this = y0(burn:end);
                             end
-                            
-                            % filter
-                            %[pfp,pfi]=atcm.fun.padtimeseries(this);
-                            %bpfpf = atcm.fun.bandpassfilter(pfp,1./dt,[w(1) w(end)]);
-                            %this = bpfpf(pfi);
-                            %this=this';
-%                             comps = atcm.fun.assa(this,10);
-%                             
-%                             for ic = 1:size(comps,2)
-%                                 %Pfc(:,ic) = pyulear(comps(:,ic),8,w,dw./dt);
-%                                 Pfc(:,ic) = atcm.fun.AfftSmooth(comps(:,ic)',dw/dt,w,8);
-%                             end
-%                             
-%                             
-%                             pcx = corr(Pfc, M.y{:}).^2;
-%                             pcx = pcx(1:end-1,end);
-%                             [~,I]=sort(pcx,'descend'); % use components explaining top 20%
-%                             these = atcm.fun.findthenearest(cumsum(pcx(I))./sum(pcx),.8);
-%                             I = I(1:these);%fprintf('%d/%d\n',these,length(pcx));
-%                             Pfc = Pfc(:,I);
-%                             
-%                             b = atcm.fun.lsqnonneg(Pfc,M.y{:});
-%                             
-%                             Pf = Pfc*b;
-
-
-%                             if Ji(ij) ~= 2
-%                                 cut = atcm.fun.findthenearest(w,45);
-%                                 this = atcm.fun.bandpassfilter(this,1./dt,[w(1) cut]);
-%                             else
-%                                 cut = atcm.fun.findthenearest(w,45);
-%                                 this = atcm.fun.bandpassfilter(this,1./dt,[cut w(end)]);
-%                             end
                             
                             ncompe = 100;
                             if isfield(M,'ncompe')
@@ -1053,22 +928,17 @@ for ins = 1:ns
                                 this=this';
                                 
                                 test = atcm.fun.assa(this',10)';
-                                                                                                
                                 this = sum(test(1:3,:),1);
                                 
                                 [Pf,Hz,Pfmean]  = atcm.fun.AfftSmooth(this,dw/dt,w,ncompe);
                                 Pfmean = squeeze(Pfmean);
-                                %[~,I]=max(corr(Pfmean,M.y{ci}))
-                                %Pf=Pfmean(:,I);
                                 
                                 Pf = spm_vec(max(Pfmean'));
                                 Pf=spm_vec(Pf);
                                 
-                                
                                 nwg = 4;
                                 w0 = 1 + (nwg*( w./w(end)));
                                 Pf = Pf(:);%.*Hz(:);
-                                
                                 Pf = Pf.^2;
                                 
                             else
@@ -1077,12 +947,13 @@ for ins = 1:ns
                                 if isfield(M,'decompose') && ~isempty(M.decompose)
                                     method = M.decompose;
                                 end
-                                %fprintf('using decomposition method %s\n',method);
                                 
                                 switch method
                                     case 'ssa'
                                 
-                                        test = atcm.fun.assa(this',50)';
+                                        %test = atcm.fun.assa(this',50)';
+                                        test = vmd(real(this),'NumIMFs',5);
+                                        test=test';
                                                
                                     case 'fourier'
                                         this = highpass(this,2,1./dt);
@@ -1102,15 +973,21 @@ for ins = 1:ns
                                         test = cx;
                                 end
                                 
-                                %this = sum(test(1:3,:),1)';
-                                
                                 switch method
                                     case 'ssa'
-                                        [u,s,v] = spm_svd(cov(test'));
-                                        
+                                        % ensure the components found
+                                        % through Variational mode
+                                        % decomposition are orthogonal
+                                        [u,s,v] = spm_svd(cov(test'));                                        
                                         pc = u'*test;
-                                        nn = 12;%thr;
+                                        nn = min(12,size(pc,1));%thr;
+                                        %nn=12;
+                                        %nn=3;
+                                        pc = pc(1:nn,:);
+                                        
                                         if ns == 1
+                                            clear Ppf
+                                            % autoregressive spectral method for VMD components
                                             for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
                                             
@@ -1127,8 +1004,24 @@ for ins = 1:ns
                                         for i = 1:size(pc,1); Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                 end
                                 
-                                b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
+                                %b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
+                                b = ones(size(Ppf,1),1);
                                 Pf = b'*Ppf;
+                                
+                                % optimimse the 'smoothness' of the spectrum using positively-constrained lm
+                                % but without a constant term - since P.L is the constant
+                                %Pfsm(1,:) = Pf;
+                                Pfsm(2,:) = full(atcm.fun.HighResMeanFilt(Pf,1,4));
+                                %Pfsm(3,:) = full(atcm.fun.HighResMeanFilt(Pfsm(2,:),1,4));
+                                %Pfsm(4,:) = full(atcm.fun.HighResMeanFilt(Pf,1,16));
+                                
+                                %b  = atcm.fun.lsqnonneg(real(Pfsm)',real(M.y{ci}(:,ins,ins)));
+                                %Pf = b'*Pfsm;
+                                
+                                % return the orthogonal VMD components
+                                layers.ssa_pc{ins,ij,:,:} = pc;
+                                layers.ssa_b{ins,ij,:} = b;
+                                layers.pst_burn = t(burn:end);
                                 
                                 if isfield(P,'iL');
                                     Pf = real(Pf) + sqrt(-1)*exp(P.iL(ins))*imag(Pf);
