@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'm13_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'Sep_m13_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -220,31 +220,12 @@ for s = i;%1:length(Data.Datasets)
     % parameters corresponding to the CMC13 connections!
     %----------------------------------------------------------------------
     pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-     
-    %       ss sp si dp di tp rt rl
-%     pC.H = [1  0  1  0  0  0  0  1;
-%             1  1  1  0  0  0  0  1;
-%             0  1  1  0  0  0  0  0;
-%             0  1  0  1  1  0  0  0;
-%             0  0  0  1  1  0  0  0;
-%             0  0  0  1  1  0  0  0;
-%             0  0  0  0  0  0  0  0;
-%             0  0  0  0  0  1  0  1]/8;
-%         
-%     pC.Hn= [0  0  0  0  0  0  0  1;
-%             1  0  0  0  0  0  0  1;
-%             0  1  0  0  0  0  0  0;
-%             0  1  0  0  0  0  0  0;
-%             0  0  0  1  0  0  0  0;
-%             0  0  0  1  0  0  0  0;
-%             0  0  0  0  0  0  0  0;
-%             0  0  0  0  0  1  0  0]/8; 
         
-    pC.H = [1  0  1  0  0  0  0  0;
+    pC.H = [0  0  1  0  0  0  0  0;
             1  1  1  0  0  0  0  0;
             0  1  1  0  0  0  0  0;
             0  1  0  1  1  0  0  0;
-            0  0  0  1  0  0  0  0;
+            0  0  0  1  1  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0]/8;
@@ -272,7 +253,7 @@ for s = i;%1:length(Data.Datasets)
     M = AODCM(DCM);
     
     M.opts.Q = Qw;
-     
+         
     % opt set 1.
     M.opts.EnforcePriorProb=0;
     M.opts.ismimo=0;
@@ -280,7 +261,7 @@ for s = i;%1:length(Data.Datasets)
     M.opts.hyperparams=1;
     M.opts.fsd=0;
     M.opts.corrweight = 1; % weight error by correlation (good for spectra)
-    
+        
     % to force low dimensional hyperparameter tuning of step sizes,
     % use step_method=6
     

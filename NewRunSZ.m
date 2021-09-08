@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'm13_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'Sep_m13_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -220,47 +220,30 @@ for s = i;%1:length(Data.Datasets)
     % parameters corresponding to the CMC13 connections!
     %----------------------------------------------------------------------
     pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-     
-    %       ss sp si dp di tp rt rl
-%     pC.H = [1  0  1  0  0  0  0  1;
-%             1  1  1  0  0  0  0  1;
-%             0  1  1  0  0  0  0  0;
-%             0  1  0  1  1  0  0  0;
-%             0  0  0  1  1  0  0  0;
-%             0  0  0  1  1  0  0  0;
-%             0  0  0  0  0  0  0  0;
-%             0  0  0  0  0  1  0  1]/8;
-%         
-%     pC.Hn= [0  0  0  0  0  0  0  1;
-%             1  0  0  0  0  0  0  1;
-%             0  1  0  0  0  0  0  0;
-%             0  1  0  0  0  0  0  0;
-%             0  0  0  1  0  0  0  0;
-%             0  0  0  1  0  0  0  0;
-%             0  0  0  0  0  0  0  0;
-%             0  0  0  0  0  1  0  0]/8; 
         
     pC.H = [0  0  1  0  0  0  0  0;
             1  1  1  0  0  0  0  0;
             0  1  1  0  0  0  0  0;
             0  1  0  1  1  0  0  0;
-            0  0  0  1  0  0  0  0;
+            0  0  0  1  1  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0]/8;
         
     pC.Hn= [0  0  0  0  0  0  0  0;
-            1  0  0  0  0  0  0  0;
-            0  1  0  0  0  0  0  0;
+            1  1  0  0  0  0  0  0;
+            0  1  1  0  0  0  0  0;
             0  1  0  0  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0]/8; 
         
-    pC.ID([2]) = 1/8;
+    pC.ID([1 2 3 4 8]) = 1/8;
+    pC.Gsc([2 3])=1/8;
      
     DCM.M.pC=pC;
+    DCM.M.pE.Ly=0;
     DCM.M.pC.Ly= 1/8;
     
     % depolarisation of SPs is the only necessary contributor to MEG

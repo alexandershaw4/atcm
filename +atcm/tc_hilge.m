@@ -223,6 +223,9 @@ GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   32]; 
 
 GIa = GIa/2;
+
+%GIa = 6*~~GIa;
+
 GIb = GIa;
 
 if IncludeMH
