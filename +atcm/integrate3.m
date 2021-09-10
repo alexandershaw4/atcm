@@ -1029,6 +1029,7 @@ for ins = 1:ns
                                 % Ppf = Ppf(Ranked,:);
                                 b = ones(size(Ppf,1),1);
                                 Pf = b'*Ppf;
+                                Pf = atcm.fun.aenv(Pf,20);
                                 
                                % Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
 %                                 
@@ -1196,8 +1197,8 @@ if isfield(M,'y')
         end
             
         
-        %cf = fit(w.',Pf(:,ins,ins),'smoothingspline');
-        %Pf(:,ins,ins) = cf(w);
+        cf = fit(w.',Pf(:,ins,ins),'smoothingspline');
+        Pf(:,ins,ins) = cf(w);
         
 %         % smoothing optimisation
         clear sPf;
@@ -1208,8 +1209,8 @@ if isfield(M,'y')
 %         
          Pf(:,ins,ins) = b0'*sPf;
         
-        cf = fit(w.',Pf(:,ins,ins),'Gauss5');
-        Pf(:,ins,ins) = cf(w);
+        %cf = fit(w.',Pf(:,ins,ins),'Gauss6');
+        %Pf(:,ins,ins) = cf(w);
     
         % Electrode gain
         Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);

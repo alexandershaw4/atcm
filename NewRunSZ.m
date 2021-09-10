@@ -243,19 +243,18 @@ for s = i;%1:length(Data.Datasets)
         
     pC.Hn= [0  0  0  0  0  0  0  0;
             1  1  0  0  0  0  0  0;
-            0  1  0  0  0  0  0  0;
+            0  1  1  0  0  0  0  0;
             0  1  0  0  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0]/8; 
         
-    %pC.ID([1 2 3 8]) = 1/8;
-    %pC.gaba([2 3])=1/6;
+    pC.Gsc(2)=1/8;
     pC.T(1:3)=1/16;
     
     DCM.M.pC=pC;
-    DCM.M.pE.Ly=2;
+    DCM.M.pE.Ly=0;
     DCM.M.pC.Ly=1/8;
     
     % depolarisation of SPs is the only necessary contributor to MEG
@@ -275,16 +274,7 @@ for s = i;%1:length(Data.Datasets)
     M.opts.hyperparams=1;
     M.opts.fsd=0;
     M.opts.corrweight = 1; % weight error by correlation (good for spectra)
-        
-    % to force low dimensional hyperparameter tuning of step sizes,
-    % use step_method=6
-    
-    % add user-defined plot function
-   % M.opts.userplotfun = @aodcmplotfun;
-        
-    %w = DCM.xY.Hz;
-    %M.opts.Q=spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1);
-    
+            
     M.default_optimise([1 1 1 3 1],[5 5 5 4 4]);
     
     save(DCM.name); close; clear global;    
