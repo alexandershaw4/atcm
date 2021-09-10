@@ -404,10 +404,16 @@ for i = 1:ns
         pop_rates = pop_rates.*exp(P.pr);
         gabaa_rate = pop_rates .* exp(P.gaba);
         
+        if isfield(P,'nmdat')
+            nmdat = P.nmdat;
+        else
+            nmdat = pop_rates;
+        end
+        
         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)*pop_rates);
         f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)*gabaa_rate);
         f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)*pop_rates);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)*pop_rates);
+        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)*nmdat);
         
         if IncludeMH
             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:)*pop_rates );

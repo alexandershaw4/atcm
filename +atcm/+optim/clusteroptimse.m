@@ -272,6 +272,9 @@ for i = 1:nr
         LB  = (Px-(c'*sf));
         UB  = (Px+(c'*sf));  
         
+        LB = Px-2;
+        UB = Px+2;
+        
         flipme = find((UB-LB)<0);
         LB(flipme)=-LB(flipme);
         

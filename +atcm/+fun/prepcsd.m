@@ -295,46 +295,66 @@ for i = 1:Ne;
         end
         if(UseWelch==1010)
            
-            % Simple fft(x)(alex)
-            %---------------------------------------------------
-            FFTSmooth = 0;
-            try FFTSmooth = DCM.options.FFTSmooth; end
-            if UseWelch == 1010;
+            if isfield(DCM.options,'vmd') && DCM.options.vmd
+                [Ymod] = vmd(real(Ymod),'NumIMFs',5);
+                %fprintf('Using VMD\n');
                 
-                % Alex fft
-                SpecFun = DCM.options.SpecFun;
-                %[Pf, F] = atcm.fun.AfftSmooth(Ymod', 1/DCM.xY.dt, DCM.xY.Hz) ;
+                [u,s,v] = spm_svd(cov(Ymod'));                                        
+                pc = u'*Ymod;
+                nn = min(12,size(pc,1));%thr;
+                pc = pc(1:nn,:);
                 
-                if strcmp(char(SpecFun),'atcm.fun.AfftSmooth') && isfield(DCM.options,'FFTbins');
-                    [Pf, F] = SpecFun(Ymod', 1/DCM.xY.dt, DCM.xY.Hz,DCM.options.FFTbins) ;
-                else
-                    [Pf, F] = SpecFun(Ymod',  1/DCM.xY.dt, DCM.xY.Hz) ;
-                    if size(Pf,1) == 1;
-                        Pf = Pf';
-                    end
-                end
-                if FFTSmooth > 0;
-                    for nchanx = 1:size(Pf,2)
-                        for nchany = 1:size(Pf,3)
-                            Pfxy = Pf(:,nchanx,nchany);
-                            [dPf,in] = atcm.fun.padtimeseries(Pfxy);
-                            dPf = atcm.fun.HighResMeanFilt(dPf,1,FFTSmooth);
-                            Pfxy  = dPf(in);
-                            Pf(:,nchanx,nchany) = Pfxy;
+                % autoregressive spectral method for VMD components
+                for i = 1:nn; Pfc(i,:) = pyulear(pc(i,:),2,DCM.xY.Hz,1/DCM.xY.dt); end
+                
+                Pf(:,1,1) = sum(Pfc,1);
+                
+                 Pfull(j,:,:,:) = full(Pf);
+                 
+            else
+            
+            
+                % Simple fft(x)(alex)
+                %---------------------------------------------------
+                FFTSmooth = 0;
+                try FFTSmooth = DCM.options.FFTSmooth; end
+                if UseWelch == 1010;
+
+                    % Alex fft
+                    SpecFun = DCM.options.SpecFun;
+                    %[Pf, F] = atcm.fun.AfftSmooth(Ymod', 1/DCM.xY.dt, DCM.xY.Hz) ;
+
+                    if strcmp(char(SpecFun),'atcm.fun.AfftSmooth') && isfield(DCM.options,'FFTbins');
+                        [Pf, F] = SpecFun(Ymod', 1/DCM.xY.dt, DCM.xY.Hz,DCM.options.FFTbins) ;
+                    else
+                        [Pf, F] = SpecFun(Ymod',  1/DCM.xY.dt, DCM.xY.Hz) ;
+                        if size(Pf,1) == 1;
+                            Pf = Pf';
                         end
                     end
-                end
-                if isfield(DCM.options,'envelope') && ~isempty(DCM.options.envelope) && DCM.options.envelope>0
-                   for nchanx = 1:size(Pf,2)
-                       for nchany = 1:size(Pf,3)
-                           Pf(:,nchanx,nchany) = atcm.fun.aenvelope(Pf(:,nchanx,nchany),DCM.options.envelope);
+                    if FFTSmooth > 0;
+                        for nchanx = 1:size(Pf,2)
+                            for nchany = 1:size(Pf,3)
+                                Pfxy = Pf(:,nchanx,nchany);
+                                [dPf,in] = atcm.fun.padtimeseries(Pfxy);
+                                dPf = atcm.fun.HighResMeanFilt(dPf,1,FFTSmooth);
+                                Pfxy  = dPf(in);
+                                Pf(:,nchanx,nchany) = Pfxy;
+                            end
+                        end
+                    end
+                    if isfield(DCM.options,'envelope') && ~isempty(DCM.options.envelope) && DCM.options.envelope>0
+                       for nchanx = 1:size(Pf,2)
+                           for nchany = 1:size(Pf,3)
+                               Pf(:,nchanx,nchany) = atcm.fun.aenvelope(Pf(:,nchanx,nchany),DCM.options.envelope);
+                           end
                        end
-                   end
+                    end
+
+                    Pfull(j,:,:,:) = full(Pf);
                 end
-                
-                Pfull(j,:,:,:) = full(Pf);
-            end
             
+            end % end vmd
             
             % the base period spectrum
             if DOBASE

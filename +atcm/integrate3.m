@@ -497,13 +497,15 @@ switch IntMethod
                     v = v;
                 else
                     for j = 1:N
-                        if isfield(P,'f')
-                            v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M,Curfire));   
-                            v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M)); 
-                        else
+                        %if isfield(P,'f')
+                        %    v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M,Curfire));   
+                        %    v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M)); 
+                        %else
                             v = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));   
                             v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),1.0001,P,M)); 
-                        end
+                            %v = v + (Q*f(spm_unvec(v,M.x),drive(i,:),P,M));   
+                            %v0 = v0 + (Q*f(spm_unvec(v0,M.x),1.0001,P,M)); 
+                        %end
                         % Ozaki 1992 numerical method:
                         % "dx(t) = (expm(dfdx*t) - I)*inv(dfdx)*f"
                         %[fx,dfdx] = f(v,drive(i),P,M);
@@ -702,7 +704,7 @@ y = full(exp(P.Ly)*y);
 
 
 % continuous time difference (evoked only)
-s = spm_unvec( spm_vec(s)+spm_vec(s1), s);
+%s = spm_unvec( spm_vec(s)-spm_vec(s1), s);
 %layers = spm_unvec( spm_vec(layers)-spm_vec(layers1),layers);
 
 t = drive;
@@ -950,10 +952,11 @@ for ins = 1:ns
                                 
                                 switch method
                                     case 'ssa'
-                                
-                                        %test = atcm.fun.assa(this',50)';
-                                        test = vmd(real(this),'NumIMFs',5);
-                                        test = test';
+                                        
+                                        
+                                        test = atcm.fun.assa(this',50)';
+                                        %[test,resid,info] = vmd(real(this),'NumIMFs',20); % == 6
+                                        %test = test';
                                                
                                     case 'fourier'
                                         this = highpass(this,2,1./dt);
@@ -981,15 +984,18 @@ for ins = 1:ns
                                         [u,s,v] = spm_svd(cov(test'));                                        
                                         pc = u'*test;
                                         nn = min(12,size(pc,1));%thr;
+                                        nn=size(pc,1);
                                         %nn=12;
                                         %nn=3;
+                                       % nn=length(diag(s));
                                         pc = pc(1:nn,:);
-                                        
+                                                                                
                                         if ns == 1
                                             clear Ppf
                                             % autoregressive spectral method for VMD components
-                                            for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),4,w,dw./dt); end
+                                            for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),2,w,dw./dt); end
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
+                                            %for i = 1:nn; Ppf(i,:) = atcm.fun.Afft( pc(i,:), dw./dt, w) ;end
                                             
                                         else
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ; end
@@ -1004,33 +1010,58 @@ for ins = 1:ns
                                         for i = 1:size(pc,1); Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                 end
                                 
+%                                 for i = 1:nn
+%                                     try
+%                                         tmp = fit(w.',Ppf(i,:)','Gauss1');
+%                                         if (tmp.b1 > (w(1)+5)) && (tmp.b1 < (w(end)-5))
+%                                             tmp.c1 = tmp.c1 * 1.8;
+%                                         end
+%                                     catch
+%                                         tmp = fit(w.',Ppf(i,:)','Gauss2');
+%                                     end
+%                                     Ppf(i,:) = tmp(w);
+%                                 end
+                                
+                                %for i = 1:nn; Ppf(i,:) = atcm.fun.aenv(Ppf(i,:),25);end
+                                
                                 %b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
+                                % [Ranked,KCDM] = ForCD([real(M.y{ci}(:,ins,ins))'; Ppf]',1,5,'reg');
+                                % Ppf = Ppf(Ranked,:);
                                 b = ones(size(Ppf,1),1);
                                 Pf = b'*Ppf;
                                 
-                                %Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
+                               % Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
+%                                 
+%                                [padp,indp] = atcm.fun.padtimeseries(Pf);
+%                                Pfs = atcm.fun.tsmovavg(padp','t',12);
+%                                %Pfs = atcm.fun.aenv(padp',40);
+%                                %Pfs = full(atcm.fun.HighResMeanFilt(padp',1,2));
+%                                %Pfs = atcm.fun.tsmovavg(Pfs,'t',8);
+%                                %Pfs = full(atcm.fun.HighResMeanFilt(padp',1,18));
+%                                Pf = Pfs(indp);
+                                
                                 
 %                                 % optimimse the 'smoothness' of the spectrum using positively-constrained lm
 %                                 % but without a constant term - since P.L is the constant
 %                                 Pfsm(1,:) = Pf;
 %                                 Pfsm(2,:) = full(atcm.fun.HighResMeanFilt(Pf,1,4));
-%                                 Pfsm(3,:) = full(atcm.fun.HighResMeanFilt(Pfsm(2,:),1,4));
-%                                 Pfsm(4,:) = full(atcm.fun.HighResMeanFilt(Pfsm(3,:),1,4));
+%                                 Pfsm(2,:) = full(atcm.fun.HighResMeanFilt(Pfsm(2,:),1,4));
+%                                 %Pfsm(4,:) = full(atcm.fun.HighResMeanFilt(Pfsm(3,:),1,4));
 %                                 
 %                                 b  = atcm.fun.lsqnonneg(real(Pfsm)',real(M.y{ci}(:,ins,ins)));
 %                                 Pf = b'*Pfsm;
 
-                                raw = real(M.y{ci}(:,ins,ins));
-                                for ic = 1:nn
-                                    this = [Ppf(ic,:); ...
-                                            full(atcm.fun.HighResMeanFilt(Ppf(ic,:),1,4)) ];
-                                    b  = atcm.fun.lsqnonneg(this',raw);
-                                    selected(ic,:) = b'*this;
-                                    chunk = selected(ic,:);
-                                    raw = raw - chunk';
-                                end
-                                
-                                Pf = sum( selected,1 );
+%                                 raw = real(M.y{ci}(:,ins,ins));
+%                                 for ic = 1:nn
+%                                     this = [Ppf(ic,:); ...
+%                                             full(atcm.fun.HighResMeanFilt(Ppf(ic,:),1,4)) ];
+%                                     b  = atcm.fun.lsqnonneg(this',raw);
+%                                     selected(ic,:) = b'*this;
+%                                     chunk = selected(ic,:);
+%                                     %raw = raw - chunk';
+%                                 end
+%                                 
+%                                 Pf = sum( selected,1 );
                                 
                                 % return the orthogonal VMD components
                                 layers.ssa_pc{ins,ij,:,:} = pc;
@@ -1163,16 +1194,23 @@ if isfield(M,'y')
         else
             Pf(:,ins,ins) = Mm;
         end
-                                                    
-        % smoothing optimisation
+            
+        
+        %cf = fit(w.',Pf(:,ins,ins),'smoothingspline');
+        %Pf(:,ins,ins) = cf(w);
+        
+%         % smoothing optimisation
         clear sPf;
         sPf(1,:) = Pf(:,ins,ins);
         sPf(2,:) = full(atcm.fun.HighResMeanFilt(sPf(1,:),1,4));
-        sPf(3,:) = full(atcm.fun.HighResMeanFilt(sPf(2,:),1,4));
+        sPf(2,:) = full(atcm.fun.HighResMeanFilt(sPf(2,:),1,4));
         b0       = atcm.fun.lsqnonneg(sPf',real(M.y{ci}(:,ins,ins)));
+%         
+         Pf(:,ins,ins) = b0'*sPf;
         
-        Pf(:,ins,ins) = b0'*sPf;
-        
+        cf = fit(w.',Pf(:,ins,ins),'Gauss5');
+        Pf(:,ins,ins) = cf(w);
+    
         % Electrode gain
         Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
         
@@ -1208,7 +1246,7 @@ if isfield(M,'y')
     % RE-Incorporate other noise components for auto (Gs) and cross (Gn) spectra
     %----------------------------------------------------------------------
     %if ns > 1
-    addnoise=1;
+    addnoise=0;
     if addnoise
         for i = 1:ns
             for j = 1:ns

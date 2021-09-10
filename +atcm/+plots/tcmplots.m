@@ -7,7 +7,9 @@ else
 end
 
 % generate tcm diagnostic plots
-figure('position',[1010          42         774         943]);
+%figure('position',[1010          42         774         943]);
+figure
+
 
 subplot(221); plot(w,DCM.xY.y{1},':',w,y{1});
 title('Data & Model - Fit');

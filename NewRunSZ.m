@@ -120,10 +120,21 @@ for s = i;%1:length(Data.Datasets)
     DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;        % use .5 Hz steps
-    
+        
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;      
+    
+    
+    % Fit the empirical spectrum as a series of Gaussian components
+    fprintf('Fitting the data...\n');
+    w  = DCM.xY.Hz;
+    oy = real(DCM.xY.y{:});
+    cf = fit(w.',oy,'smoothingspline');
+    %cf = fit(w.',oy,'smoothingspline');
+    resid = oy - cf(w);
+    DCM.xY.y{:} = cf(w);
+    
     
     % Subfunctions and priors
     %----------------------------------------------------------------------
@@ -232,24 +243,25 @@ for s = i;%1:length(Data.Datasets)
         
     pC.Hn= [0  0  0  0  0  0  0  0;
             1  1  0  0  0  0  0  0;
-            0  1  1  0  0  0  0  0;
+            0  1  0  0  0  0  0  0;
             0  1  0  0  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0]/8; 
         
-    pC.ID([1 2 3 4 8]) = 1/8;
-    pC.Gsc([2 3])=1/8;
-     
+    %pC.ID([1 2 3 8]) = 1/8;
+    %pC.gaba([2 3])=1/6;
+    pC.T(1:3)=1/16;
+    
     DCM.M.pC=pC;
-    DCM.M.pE.Ly=0;
-    DCM.M.pC.Ly= 1/8;
+    DCM.M.pE.Ly=2;
+    DCM.M.pC.Ly=1/8;
     
     % depolarisation of SPs is the only necessary contributor to MEG
     DCM.M.pE.J(2) = log(1.1);
     DCM.M.pE.J(4) = -1000;
-    
+                
     % Optimise                                                           1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
