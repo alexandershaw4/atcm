@@ -105,10 +105,10 @@ function [y,w,s,g,t,pst,layers,other] = integrate3(P,M,U,varargin)
 % Singular Spectrum Analysis
 % -------------------------------------
 % The weighted spectral output is decomposed into a frequency basis set 
-% using a type of SSA, then projected as a lower dimensional representation
-% composed of the components epxaining the most variance in the full signal
-% (weighted by the data vector in M.y{1}). This helps to 'clean up' noisy 
-% spectra in a targetted way.
+% using a type of SSA (or EMD or VMD), then projected as a lower dimensional 
+% representation composed of the components epxaining the most variance in 
+% the full signal (weighted by the data vector in M.y{1}). This helps to 
+% 'clean up' noisy spectra in a targetted way.
 % 
 % Other options:
 % -------------------------------------
@@ -221,7 +221,7 @@ switch InputType
         Gu = Gu.*Mu;
         Gu = exp(P.a(1))*Mu;
 
-        [Pks,PksAmps]=findpeaks(Gu,w);
+        [Pks,PksAmps]=findpeaks(real(Gu),w);
         for i = 1:length(Pks)
             gx(i,:) = PksAmps(i) * sin(2*pi*Pks(i)*pst);
         end
@@ -516,8 +516,8 @@ switch IntMethod
                 
                 % Expansion point - i.e. deviation around fixed point
                 if ~IsStochastic
-                    y(:,i) = v - spm_vec(M.x);  
-                    y0(:,i) = v0 - spm_vec(M.x); 
+                    y(:,i) = v; %- spm_vec(M.x);  
+                    y0(:,i) = v0; %- spm_vec(M.x); 
                 else
                     y(:,i) = v - spm_vec(M.x) + rand(size(spm_vec(M.x)));
                 end
@@ -953,10 +953,20 @@ for ins = 1:ns
                                 switch method
                                     case 'ssa'
                                         
+                                        %test = this';
                                         
-                                        test = atcm.fun.assa(this',50)';
-                                        %[test,resid,info] = vmd(real(this),'NumIMFs',20); % == 6
-                                        %test = test';
+                                        %test = atcm.fun.assa(this',50)';
+                                        
+                                        %test(1,:) = atcm.fun.bandpassfilter(this,1./dt,[1 20]);
+                                        %test(2,:) = atcm.fun.bandpassfilter(this,1./dt,[20 30]);
+                                        %test(3,:) = atcm.fun.bandpassfilter(this,1./dt,[40 80]);
+                                        
+                                        this0 = atcm.fun.bandpassfilter(this,1./dt,[w(1) 80]);
+                                        
+                                        %test = atcm.fun.assa(this0',50)';
+                                        
+                                        [test,resid,info] = vmd(real(this0));%,'NumIMFs',20); % == 6
+                                        test = test';
                                                
                                     case 'fourier'
                                         this = highpass(this,2,1./dt);
@@ -987,13 +997,16 @@ for ins = 1:ns
                                         nn=size(pc,1);
                                         %nn=12;
                                         %nn=3;
-                                       % nn=length(diag(s));
+                                        nn=length(diag(s));
                                         pc = pc(1:nn,:);
+                                         %   pc = this;
+                                         %   nn=1;
                                                                                 
                                         if ns == 1
                                             clear Ppf
                                             % autoregressive spectral method for VMD components
-                                            for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),2,w,dw./dt); end
+                                            %
+                                           for i = 1:nn; Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;end
                                             %for i = 1:nn; Ppf(i,:) = atcm.fun.Afft( pc(i,:), dw./dt, w) ;end
                                             
@@ -1010,6 +1023,13 @@ for ins = 1:ns
                                         for i = 1:size(pc,1); Ppf(i,:) = pyulear(pc(i,:),12,w,dw./dt); end
                                 end
                                 
+                                Ppf=real(Ppf);
+                                
+                                for i = 1:nn
+                                    Ppf(i,:) = full(atcm.fun.HighResMeanFilt(Ppf(i,:),1,4));
+                                    Ppf(i,:) = full(atcm.fun.HighResMeanFilt(Ppf(i,:),1,4));
+                                end
+                                
 %                                 for i = 1:nn
 %                                     try
 %                                         tmp = fit(w.',Ppf(i,:)','Gauss1');
@@ -1024,12 +1044,12 @@ for ins = 1:ns
                                 
                                 %for i = 1:nn; Ppf(i,:) = atcm.fun.aenv(Ppf(i,:),25);end
                                 
-                                %b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
+                                b  = atcm.fun.lsqnonneg(real(Ppf)',real(M.y{ci}(:,ins,ins)));
                                 % [Ranked,KCDM] = ForCD([real(M.y{ci}(:,ins,ins))'; Ppf]',1,5,'reg');
                                 % Ppf = Ppf(Ranked,:);
-                                b = ones(size(Ppf,1),1);
+                                %b = ones(size(Ppf,1),1);
                                 Pf = b'*Ppf;
-                                Pf = atcm.fun.aenv(Pf,20);
+                                %Pf = atcm.fun.aenv(Pf,20);
                                 
                                % Pf = full(atcm.fun.HighResMeanFilt(Pf,1,4));
 %                                 
@@ -1042,20 +1062,29 @@ for ins = 1:ns
 %                                Pf = Pfs(indp);
                                 
                                 
-%                                 % optimimse the 'smoothness' of the spectrum using positively-constrained lm
-%                                 % but without a constant term - since P.L is the constant
+% %                                 % optimimse the 'smoothness' of the spectrum using positively-constrained lm
+% %                                 % but without a constant term - since P.L is the constant
 %                                 Pfsm(1,:) = Pf;
 %                                 Pfsm(2,:) = full(atcm.fun.HighResMeanFilt(Pf,1,4));
-%                                 Pfsm(2,:) = full(atcm.fun.HighResMeanFilt(Pfsm(2,:),1,4));
-%                                 %Pfsm(4,:) = full(atcm.fun.HighResMeanFilt(Pfsm(3,:),1,4));
+%                                 Pfsm(3,:) = full(atcm.fun.HighResMeanFilt(Pfsm(2,:),1,4));
+%                                % Pfsm(4,:) = atcm.fun.aenv(Pf,20);
+%                              %   Pfsm(4,:) = full(atcm.fun.HighResMeanFilt(Pfsm(3,:),1,4));
 %                                 
 %                                 b  = atcm.fun.lsqnonneg(real(Pfsm)',real(M.y{ci}(:,ins,ins)));
-%                                 Pf = b'*Pfsm;
+% % %                                 
+% % %                                 x00 = repmat(diag(M.Q),[1,size(Pfsm,1)]) .* Pfsm';
+% % %                                 x11 = real(M.y{ci}(:,ins,ins)).*diag(M.Q);
+% % %                                 
+% % %                                 b  = atcm.fun.lsqnonneg(x00,x11);
+% %                                 
+%                                  Pf = b'*Pfsm;
 
 %                                 raw = real(M.y{ci}(:,ins,ins));
 %                                 for ic = 1:nn
-%                                     this = [Ppf(ic,:); ...
-%                                             full(atcm.fun.HighResMeanFilt(Ppf(ic,:),1,4)) ];
+%                                     comp  =  Ppf(ic,:);
+%                                     scomp = full(atcm.fun.HighResMeanFilt(Ppf(ic,:),1,4));
+%                                     this = [comp; scomp; ...
+%                                             ];
 %                                     b  = atcm.fun.lsqnonneg(this',raw);
 %                                     selected(ic,:) = b'*this;
 %                                     chunk = selected(ic,:);
@@ -1197,21 +1226,30 @@ if isfield(M,'y')
         end
             
         
+      %cf = fit(w.',Pf(:,ins,ins),'smoothingspline');
+      %Pf(:,ins,ins) = cf(w);
+        
+        % smoothing optimisation
+%         clear sPf;
+%         sPf(1,:) = Pf(:,ins,ins);
+%         sPf(2,:) = full(atcm.fun.HighResMeanFilt(sPf(1,:),1,4));
+%         sPf(3,:) = full(atcm.fun.HighResMeanFilt(sPf(2,:),1,4));
+%         b0       = atcm.fun.lsqnonneg(sPf',real(M.y{ci}(:,ins,ins)));
+% %         
+%          Pf(:,ins,ins) = b0'*sPf;
+        
+%         warning off;
+%         cf = fit(w.',Pf(:,ins,ins),'smoothingspline');
+%         %Pf(:,ins,ins) = atcm.fun.aenv(cf(w),12);
+%         Pf(:,ins,ins) = cf(w);
+%         warning on;
+%         
         cf = fit(w.',Pf(:,ins,ins),'smoothingspline');
         Pf(:,ins,ins) = cf(w);
         
-%         % smoothing optimisation
-        clear sPf;
-        sPf(1,:) = Pf(:,ins,ins);
-        sPf(2,:) = full(atcm.fun.HighResMeanFilt(sPf(1,:),1,4));
-        sPf(2,:) = full(atcm.fun.HighResMeanFilt(sPf(2,:),1,4));
-        b0       = atcm.fun.lsqnonneg(sPf',real(M.y{ci}(:,ins,ins)));
-%         
-         Pf(:,ins,ins) = b0'*sPf;
+        %Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4));
+        %Pf(:,ins,ins) = full(atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,4));
         
-        %cf = fit(w.',Pf(:,ins,ins),'Gauss6');
-        %Pf(:,ins,ins) = cf(w);
-    
         % Electrode gain
         Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
         
@@ -1252,7 +1290,7 @@ if isfield(M,'y')
         for i = 1:ns
             for j = 1:ns
                 % Autospectral noise / innovations [P.b]
-                %Pf(:,i,j) = Pf(:,i,j) + Gn(:);
+                Pf(:,i,j) = Pf(:,i,j) + Gn(:);
                 if j ~= i
                     % Cross spectral noise / innovations [P.c]
                     Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);

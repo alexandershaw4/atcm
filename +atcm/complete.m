@@ -82,8 +82,9 @@ end
  
 % scale data features (to a variance of about 8)
 %--------------------------------------------------------------------------
-ccf      = spm_csd2ccf(DCM.xY.y,DCM.xY.Hz);
-scale    = max(spm_vec(ccf));
+%ccf      = spm_csd2ccf(DCM.xY.y,DCM.xY.Hz);
+%scale    = max(spm_vec(ccf));
+scale=86;
 DCM.xY.y = spm_unvec(8*spm_vec(DCM.xY.y)/scale,DCM.xY.y);
 
 

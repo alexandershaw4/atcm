@@ -203,10 +203,13 @@ GEa(6,:) = [0   0   0   6   0   0   0   1/4]/1;
 GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
 GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
+
+
 % added TP>SI = 2 (was 0)
 GEa = GEa/8;
 GEa = GEa .* ~eye(np);
 GEa = GEa + eye(np);      % KILLED
+
 GEn = GEa;
 GEn = GEn + (eye(8)/8);
 
@@ -222,7 +225,13 @@ GIa(6,:) = [0   0   0   0   32  8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   32]; 
 
+%GIa(2,3)=54;
+%GIa(3,3)=128+64;
+%GIa(5,5)=64;
+%GIa(6,6)=16;
+
 GIa = GIa/2;
+%GIa = GIa/1.2;
 
 %GIa = 6*~~GIa;
 
@@ -273,7 +282,7 @@ end
 VL   = -70;                               % reversal  potential leak (K)
 VE   =  60;                               % reversal  potential excite (Na)
 VI   = -90;                               % reversal  potential inhib (Cl)
-VR   = -40;%-40;                               % threshold potential (firing)
+VR   = -40;   %55                            % threshold potential (firing)
 VN   =  10;                               % reversal Ca(NMDA)   
 VB   = -100;                              % reversal of GABA-B
 
@@ -294,6 +303,7 @@ Vx   = exp(P.S)*32; % 32
 if nargin < 5
     % compute only if not passed by integrator
     m    =     spm_Ncdf_jdw(x(:,:,1),VR,Vx);
+    
 end
 
 % extrinsic effects
@@ -343,7 +353,7 @@ for i = 1:ns
         end
         
         Gsc = ~eye(8);
-        Gsc = Gsc + (diag(exp(P.Gsc)));
+        Gsc = Gsc +  (diag(exp(P.Gsc)));
         
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------
@@ -372,6 +382,8 @@ for i = 1:ns
         if isfield(M,'inputcell');
             input_cell = M.inputcell;
         end
+        
+        %dU = dU*[1 1 0 0 0];
         
         E(input_cell)     = E(input_cell)         +dU';
         ENMDA(input_cell) = ENMDA(input_cell)     +dU';

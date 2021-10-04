@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'Sep_m13_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'Sep17_m13_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -127,13 +127,13 @@ for s = i;%1:length(Data.Datasets)
     
     
     % Fit the empirical spectrum as a series of Gaussian components
-    fprintf('Fitting the data...\n');
-    w  = DCM.xY.Hz;
-    oy = real(DCM.xY.y{:});
-    cf = fit(w.',oy,'smoothingspline');
-    %cf = fit(w.',oy,'smoothingspline');
-    resid = oy - cf(w);
-    DCM.xY.y{:} = cf(w);
+%     fprintf('Fitting the data...\n');
+%     w  = DCM.xY.Hz;
+%     oy = real(DCM.xY.y{:});
+%     cf = fit(w.',oy,'smoothingspline');
+%     %cf = fit(w.',oy,'smoothingspline');
+%     resid = oy - cf(w);
+%     DCM.xY.y{:} = cf(w);
     
     
     % Subfunctions and priors
@@ -176,7 +176,7 @@ for s = i;%1:length(Data.Datasets)
         
     X = load('~/Dropbox/code/atcm/+atcm/+fun/Priors2021a.mat');
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
-    
+        
     % Feature function for the integrator
     %----------------------------------------------------------------------
     %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
@@ -232,35 +232,54 @@ for s = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
         
-    pC.H = [0  0  1  0  0  0  0  0;
+    pC.H = [1  0  1  0  0  0  0  0;
             1  1  1  0  0  0  0  0;
             0  1  1  0  0  0  0  0;
             0  1  0  1  1  0  0  0;
             0  0  0  1  1  0  0  0;
-            0  0  0  0  0  0  0  0;
-            0  0  0  0  0  0  0  0;
-            0  0  0  0  0  0  0  0]/8;
+            0  0  0  0  0  1  0  0;
+            0  0  0  0  0  0  1  0;
+            0  0  0  0  0  0  0  1]/8;
         
     pC.Hn= [0  0  0  0  0  0  0  0;
-            1  1  0  0  0  0  0  0;
-            0  1  1  0  0  0  0  0;
+            1  0  0  0  0  0  0  0;
+            0  1  0  0  0  0  0  0;
             0  1  0  0  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  0  0  0]/8; 
-        
-    pC.Gsc(2)=1/8;
-    pC.T(1:3)=1/16;
+       
+        %pC.Gsc(2)=1/8;
+        %pC.ID(2)=1/8;
+    %pC.Gsc(1:8) = 1/8;
+   % pC.Gsc(2:3)=1/8;
+    pC.T(1:4)   = 1/8;
+   % pC.ID = ones(1,8)/16;
+    pC.CV = ones(1,8)/8;
+    pC.S = ones(1,8)/8;
+    pC.m=1/8;
+    pC.h=1/8;
     
     DCM.M.pC=pC;
-    DCM.M.pE.Ly=0;
+        
+    DCM.M.pE.Ly=2;
     DCM.M.pC.Ly=1/8;
     
     % depolarisation of SPs is the only necessary contributor to MEG
     DCM.M.pE.J(2) = log(1.1);
     DCM.M.pE.J(4) = -1000;
-                
+           
+    %DCM.M.pE.J(4)=log(.8);
+    %DCM.M.pE.J(1)=log(.6);
+    %DCM.M.pE.J(6)=log(.6);
+    
+   % tmp = load('priors_24sept','Ep');
+   % DCM.M.pE = tmp.Ep;
+    
+    %DCM.M.pE.b = [-4.5000;0.0002];
+    %DCM.M.pC.b = [1;1]/8;
+        
     % Optimise                                                           1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
@@ -275,7 +294,9 @@ for s = i;%1:length(Data.Datasets)
     M.opts.fsd=0;
     M.opts.corrweight = 1; % weight error by correlation (good for spectra)
             
-    M.default_optimise([1 1 1 3 1],[5 5 5 4 4]);
+    %M.opts.objective = 'logevidence';
+    
+    M.default_optimise([1 1 1 3 1],[15 5 4 4 4]);
     
     save(DCM.name); close; clear global;    
     

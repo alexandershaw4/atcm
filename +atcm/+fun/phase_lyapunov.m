@@ -53,7 +53,7 @@ end
 %--------------------------------------------------------------------------
 Y = gf(spm_vec(P))';               
 
-Y = Y(361:end,:);
+Y = Y(181:end,:);
 
 % Plot it
 %--------------------------------------------------------------------------
@@ -130,11 +130,11 @@ for iii=1:100
     beta = nlinfit(K(1:Tl),L(1:Tl),@nonlin1,[betar;randn(1,1)]);
     LLE1(iii,1)=beta(2,1);
 end
-LLE=nanmean(LL);
+LLE=nanmax(LL);
 
 if doplot
     % appnd title to plot!
-    title(sprintf('Principal Lyapunov Exponent = %d',LLE),'color','w');
+    title(sprintf('Maximum Lyapunov Exponent = %d',LLE),'color','w');
     set(findall(gcf,'-property','FontSize'),'FontSize',18);
 end
 

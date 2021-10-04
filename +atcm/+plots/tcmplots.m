@@ -10,11 +10,13 @@ end
 %figure('position',[1010          42         774         943]);
 figure
 
-
+r2 = 100*corr( real(DCM.xY.y{1}), real(y{1}) ).^2;
+r2 = round(r2);
 subplot(221); plot(w,DCM.xY.y{1},':',w,y{1});
-title('Data & Model - Fit');
+title(sprintf('Data & Model - Fit\n(r^2 = %d%%)',r2));
 xlabel('Frequency (Hz)');ylabel('PSD');
 grid on;
+
 
 subplot(222); plot(w,squeeze(l{1}.weighted(1,:,:)),'linewidth',2);
 title('Principal (contributing) cells spectra');
