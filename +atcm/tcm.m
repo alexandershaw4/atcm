@@ -1,4 +1,4 @@
-function [f,J,Q,D] = tc_hilge(x,u,P,M,m)
+function [f,J,Q,D] = tcm(x,u,P,M,m)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -103,34 +103,23 @@ end
             
 % intrinsic connection strengths
 %==========================================================================
-G    = full(P.H);
-G    = exp(G);
+Gampa    = full(P.Hampa);
+Gampa    = exp(Gampa);
 
-% nmda matrix
-%P.Hn=P.H;
-%P.Hn(3,3)=P.nmda;
+Gnmda = full(P.Hnmda);
+Gnmda = exp(Gnmda);
 
-Gn = full(P.Hn);
-Gn = exp(Gn);
-%Gn = exp(full(G));
+Ggabaa = full(P.Hgabaa);
+Ggabaa = exp(Ggabaa);
 
-% this was for specifying trial-specific intrinsic connections (w Betas)
-% in the LTP project (Sumner, Spriggs, Shaw 2020)
-%--------------------------------------------------
-% if ~all(size(P.G)==np)
-%     for i = 1:size(G,3)
-%         % trial specific intrinsic effects !
-%         Gtrial   = diag( (P.G));
-%         G(:,:,i) = G(:,:,i) + Gtrial; 
-%     end
-% elseif all(size(P.G)==np)
-%     % a full 8*8 connectivity for this trial
-%     for i = 1:size(G,3)
-%         G(:,:,i) = G(:,:,i) + P.G;
-%     end
-% end
+Ggabab = full(P.Hgabab);
+Ggabab = exp(Ggabab);
 
+Ghcn = full(P.Hhcn);
+Ghcn = exp(Ghcn);
 
+Gm = full(P.Hm);
+Gm = exp(Gm);
 
 
 % connectivity switches
@@ -186,39 +175,30 @@ SNMDA = [1   0   1   0   0;   %  SS
 %               7  - Reticular cells (Thal)              : i
 %               8  - Thalamo-cortical relay cells (Thal) : e
 
-GEa = zeros(8,8);
-GIa = zeros(8,8);
-
 % Excitatory (np x np): AMPA & NMDA
 %--------------------------------------------------------------------------
 % This is a simplified, predictive-coding friendly excitatory architecture
-% NEW - BASED ON HILGETAG PAPER
 %           ss  sp  si  dp  di  tp  rt  rl   
-GEa(1,:) = [0   4   0   0   0   2   0   2];
-GEa(2,:) = [6   4   0   0   0   0   0   1];
-GEa(3,:) = [0   8   0   4   0   4   0   0]; 
-GEa(4,:) = [1   6   0   0   0   2   0   1];
-GEa(5,:) = [0   4   0   4   0   2   0   0];
-GEa(6,:) = [0   0   0   6   0   0   0   1/4]; 
-GEa(7,:) = [0   0   0   1   0   2   0   2]; 
-GEa(8,:) = [0   0   0   1   0   2   0   0];
+GEa(1,:) = [0   4   0   0   0   2   0   2]/1;
+GEa(2,:) = [6   4   0   0   0   0   0   1]/1;
+GEa(3,:) = [0   8   0   4   0   4   0   0]/1; 
+GEa(4,:) = [4   6   0   0   0   2   0   1]/1;
+GEa(5,:) = [0   4   0   4   0   2   0   0]/1;
+GEa(6,:) = [0   0   0   6   0   0   0   1/4]/1; 
+GEa(7,:) = [0   0   0   1   0   2   0   2]/1; 
+GEa(8,:) = [0   0   0   1   0   2   0   0]/1;
 
-% GEa(1,:) = [0   0   0   0   0   0   0   2]/1;
-% GEa(2,:) = [4   0   0   0   0   0   0   0]/1;
-% GEa(3,:) = [0   4   0   0   0   0   0   0]/1; 
-% GEa(4,:) = [0   4   0   0   0   0   0   0]/1;
-% GEa(5,:) = [0   0   0   2   0   2   0   0]/1;
-% GEa(6,:) = [0   0   0   2   0   0   0   1]/1; 
-% GEa(7,:) = [0   0   0   0   0   0   0   2]/1; 
-% GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
+GEn(1,:) = [0   4   0   0   0   2   0   2]/1;
+GEn(2,:) = [6   4   0   0   0   0   0   1]/1;
+GEn(3,:) = [0   8   0   4   0   4   0   0]/1; 
+GEn(4,:) = [4   6   0   0   0   2   0   1]/1;
+GEn(5,:) = [0   4   0   4   0   2   0   0]/1;
+GEn(6,:) = [0   0   0   6   0   0   0   1/4]/1; 
+GEn(7,:) = [0   0   0   1   0   2   0   2]/1; 
+GEn(8,:) = [0   0   0   1   0   2   0   0]/1;
 
-% added TP>SI = 2 (was 0)
-GEa = GEa./8;
-%GEa = GEa .* ~eye(np);
-GEa = GEa + eye(np);      % KILLED
-
-GEn = GEa;
-GEn = GEn + eye(8)/8;
+GEa = GEa/8;
+GEn = GEn/8;
 
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
@@ -232,34 +212,38 @@ GIa(6,:) = [0   0   0   0   32  8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   32]; 
 
-% GIa(1,:) = [2   0   16  0   0   0   0   0 ];
-% GIa(2,:) = [0   64  16  0   0   0   0   0 ]; %spsp was 16
-% GIa(3,:) = [0   0   32  0   0   0   0   0 ];
-% GIa(4,:) = [0   0   0  128  12  0   0   0 ];
-% GIa(5,:) = [0   0   32  0   16  0   0   0 ];
-% GIa(6,:) = [0   0   0   0   32  8   0   0 ];
-% GIa(7,:) = [0   0   0   0   0   0   32  0 ];
-% GIa(8,:) = [0   0   0   0   0   0   8   32]; 
+GIb(1,:) = [16  0   8   0   0   0   0   0 ];
+GIb(2,:) = [0   32  16  0   0   0   0   0 ]; %spsp was 16
+GIb(3,:) = [0   0   32  0   0   0   0   0 ];
+GIb(4,:) = [0   0   0   8   12  0   0   0 ];
+GIb(5,:) = [0   0   32  0   16  0   0   0 ];
+GIb(6,:) = [0   0   0   0   32  8   0   0 ];
+GIb(7,:) = [0   0   0   0   0   0   32  0 ];
+GIb(8,:) = [0   0   0   0   0   0   8   32]; 
 
-%GIa(2,3)=54;
-%GIa(3,3)=128+64;
-%GIa(5,5)=64;
-%GIa(6,6)=16;
+GIa = GIa/3;
+GIb = GIb/3;
 
-GIa = GIa/2;
-%GIa = GIa/1.2;
+GIm(1,:) = [0   0   0   0   0   0   0   0 ];
+GIm(2,:) = [0   8   0   0   0   0   0   0 ]; %spsp was 16
+GIm(3,:) = [0   0   0   0   0   0   0   0 ];
+GIm(4,:) = [0   0   0   8   0   0   0   0 ];
+GIm(5,:) = [0   0   0   0   0   0   0   0 ];
+GIm(6,:) = [0   0   0   0   0   8   0   0 ];
+GIm(7,:) = [0   0   0   0   0   0   0   0 ];
+GIm(8,:) = [0   0   0   0   0   0   0   8 ]; 
 
-%GIa = 6*~~GIa;
+GIh(1,:) = [0   0   0   0   0   0   0   0 ];
+GIh(2,:) = [0   8   0   0   0   0   0   0 ]; %spsp was 16
+GIh(3,:) = [0   0   0   0   0   0   0   0 ];
+GIh(4,:) = [0   0   0   8   0   0   0   0 ];
+GIh(5,:) = [0   0   0   0   0   0   0   0 ];
+GIh(6,:) = [0   0   0   0   0   8   0   0 ];
+GIh(7,:) = [0   0   0   0   0   0   0   0 ];
+GIh(8,:) = [0   0   0   0   0   0   0   8 ]; 
 
-GIb = GIa;
-
-if isfield(P,'scale')
-    GEa = GEa * exp(P.scale(1));
-    GEn = GEn * exp(P.scale(2));
-    GIa = GIa * exp(P.scale(3));
-    GIb = GIb * exp(P.scale(4));
-end
-
+GIm = GIm./2;
+GIh = GIh./2;
 
 if IncludeMH
     
@@ -267,14 +251,6 @@ if IncludeMH
     %----------------------------------------------------------------------
     VM   = -70;                            % reversal potential m-channels          
     VH   = -30;                            % reversal potential h-channels 
-
-    GIm  = sparse([6 8],[6 8],4,8,8);
-    Mh   = diag(exp(P.Mh));
-
-    GIh      = full(sparse([6 8],[6 8],4   ,8,8)); % 1/4
-    Hh       = exp(P.Hh);
-    GIh(6,6) = GIh(6,6)*Hh(1);
-    GIh(8,8) = GIh(8,8)*Hh(2);
 
     KM    = (exp(-P.m)*1000/160) ;               % m-current opening + CV
     KH    = (exp(-P.h)*1000/100) ;               % h-current opening + CV
@@ -284,16 +260,9 @@ end
 % Channel rate constants [decay times]
 %--------------------------------------------------------------------------
 KE  = exp(-P.T(:,1))*1000/4;            % excitatory rate constants (AMPA)
-KI  = exp(-P.T(:,2))*1000/16;           % inhibitory rate constants (GABAa)
+KI  = exp(-P.T(:,2))*1000/6;           % inhibitory rate constants (GABAa)
 KN  = exp(-P.T(:,3))*1000/100;          % excitatory rate constants (NMDA)
 KB  = exp(-P.T(:,4))*1000/200;          % excitatory rate constants (NMDA)
-
-% now using faster AMPA and GABA-A dynamics based on this book:
-% https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
-
-%KE  = exp(-P.T(:,1))*1000/3;            % excitatory rate constants (AMPA)
-%KN  = exp(-P.T(:,3))*1000/150;          % excitatory rate constants (NMDA)
-KI  = exp(-P.T(:,2))*1000/6;           % inhibitory rate constants (GABAa)
 
 % Trial effects on time constants: AMPA & NMDA only
 if isfield(P,'T1')
@@ -313,12 +282,9 @@ VB   = -100;                              % reversal of GABA-B
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
 CV   = exp(P.CV).*      [128 128 128  128 64  128  64  64*2]/1000;  
-
-% [128 128 256 32]
-
 % leak conductance - fixed
 %--------------------------------------------------------------------------
-GL   = 1 ;       
+GL   = 1;          
 
 % mean-field effects:
 %==========================================================================
@@ -326,9 +292,6 @@ GL   = 1 ;
 % neural-mass approximation to covariance of states: trial specific
 %----------------------------------------------------------------------
 Vx   = exp(P.S)*32; % 32
-%    {ss    sp    ii    dp    di    tp    rt    rl}
-%Vx = [Vx(1) Vx(1) Vx(2) Vx(1) Vx(2) Vx(1) Vx(3) Vx(3)];
-
 if nargin < 5
     % compute only if not passed by integrator
     m    =     spm_Ncdf_jdw(x(:,:,1),VR,Vx);
@@ -380,23 +343,20 @@ for i = 1:ns
         else
             dU = 0;
         end
-        
-        Gsc = ~eye(8);
-        Gsc = Gsc +  (diag(exp(P.Gsc)));
-        
+                
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------
-        E      = ( (G(:,:,i).*GEa).*Gsc )*m(i,:)'; % AMPA currents
-        ENMDA  = (Gn(:,:,i).*GEn)*m(i,:)'; % NMDA currents
-        I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
-        IB     = ( G(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
+        E      = ( Gampa(:,:,i).*GEa)*m(i,:)'; % AMPA currents
+        ENMDA  = (Gnmda(:,:,i).*GEn)*m(i,:)'; % NMDA currents
+        I      = ( Ggabaa(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
+        IB     = ( Ggabab(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
         
         if IncludeMH
             
             % intrinsic coupling - non-parameterised: intrinsic dynamics
             %--------------------------------------------------------------
-            Im     = (Mh(:,:).*GIm)*m(i,:)'; % M currents
-            Ih     =           GIh *h(i,:)'; % H currents
+            Im     = (Gm(:,:).*GIm)*m(i,:)'; % M currents
+            Ih     = (Ghcn(:,:).*GIh)*h(i,:)'; % H currents
         end
         
         % extrinsic coupling (excitatory only) and background activity
@@ -440,42 +400,42 @@ for i = 1:ns
                    
         % Conductance equations
         %==================================================================   
-        %pop_rates = [1 1 2 1 1 1 1/8 1/8];
-        pop_rates = [1 1 1 1 1 1 1 1];
-        %pop_rates = pop_rates.*exp(P.pr);
-        %gabaa_rate = pop_rates .* exp(P.gaba);
+%         %pop_rates = [1 1 2 1 1 1 1/8 1/8];
+%         pop_rates = [1 1 1 1 1 1 1 1];
+%         pop_rates = pop_rates.*exp(P.pr);
+%         gabaa_rate = pop_rates .* exp(P.gaba);
+%         
+%         if isfield(P,'nmdat')
+%             nmdat = P.nmdat;
+%         else
+%             nmdat = pop_rates;
+%         end
         
-        %if isfield(P,'nmdat')
-        %    nmdat = P.nmdat;
-        %else
-        %    nmdat = pop_rates;
-        %end
-        
-        f(i,:,2) = (E'     - x(i,:,2)).* (KE(:,:)');%*pop_rates);
-        f(i,:,3) = (I'     - x(i,:,3)).* (KI(:,:)');%*gabaa_rate);
-        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(:,:)');%*pop_rates);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(:,:)');%*nmdat);
+        f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:));%*pop_rates);
+        f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:));%*gabaa_rate);
+        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:));%*pop_rates);
+        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:));%*nmdat);
         
         if IncludeMH
-            f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );%*pop_rates );
-            f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
+            f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:));%*pop_rates );
+            f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:));%*pop_rates );
         end
         
         % c.f. synaptic delays + conduction delays
         %------------------------------------------------------------------
-        DV = 1./[1 1 1 1 1 1 1 1]; % this is usually switched off
-        if isfield(P,'TV')
-            DV       = DV.*exp(P.TV);
-            f(i,:,2) = f(i,:,2) .* DV;  % AMPA
-            f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
-            f(i,:,4) = f(i,:,4) .* DV;  % NMDA
-            f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
-
-            if IncludeMH
-                f(i,:,6) = f(i,:,6) .* DV;  % M
-                f(i,:,7) = f(i,:,7) .* DV;  % H
-            end 
-        end
+%         DV = 1./[1 1 1 1 1 1 1 1]; % this is usually switched off
+%         if isfield(P,'TV')
+%             DV       = DV.*exp(P.TV);
+%             f(i,:,2) = f(i,:,2) .* DV;  % AMPA
+%             f(i,:,3) = f(i,:,3) .* DV;  % GABA-A
+%             f(i,:,4) = f(i,:,4) .* DV;  % NMDA
+%             f(i,:,5) = f(i,:,5) .* DV;  % GABA-B
+% 
+%             if IncludeMH
+%                 f(i,:,6) = f(i,:,6) .* DV;  % M
+%                 f(i,:,7) = f(i,:,7) .* DV;  % H
+%             end 
+%         end
         
                 
 end
@@ -484,6 +444,7 @@ end
 % vectorise equations of motion
 %==========================================================================
 f = spm_vec(f);
+
  
 if nargout < 2, return, end
 
@@ -549,4 +510,3 @@ end
 %                     = Q*f = Q*J*x(t)
 %--------------------------------------------------------------------------
 Q  = spm_inv(speye(length(J)) - D.*J);
-%Q  = spm_inv(D.*J);

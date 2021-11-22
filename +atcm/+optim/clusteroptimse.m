@@ -763,6 +763,10 @@ catch
     E  = sum( (spm_vec(Y) - real(spm_vec(yy))).^2 );
 end
 
+if E == -inf
+    E = inf;
+end
+
 % Plot current prediction point (CSD)
 %--------------------------------------------------------------------------
 %PCSD(Y{1},yy{1},[],DD.M.Hz);

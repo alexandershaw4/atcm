@@ -1,4 +1,4 @@
-function [f,J,Q,D] = tc_hilge(x,u,P,M,m)
+function [f,J,Q,D] = tcm_b(x,u,P,M,m)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -314,6 +314,9 @@ VB   = -100;                              % reversal of GABA-B
 %--------------------------------------------------------------------------
 CV   = exp(P.CV).*      [128 128 128  128 64  128  64  64*2]/1000;  
 
+CV   = exp(P.CV).*      [128 32  32  128 64  128  256 64]/1000;  
+
+
 % [128 128 256 32]
 
 % leak conductance - fixed
@@ -464,6 +467,10 @@ for i = 1:ns
         % c.f. synaptic delays + conduction delays
         %------------------------------------------------------------------
         DV = 1./[1 1 1 1 1 1 1 1]; % this is usually switched off
+        
+        DV       = 1./[1 1 1 2.2 1 2 8 8]; % intrinsc are already 10ms, so 10*8
+
+        
         if isfield(P,'TV')
             DV       = DV.*exp(P.TV);
             f(i,:,2) = f(i,:,2) .* DV;  % AMPA
@@ -549,4 +556,3 @@ end
 %                     = Q*f = Q*J*x(t)
 %--------------------------------------------------------------------------
 Q  = spm_inv(speye(length(J)) - D.*J);
-%Q  = spm_inv(D.*J);

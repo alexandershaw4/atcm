@@ -247,7 +247,7 @@ for i = 1:Ne;
         Ymod = Y;
         
         % log the condition and trial series
-        series{i}(j,:,:) = Y;
+        %series{i}(j,:,:) = Y;
         
         if DOBASE==1;
                 Ybase=full(double(D(Ic,baseIt,c(j))'*DCM.M.U));
@@ -286,6 +286,7 @@ for i = 1:Ne;
 %             Ymod = Y;
 %         end
         Ymod = Y;
+        series{i}(j,:,:) = Y;
         
         UseWelch=0;
         try 
@@ -299,13 +300,13 @@ for i = 1:Ne;
                 [Ymod] = vmd(real(Ymod),'NumIMFs',5);
                 %fprintf('Using VMD\n');
                 
-                [u,s,v] = spm_svd(cov(Ymod'));                                        
-                pc = u'*Ymod;
-                nn = min(12,size(pc,1));%thr;
-                pc = pc(1:nn,:);
+                [uu,~,~] = spm_svd(cov(Ymod'));                                        
+                pcc = uu'*Ymod;
+                nn = min(12,size(pcc,1));%thr;
+                pcc = pcc(1:nn,:);
                 
                 % autoregressive spectral method for VMD components
-                for i = 1:nn; Pfc(i,:) = pyulear(pc(i,:),2,DCM.xY.Hz,1/DCM.xY.dt); end
+                for ii = 1:nn; Pfc(ii,:) = pyulear(pcc(ii,:),2,DCM.xY.Hz,1/DCM.xY.dt); end
                 
                 Pf(:,1,1) = sum(Pfc,1);
                 
@@ -332,21 +333,22 @@ for i = 1:Ne;
                             Pf = Pf';
                         end
                     end
-                    if FFTSmooth > 0;
-                        for nchanx = 1:size(Pf,2)
-                            for nchany = 1:size(Pf,3)
-                                Pfxy = Pf(:,nchanx,nchany);
-                                [dPf,in] = atcm.fun.padtimeseries(Pfxy);
-                                dPf = atcm.fun.HighResMeanFilt(dPf,1,FFTSmooth);
-                                Pfxy  = dPf(in);
-                                Pf(:,nchanx,nchany) = Pfxy;
-                            end
-                        end
-                    end
+%                     if FFTSmooth > 0;
+%                         for nchanx = 1:size(Pf,2)
+%                             for nchany = 1:size(Pf,3)
+%                                 Pfxy = Pf(:,nchanx,nchany);
+%                                 [dPf,in] = atcm.fun.padtimeseries(Pfxy);
+%                                 dPf = atcm.fun.HighResMeanFilt(dPf,1,FFTSmooth);
+%                                 Pfxy  = dPf(in);
+%                                 Pf(:,nchanx,nchany) = Pfxy;
+%                             end
+%                         end
+%                     end
                     if isfield(DCM.options,'envelope') && ~isempty(DCM.options.envelope) && DCM.options.envelope>0
                        for nchanx = 1:size(Pf,2)
                            for nchany = 1:size(Pf,3)
-                               Pf(:,nchanx,nchany) = atcm.fun.aenvelope(Pf(:,nchanx,nchany),DCM.options.envelope);
+                               Pf(:,nchanx,nchany) = atcm.fun.aenv(Pf(:,nchanx,nchany),DCM.options.envelope,[],1);
+                               %Pf(:,nchanx,nchany) = atcm.fun.aenvelope(Pf(:,nchanx,nchany),DCM.options.envelope);
                            end
                        end
                     end
@@ -396,6 +398,27 @@ for i = 1:Ne;
             end
             
         end
+        
+        
+        
+        if FFTSmooth > 0;
+            if Nm == 1
+                Pfull = Pfull';
+            end
+            for nchanx = 1:size(Pf,2)
+                for nchany = 1:size(Pf,3)
+                    Pfxy = Pfull(:,nchanx,nchany);
+                    [dPf,in] = atcm.fun.padtimeseries(Pfxy);
+                    dPf = atcm.fun.HighResMeanFilt(dPf,1,FFTSmooth);
+                    Pfxy  = dPf(in);
+                    Pfull(:,nchanx,nchany) = Pfxy;
+                end
+            end
+            if Nm == 1
+                Pfull = Pfull';
+            end
+        end
+        
         
  
 

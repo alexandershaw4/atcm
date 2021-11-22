@@ -18,7 +18,7 @@ xlabel('Frequency (Hz)');ylabel('PSD');
 grid on;
 
 
-subplot(222); plot(w,squeeze(l{1}.weighted(1,:,:)),'linewidth',2);
+subplot(222); plot(w,squeeze(l{1}.iweighted(1,:,:)),'linewidth',2);
 title('Principal (contributing) cells spectra');
 xlabel('Frequency (Hz)');ylabel('PSD');
 grid on;
