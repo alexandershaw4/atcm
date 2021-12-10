@@ -196,7 +196,7 @@ GIa = zeros(8,8);
 %           ss  sp  si  dp  di  tp  rt  rl   
 GEa(1,:) = [0   4   0   0   0   2   0   2];
 GEa(2,:) = [6   4   0   0   0   0   0   1];
-GEa(3,:) = [0   8   0   4   0   4   0   0]; 
+GEa(3,:) = [1   8   0   0   0   0   0   0]; 
 GEa(4,:) = [1   6   0   0   0   2   0   1];
 GEa(5,:) = [0   4   0   4   0   2   0   0];
 GEa(6,:) = [0   0   0   6   0   0   0   1/4]; 
@@ -269,6 +269,7 @@ if IncludeMH
     VH   = -30;                            % reversal potential h-channels 
 
     GIm  = sparse([6 8],[6 8],4,8,8);
+    %GIm  = eye(8)*4;
     Mh   = diag(exp(P.Mh));
 
     GIh      = full(sparse([6 8],[6 8],4   ,8,8)); % 1/4
@@ -530,6 +531,17 @@ Tc([1:6],[7 8]) = TC  * exp(P.D0(2)); % thal->ss
 %Tc = Tc.*~~(GEa | GIa);
 Tc = -Tc / 1000;
 Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
+
+
+% ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
+% ID = [1 1 1 1 1 1 1 20];
+% ID = -ID.*exp(P.ID)/1000;
+% 
+% ID = repmat(ID,[1 nk]);
+% 
+% 
+% Tc = Tc + diag(ID);
+
 
 % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
 %--------------------------------------------------------------------------

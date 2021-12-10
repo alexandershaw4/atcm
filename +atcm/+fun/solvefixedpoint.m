@@ -86,9 +86,8 @@ for i = 1:128
     % update and convergence
     %--------------------------------------------------------------
     M.x    = spm_unvec(spm_vec(M.x) + exp(-a)*dx,M.x);
-    if dnx < 1e-12, break, end
+    if dnx < 1e-6, break, end % 12
     
 end
-
 x = M.x;
 end

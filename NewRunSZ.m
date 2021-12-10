@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'nnOct_m13_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'TCM_10Dec_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -102,7 +102,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.options.Tdcm   = [300 1300];                   %... peristimulus time
     DCM.options.Fdcm   = fq;                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
-    DCM.options.han    = 0;                         %... apply hanning window
+    DCM.options.han    = 1;                         %... apply hanning window
     DCM.options.h      = 4;                         %... number of confounds (DCT)
     DCM.options.DoData = 1;                         %... leave on [custom]
     %DCM.options.baseTdcm   = [-200 0];             %... baseline times [new!]
@@ -205,120 +205,150 @@ for s = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     y  = spm_vec(DCM.xY.y{1});
     w  = spm_vec(DCM.xY.Hz);
-    [~,LO] = findpeaks(real(smooth(y)),w,'NPeak',4);
-    Qw = zeros(size(w))+1;
-    i0=[];
-    for ip = 1:length(LO)
-        i0(ip)=atcm.fun.findthenearest(w,LO(ip));
-    end
+%     [~,LO] = findpeaks(real(smooth(y)),w,'NPeak',4);
+%     Qw = zeros(size(w))+1;
+%     i0=[];
+%     for ip = 1:length(LO)
+%         i0(ip)=atcm.fun.findthenearest(w,LO(ip));
+%     end
+%     
+%     if isempty(i0)
+%         [~,i0] = max(real(smooth(y)));
+%     end
     
-    if isempty(i0)
-        [~,i0] = max(real(smooth(y)));
-    end
+    %Qw(i0)=8;
+    %Qw = diag(Qw);
+    Qw = diag(DCM.xY.y{:}./max(DCM.xY.y{:}));
+    Nf = length(w);
+    Q  = {spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1)};
+    %Q  = {spm_Q(1/2,Nf,1)*(Qw)*spm_Q(1/2,Nf,1)};
+    %Qw = Qw * Q{:};
+    Qw = Q{:};
     
-    Qw(i0)=8;
-    Qw=diag(Qw);
+    
     
     % New 2021: Try fititng with only the synaptioc
     % parameters corresponding to the CMC13 connections!
     %----------------------------------------------------------------------
+
     pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-        
-    pC.H = [1  0  1  0  0  0  0  1;
+
+    pC.H = [1  1  1  0  0  0  0  1;
             1  1  1  0  0  0  0  0;
-            0  1  1  0  0  0  0  0;
-            0  1  0  1  1  0  0  0;
-            0  0  0  1  0  0  0  0;
+            1  1  1  0  0  0  0  0;
+            1  1  0  1  1  0  0  0;
+            0  1  0  1  0  0  0  0;
             0  0  0  1  1  0  0  0;
-            0  0  0  0  0  0  0  1;
-            0  0  0  0  0  1  0  1]/8;
-        
-    pC.Hn= [0  0  0  0  0  0  0  1;
+            0  0  0  0  0  0  0  0;
+            0  0  0  0  0  1  1  1]/8;
+
+    pC.Hn= [0  1  0  0  0  0  0  1;
             1  0  0  0  0  0  0  0;
-            0  1  1  0  0  0  0  0;
-            0  1  0  0  0  0  0  0;
+            1  1  0  0  0  0  0  0;
+            1  1  0  0  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  1  0  0  0  0;
-            0  0  0  0  0  0  0  1;
-            0  0  0  0  0  1  0  0]/8; 
-    
+            0  0  0  0  0  0  0  0;
+            0  0  0  0  0  1  0  1]/8;
+
     %DCM.M.pE.T = repmat(DCM.M.pE.T,[8 1]);
-    pC.T = [1    0    1    0;
+    pC.T = [1    0    0    0;
             1    0    1    0;
             0    1    0    1;
             1    0    1    0;
-            0    1    0    1;
-            1    0    1    0;
-            0    1    0    1;
-            1    0    1    0]/16;
-    %pC.T(5:end,:)=0;
-     
-    ppC = spm_unvec(spm_vec(pC)*0,pC);
-    ppC.H  = pC.H;
-    ppC.Hn = pC.Hn;
-    ppC.T  = pC.T;
-    %ppC.ID = ones(1,8)/8;
-        
-    DCM.M.pC = ppC;
-    DCM.M.pC.L = 1/8;
+            0    0    0    0;
+            0    0    0    0;
+            0    0    0    0;
+            1    1    1    0]/8;
+
+    pC.L = 1/8;
+    pC.R = [1 1 1]/8;
+    
+    DCM.M.pC = pC;
                 
     DCM.M.fmethod='none';
     DCM.M.pE.L = -2.5;
         
     DCM.M.InputType=2;
+    DCM.M.burnin=300;
         
     % new priors (again...)
     x = load('Priors_22Oct_b','Ep');
     DCM.M.pE = x.Ep;
-    DCM.M.pE.L = -2.8;
-    
+    DCM.M.pE.L = -2;
     DCM.M.pE.J([1 4])=-1000;
+    
+    %DCM.M.pE.J([2 4]) = log([1.1 1.1]);
+    %DCM.M.pC.J([2 4]) = 1/8;
+    
+    DCM.M.pE.ID = zeros(1,8);
+    DCM.M.pC.ID = ones(1,8)/18;
+    
+    DCM.M.pC.Ly = 0;
+    DCM.M.pE.Ly = -2;
+    DCM.M.pE.ID(1)=-0.4;
+    
+    DCM.M.pE.f = [0 0];
+    DCM.M.pC.f = [0 0]+1/8;
+    
+    % fit noise component and remove
+    mNoise = atcm.fun.c_oof(w(:),spm_vec(DCM.xY.y));
+    DCM.xY.y{1} = DCM.xY.y{1} - mNoise;
+    DCM.M.mNoise = mNoise;
+    DCM.M.y  = DCM.xY.y;
+
+    % keep for saving after
+    ppE = DCM.M.pE;
             
     % Optimise --- 1                                                           1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
 
     % Bias and feature selection
-    M.opts.Q = Qw;%diag(4-Qwg);%(Qw);
-    %M.opts.FS = @(x) [x; dct(x); xcorr(x); denan(32*instfreq(ifft(x),1))]; % 32*instfreq(ifft(x),1)
-    M.opts.FS = @(x) [sqrt(x); dct(x); xcorr(x)]; % 32*instfreq(ifft(x),1)
-
+    M.opts.Q  = real(Qw);  
+    M.opts.FS = @(x) [real(sqrt(x))];
+    M.opts.FS = @(x) real( Pf2VMD(x,3) );
+    
     % opt set 1.
-    M.opts.EnforcePriorProb=0;
-    M.opts.ismimo=0;
+    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams=1;   % hyperparameter tuning
     M.opts.fsd=0;           % fixed-step for derivatives
     M.opts.corrweight = 0;  % weight log evidence by correlation 
     
-    M.opts.objective = 'rmse';
+    M.opts.objective = 'rmse'; % objective (error) function
+    M.opts.criterion = 1e-3;
     
-    M.default_optimise([1],[18])
+    M.default_optimise([1],[28])
     
     % Extract fit and run again
     Ep = spm_unvec(M.Ep,DCM.M.pE);
     DCM.M.pE = Ep;
-     
-    close; 
-    
-    % Optiomise --- 2
+
+    % Optimise --- 2                                                         1
+    %----------------------------------------------------------------------
     M = AODCM(DCM);
-        
-    M.opts.Q = diag(4-diag(Qw));%(Qw);
-    M.opts.FS = @(x) [sqrt(x); atcm.fun.HighResMeanFilt(x,1,6); dct(x)];
+    
+    % Bias and feature selection
+    M.opts.Q  = Qw;  
+    M.opts.FS = @(x) real(sqrt(x));
     
     % opt set 1.
-    M.opts.EnforcePriorProb=0;
-    M.opts.ismimo=0;
-    M.opts.doparallel=1;
-    M.opts.hyperparams=1;    %M.opts.inner_loop=5;
-    M.opts.fsd=0;
-    M.opts.corrweight = 1; % weight error by correlation (good for spectra)
+    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
+    M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
+    M.opts.hyperparams=1;   % hyperparameter tuning
+    M.opts.fsd=0;           % fixed-step for derivatives
+    M.opts.corrweight = 0;  % weight log evidence by correlation 
     
-    M.default_optimise([1],[8])
-    
+    M.opts.objective = 'rmse'; % objective (error) function
+    M.opts.criterion = 1e-3;
+
+    M.default_optimise([1],[28])
+      
     % reinstate the actual priors before saving
-    DCM.M.pE = x.Ep;
+    DCM.M.pE = ppE;
     
     save(DCM.name); close; clear global;    
     

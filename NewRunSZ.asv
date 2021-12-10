@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'Sep_m13_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'TCM_10Dec_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -86,14 +86,14 @@ for s = i;%1:length(Data.Datasets)
     % Function Handles
     %----------------------------------------------------------------------
     DCM.M.f  = @atcm.tc_hilge;               % model function handle
-    DCM.M.IS = @atcm.integrate3;              % Alex integrator/transfer function
-    DCM.options.SpecFun = @atcm.fun.Afft;  % fft function for IS
+    DCM.M.IS = @atcm.integrate_1;            % Alex integrator/transfer function
+    DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
     % Print Progress
     %----------------------------------------------------------------------
     fprintf('Running Dataset %d / %d\n',s,length(Data.Datasets));
     
-    fq = [4 90];
+    fq = [3 90];
     
     % Prepare Data
     %----------------------------------------------------------------------
@@ -102,7 +102,7 @@ for s = i;%1:length(Data.Datasets)
     DCM.options.Tdcm   = [300 1300];                   %... peristimulus time
     DCM.options.Fdcm   = fq;                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
-    DCM.options.han    = 0;                         %... apply hanning window
+    DCM.options.han    = 1;                         %... apply hanning window
     DCM.options.h      = 4;                         %... number of confounds (DCT)
     DCM.options.DoData = 1;                         %... leave on [custom]
     %DCM.options.baseTdcm   = [-200 0];             %... baseline times [new!]
@@ -116,26 +116,16 @@ for s = i;%1:length(Data.Datasets)
 
     % Alex additions - 1010 = use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 4;
-    DCM.options.UseButterband = fq;
+    DCM.options.FFTSmooth     = 2;
+    %DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;        % use .5 Hz steps
-        
+            
+    
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;      
-    
-    
-    % Fit the empirical spectrum as a series of Gaussian components
-    fprintf('Fitting the data...\n');
-    w  = DCM.xY.Hz;
-    oy = real(DCM.xY.y{:});
-    cf = fit(w.',oy,'smoothingspline');
-    %cf = fit(w.',oy,'smoothingspline');
-    resid = oy - cf(w);
-    DCM.xY.y{:} = cf(w);
-    
-    
+        
     % Subfunctions and priors
     %----------------------------------------------------------------------
     %DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
@@ -176,15 +166,15 @@ for s = i;%1:length(Data.Datasets)
         
     X = load('~/Dropbox/code/atcm/+atcm/+fun/Priors2021a.mat');
     DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
-    
+        
     % Feature function for the integrator
     %----------------------------------------------------------------------
     %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     
-    %imscale = sum(spm_vec(abs(real(DCM.xY.y{:})))) ./ sum(spm_vec(abs(imag(DCM.xY.y{:}))));
-    %DCM.M.FS = @(x) [real(x) ; imscale*imag(x) ];
+    imscale = sum(spm_vec(abs(real(DCM.xY.y{:})))) ./ sum(spm_vec(abs(imag(DCM.xY.y{:}))));
+    DCM.M.FS = @(x) [real(x) ; imscale*imag(x) ];
 
     % other model options
     %----------------------------------------------------------------------
@@ -205,6 +195,9 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE.Ly = 2;
     DCM.M.pC.Ly = 1/8;
     
+    DCM.M.pE.C = 0;
+    DCM.M.pC.C = 1/8;
+    
     %DCM.M.pE.iL = 0;
     %DCM.M.pC.iL = 1/8;
 
@@ -212,71 +205,150 @@ for s = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     y  = spm_vec(DCM.xY.y{1});
     w  = spm_vec(DCM.xY.Hz);
-    [~,LO] = findpeaks(real(smooth(y)),w,'NPeak',4);
-    Qw = zeros(size(w))+1;
-    i0=[];
-    for ip = 1:length(LO)
-        i0(ip)=atcm.fun.findthenearest(w,LO(ip));
-    end
+%     [~,LO] = findpeaks(real(smooth(y)),w,'NPeak',4);
+%     Qw = zeros(size(w))+1;
+%     i0=[];
+%     for ip = 1:length(LO)
+%         i0(ip)=atcm.fun.findthenearest(w,LO(ip));
+%     end
+%     
+%     if isempty(i0)
+%         [~,i0] = max(real(smooth(y)));
+%     end
     
-    if isempty(i0)
-        [~,i0] = max(real(smooth(y)));
-        i0
-    end
+    %Qw(i0)=8;
+    %Qw = diag(Qw);
+    Qw = diag(DCM.xY.y{:}./max(DCM.xY.y{:}));
+    Nf = length(w);
+    Q  = {spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1)};
+    %Q  = {spm_Q(1/2,Nf,1)*(Qw)*spm_Q(1/2,Nf,1)};
+    %Qw = Qw * Q{:};
+    Qw = Q{:};
     
-    Qw(i0)=4;
-    Qw=diag(Qw);
     
-    % New august 18th 2021: Try fititng with only the synaptioc
+    
+    % New 2021: Try fititng with only the synaptioc
     % parameters corresponding to the CMC13 connections!
     %----------------------------------------------------------------------
+
     pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-        
-    pC.H = [0  0  1  0  0  0  0  0;
+
+    pC.H = [1  1  1  0  0  0  0  1;
             1  1  1  0  0  0  0  0;
-            0  1  1  0  0  0  0  0;
-            0  1  0  1  1  0  0  0;
+            1  1  1  0  0  0  0  0;
+            1  1  0  1  1  0  0  0;
+            0  1  0  1  0  0  0  0;
             0  0  0  1  1  0  0  0;
             0  0  0  0  0  0  0  0;
-            0  0  0  0  0  0  0  0;
-            0  0  0  0  0  0  0  0]/8;
-        
-    pC.Hn= [0  0  0  0  0  0  0  0;
+            0  0  0  0  0  1  1  1]/8;
+
+    pC.Hn= [0  1  0  0  0  0  0  1;
+            1  0  0  0  0  0  0  0;
             1  1  0  0  0  0  0  0;
-            0  1  0  0  0  0  0  0;
-            0  1  0  0  0  0  0  0;
+            1  1  0  0  0  0  0  0;
+            0  0  0  1  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  0  0  0  0  0;
-            0  0  0  0  0  0  0  0;
-            0  0  0  0  0  0  0  0]/8; 
-        
-    %pC.ID([1 2 3 8]) = 1/8;
-    pC.gaba([2 3])=1/6;
-    pC.T(1:3)=1/16;
+            0  0  0  0  0  1  0  1]/8;
+
+    %DCM.M.pE.T = repmat(DCM.M.pE.T,[8 1]);
+    pC.T = [1    0    0    0;
+            1    0    1    0;
+            0    1    0    1;
+            1    0    1    0;
+            0    0    0    0;
+            0    0    0    0;
+            0    0    0    0;
+            1    1    1    0]/8;
+
+    pC.L = 1/8;
+    pC.R = [1 1 1]/8;
     
-    DCM.M.pC=pC;
-    DCM.M.pE.Ly=0;
-    DCM.M.pC.Ly=1/8;
-    
-    % depolarisation of SPs is the only necessary contributor to MEG
-    DCM.M.pE.J(2) = log(1.1);
-    DCM.M.pE.J(4) = -1000;
+    DCM.M.pC = pC;
                 
-    % Optimise                                                           1
+    DCM.M.fmethod='none';
+    DCM.M.pE.L = -2.5;
+        
+    DCM.M.InputType=2;
+    DCM.M.burnin=300;
+        
+    % new priors (again...)
+    x = load('Priors_22Oct_b','Ep');
+    DCM.M.pE = x.Ep;
+    DCM.M.pE.L = -2;
+    DCM.M.pE.J([1 4])=-1000;
+    
+    %DCM.M.pE.J([2 4]) = log([1.1 1.1]);
+    %DCM.M.pC.J([2 4]) = 1/8;
+    
+    DCM.M.pE.ID = zeros(1,8);
+    DCM.M.pC.ID = ones(1,8)/18;
+    
+    DCM.M.pC.Ly = 0;
+    DCM.M.pE.Ly = -2;
+    DCM.M.pE.ID(1)=-0.4;
+    
+    DCM.M.pE.f = [0 0];
+    DCM.M.pC.f = [0 0]+1/8;
+    
+    % fit noise component and remove
+    mNoise = atcm.fun.c_oof(w(:),spm_vec(DCM.xY.y));
+    DCM.xY.y{1} = DCM.xY.y{1} - mNoise;
+    DCM.M.mNoise = mNoise;
+    DCM.M.y  = DCM.xY.y;
+
+    % keep for saving after
+    ppE = DCM.M.pE;
+            
+    % Optimise --- 1                                                           1
+    %----------------------------------------------------------------------
+    M = AODCM(DCM);
+
+    % Bias and feature selection
+    M.opts.Q  = real(Qw);  
+    M.opts.FS = @(x) [real(sqrt(x))];
+    M.opts.FS = @(x) real( spm_vec(atcm.fun.Pf2VMD(x,3)) );
+    
+    % opt set 1.
+    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
+    M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
+    M.opts.hyperparams=1;   % hyperparameter tuning
+    M.opts.fsd=0;           % fixed-step for derivatives
+    M.opts.corrweight = 0;  % weight log evidence by correlation 
+    
+    M.opts.objective = 'rmse'; % objective (error) function
+    M.opts.criterion = 1e-3;
+    
+    M.default_optimise([1],[28])
+    
+    % Extract fit and run again
+    Ep = spm_unvec(M.Ep,DCM.M.pE);
+    DCM.M.pE = Ep;
+
+    % Optimise --- 2                                                         1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
     
-    M.opts.Q = Qw;
-         
+    % Bias and feature selection
+    M.opts.Q  = Qw;  
+    M.opts.FS = @(x) real(sqrt(x));
+    
     % opt set 1.
-    M.opts.EnforcePriorProb=0;
-    M.opts.ismimo=0;
-    M.opts.doparallel=1;
-    M.opts.hyperparams=1;
-    M.opts.fsd=0;
-    M.opts.corrweight = 1; % weight error by correlation (good for spectra)
-            
-    M.default_optimise([1 1 1 3 1],[5 5 5 4 4]);
+    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
+    M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
+    M.opts.hyperparams=1;   % hyperparameter tuning
+    M.opts.fsd=0;           % fixed-step for derivatives
+    M.opts.corrweight = 0;  % weight log evidence by correlation 
+    
+    M.opts.objective = 'rmse'; % objective (error) function
+    M.opts.criterion = 1e-3;
+
+    M.default_optimise([1],[28])
+      
+    % reinstate the actual priors before saving
+    DCM.M.pE = ppE;
     
     save(DCM.name); close; clear global;    
     

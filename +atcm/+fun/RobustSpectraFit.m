@@ -18,15 +18,19 @@ for j=1:N,
     m=singlespectra(j,:);
     lm=log(m(f0:f1));
     Fitlm=[lm(1:fc1) lm(fc2:end)];
-
+    
+    warning off;
     b=robustfit(FitFreqs,Fitlm);
+    warning on;
     FitPar(j,:)=b;
     modelm(j,:)=(b(1)+b(2)*Freqs);
     
     uncorrected(j,:)=lm;
     
-    lm=lm-modelm(j,:);
-    lm=atcm.fun.moving_average(lm,PostSmooth);
+    lm=lm-modelm(j,:); 
+    if PostSmooth > 0
+        lm=atcm.fun.moving_average(lm,PostSmooth);
+    end
     newspectra(j,:)=(lm);
 end
 mnewspectra=mean(newspectra,1);
