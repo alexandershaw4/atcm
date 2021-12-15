@@ -362,15 +362,14 @@ try
    %N = min([N 4]);
 end
 
-% Set up custom delay vectors: 8-pop t-c model, 6-pop cort model and 4-pop
-% cmc model... this could be passed in M rather than hard coded...
+% Set up custom delay operator - parameterised state x state delays
+% conferred by population delays (c.f. conduction delay)
 %--------------------------------------------------------------------------
 if isfield(P,'ID')
     
     if npp == 8 
         del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
         del = exp(P.ID).*[4 1/4 1 8 1/2 4 2 20]/2.4;
-        
         %ID = [1 1/8 1/4 1 1/2 1 1 8];
         %del = -ID.*exp(P.ID)/1000;
         del = repmat(del,[1 nk]);
@@ -383,36 +382,11 @@ if isfield(P,'ID')
         end
         condel=del;
     end
-    if npp == 6 
-        del = exp(P.ID).*[2 1/4 1/2 8 1/2 4]/2.4;
-        del = repmat(del,[1 nk]);
-        del=1./del;
-        if ns > 1
-            if ~isfield(P,'delay')
-                del = (spm_vec(repmat(del,[ns 1])))';
-            else
-            end
-        end
-        condel=del;
-    end
-    if npp == 4 % cmc
-        del = exp(P.ID).*[2 1/4 1/2 4]/2.4;
-        del = repmat(del,[1 nk]);
-        del=1./del;
-        if ns > 1
-            if ~isfield(P,'delay')
-                del = (spm_vec(repmat(del,[ns 1])))';
-            else
-            end
-        end
-        condel=del;
-    end
+    
 else
     del    = 1;
     condel = 1;
 end
-
-%del = ~~del;
 
 % initial firing rate
 Curfire = zeros(size(M.x,2),1)';
@@ -845,6 +819,8 @@ for ins = 1:ns
     
     Eigenvectors = yx;
     
+    % use dynamic mode decomposition on hidden states if M.dmd = 1
+    %----------------------------------------------------------------------
     if isfield(M,'dmd') && M.dmd
         [Eigenvalues, Eigenvectors] = atcm.fun.dmd(yx', 8, dt);
         yx = Eigenvectors*yx;
@@ -925,14 +901,11 @@ for ins = 1:ns
             else
                 g = 'exp2';
             end
+            
             m  = atcm.fun.c_oof(w(:),Pf(:),g);
             C  = [Pf(:) m(:)];
             b  = (pinv(C*C')*C)'*squeeze(M.y{ci}(:,ins,ins));
-            Pf = C*b;
-            %Pf = (Pf(:) - m(:));
-            %Pf = Pf + (m.* Gn(:));
-            %Pf = Pf + Gn(:);
-            %Pf = atcm.fun.moving_average(Pf, 2);
+            Pf = atcm.fun.moving_average(C*b,2);
         end
     
         warning on;
@@ -1028,7 +1001,7 @@ if isfield(M,'y')
         addnoise=1;
         if addnoise
             % Multiply in the {semi-stochastic} neuronal fluctuations
-            % note this would be a convolution in the time domain
+            % note this would be a convolution of signal and noise in the time domain
             for i = 1:length(Hz)
                 Pf(i,ins,ins) = sq(Pf(i,ins,ins))*real(diag(Gu(i,ins)))*sq(Pf(i,ins,ins));
             end

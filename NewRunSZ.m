@@ -198,35 +198,17 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE.C = 0;
     DCM.M.pC.C = 1/8;
     
-    %DCM.M.pE.iL = 0;
-    %DCM.M.pC.iL = 1/8;
-
     % Set Q - a precision operator
     %----------------------------------------------------------------------
     y  = spm_vec(DCM.xY.y{1});
     w  = spm_vec(DCM.xY.Hz);
-%     [~,LO] = findpeaks(real(smooth(y)),w,'NPeak',4);
-%     Qw = zeros(size(w))+1;
-%     i0=[];
-%     for ip = 1:length(LO)
-%         i0(ip)=atcm.fun.findthenearest(w,LO(ip));
-%     end
-%     
-%     if isempty(i0)
-%         [~,i0] = max(real(smooth(y)));
-%     end
-    
-    %Qw(i0)=8;
-    %Qw = diag(Qw);
     Qw = diag(DCM.xY.y{:}./max(DCM.xY.y{:}));
     Nf = length(w);
     Q  = {spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1)};
     %Q  = {spm_Q(1/2,Nf,1)*(Qw)*spm_Q(1/2,Nf,1)};
     Qw = Qw * Q{:};
     %Qw = Q{:};
-    
-    
-    
+        
     % New 2021: Try fititng with only the synaptioc
     % parameters corresponding to the CMC13 connections!
     %----------------------------------------------------------------------
@@ -278,15 +260,10 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE = x.Ep;
     DCM.M.pE.L = 0;%-2;
     DCM.M.pE.J([1 4])=-1000;
-    
-    %DCM.M.pE.J([2 4]) = log([1.1 1.1]);
-    %DCM.M.pC.J([2 4]) = 1/8;
-    
+        
     DCM.M.pE.ID = zeros(1,8);
     DCM.M.pC.ID = ones(1,8)/18;
-    
-    %DCM.M.pC.CV = ones(1,8)/8;
-    
+        
     DCM.M.pC.Ly = 0;
     DCM.M.pE.Ly = -2;
     DCM.M.pE.ID(1)=-0.4;
@@ -297,11 +274,6 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE.b = [0;0];
     DCM.M.pC.b = [1;1]/8;
     
-    % fit noise component and remove
-%     mNoise = atcm.fun.c_oof(w(:),spm_vec(DCM.xY.y));
-%     DCM.xY.y{1} = DCM.xY.y{1} - mNoise;
-%     DCM.M.mNoise = mNoise;
-%     DCM.M.y  = DCM.xY.y;
     DCM.M.y  = DCM.xY.y;
 
     DCM.M.pE.L=-.5;
@@ -320,7 +292,7 @@ for s = i;%1:length(Data.Datasets)
     % Bias and feature selection
     M.opts.Q  = real(Qw);  
     M.opts.FS = @(x) [real(sqrt(x))];
-    %M.opts.FS = @(x) real( spm_vec(atcm.fun.Pf2VMD(x,3)) );
+    M.opts.FS = @(x) real( spm_vec(atcm.fun.Pf2VMD(x,3)) );
     
     % opt set 1.
     M.opts.EnforcePriorProb=1; % forcibly constrain parameters to within prior dist
