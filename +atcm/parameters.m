@@ -93,7 +93,7 @@ else
     
     % Intrinsic (local) parameters, per region
     %----------------------------------------------------------------------
-    ns = length(A{1}); % number of regions / nodes
+    ns = Ns
     np = 8;            % number of populations per region
     nk = 7;            % number of states per population
     
@@ -171,14 +171,18 @@ else
     pE.m = repmat(pr.pE.m,  [ns 1]);
     pC.m = repmat(pr.pC.m,  [ns,1]);
     
-    pE.TV = pr.pE.TV;
-    pC.TV = pr.pC.TV;
-    
-    pE.Mh = pr.pE.Mh;
-    pC.Mh = pr.pC.Mh;
-    
-    pE.Hh = pr.pE.Hh;
-    pC.Hh = pr.pC.Hh;
+    try
+        pE.TV = pr.pE.TV;
+        pC.TV = pr.pC.TV;
+    end
+    try
+        pE.Mh = pr.pE.Mh;
+        pC.Mh = pr.pC.Mh;
+    end
+    try
+        pE.Hh = pr.pE.Hh;
+        pC.Hh = pr.pC.Hh;
+    end
     
     % parameters in try-catch are optional: the model only uses them if
     % they're specified...
@@ -186,32 +190,32 @@ else
         pE.ID = pr.pE.ID;
         pC.ID = pr.pC.ID;
     catch
-        pE.ID = zeros(1,8);
-        pC.ID = zeros(1,8);
+        %pE.ID = zeros(1,8);
+        %pC.ID = zeros(1,8);
     end
     
     try
         pE.Hn = repmat(pr.pE.Hn, [1 1 ns]);
         pC.Hn = repmat(pr.pC.Hn, [1 1 ns]);
     catch
-        pE.Hn = repmat(zeros(8,8), [1 1 ns]);
-        pC.Hn = repmat(pC.H, [1 1 ns]);
+        %pE.Hn = repmat(zeros(8,8), [1 1 ns]);
+        %pC.Hn = repmat(pC.H, [1 1 ns]);
     end
     
     try
         pE.pr = pr.pE.pr;
         pC.pr = pr.pC.pr;
     catch
-        pE.pr = zeros(1,8);
-        pC.pr = zeros(1,8);
+        %pE.pr = zeros(1,8);
+        %pC.pr = zeros(1,8);
     end
     
     try
         pE.Gsc = pr.pE.Gsc;
         pC.Gsc = pr.pC.Gsc;
     catch
-        pE.Gsc = zeros(1,8);
-        pC.Gsc = zeros(1,8);
+        %pE.Gsc = zeros(1,8);
+        %pC.Gsc = zeros(1,8);
     end
     
     % Pack pE & pC into M

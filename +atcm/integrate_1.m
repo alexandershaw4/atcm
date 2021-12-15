@@ -370,9 +370,11 @@ if isfield(P,'ID')
     if npp == 8 
         del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
         del = exp(P.ID).*[4 1/4 1 8 1/2 4 2 20]/2.4;
-        %del = exp(P.ID).*[1 1 1 1 1 1 1 1];
+        
+        %ID = [1 1/8 1/4 1 1/2 1 1 8];
+        %del = -ID.*exp(P.ID)/1000;
         del = repmat(del,[1 nk]);
-        del=1./del;
+        del = 1./del;
         if ns > 1
             if ~isfield(P,'delay')
                 del = (spm_vec(repmat(del,[ns 1])))';
@@ -420,23 +422,8 @@ DoSpecResp = 1;
 % convert parameterised delay vector to state-by-state matrix
 del = sqrt(del)'*sqrt(del);
 
-% % Expicit delays built into Q
-% if isfield(P,'Delays')
-%     Sk = [ 1   1   1   0   0   1   0   1;
-%            1   1   20  0   0   0   0   1;
-%            0   20  20  1   0   1   0   0;
-%            1   1   0   1   1   1   0   1;
-%            0   1   1   1   1   1   0   0;
-%            0   0   0   1   1   1   0   1;
-%            0   0   0   1   0   1   1   1;
-%            0   0   0   1   0   1   1   1]*1e-6;
-%     
-%     Sk = -Sk.*exp(P.Delays);
-%     
-%     Q = Q + repmat(Sk,nk,nk);
-%     
-% end
-
+% limit delays to make computation of derivatives tractable
+N = min(N,6);
 
 % Initialise states [v] and period [t] for integration loop
 %--------------------------------------------------------------------------
@@ -530,7 +517,7 @@ switch IntMethod
                     %v  = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));
                     %v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),0.0001,P,M)); 
                     
-                    v  = v + (del.*Q*f(spm_unvec(v,M.x),drive(i,:),P,M));
+                    v  = v + ((del.*Q)*f(spm_unvec(v,M.x),drive(i,:),P,M));
                     v0 = v0 + (del.*Q*f(spm_unvec(v0,M.x),0.0001,P,M)); 
                     
                     %v  = v + (Q*f(spm_unvec(v,M.x),drive(i,:),P,M));
@@ -858,6 +845,15 @@ for ins = 1:ns
     
     Eigenvectors = yx;
     
+    if isfield(M,'dmd') && M.dmd
+        [Eigenvalues, Eigenvectors] = atcm.fun.dmd(yx', 8, dt);
+        yx = Eigenvectors*yx;
+        Eigenvectors = yx;
+        % the user supplied j-vector no longer makes sense, ignore it -
+        Ji = 1:8;
+        P.J(1:8) = log(1.1);
+    end
+    
     warning on;
     
     % loop spatio-temporal modes (in this region) and weight them
@@ -924,8 +920,19 @@ for ins = 1:ns
                         
             % Spectral 'whitening' - estimate & remove coloured noise
             %--------------------------------------------------------------
-            m  = atcm.fun.c_oof(w(:),Pf(:),'exp2');
-            Pf = atcm.fun.moving_average(Pf - m,4);
+            if isfield(M,'model')
+                g = fittype( 'exp(a).*x.^(-exp(b))' );
+            else
+                g = 'exp2';
+            end
+            m  = atcm.fun.c_oof(w(:),Pf(:),g);
+            C  = [Pf(:) m(:)];
+            b  = (pinv(C*C')*C)'*squeeze(M.y{ci}(:,ins,ins));
+            Pf = C*b;
+            %Pf = (Pf(:) - m(:));
+            %Pf = Pf + (m.* Gn(:));
+            %Pf = Pf + Gn(:);
+            %Pf = atcm.fun.moving_average(Pf, 2);
         end
     
         warning on;
@@ -1018,12 +1025,12 @@ if isfield(M,'y')
             
         % Add noise to (in frequency space) to this LFP channel spectrum
         %------------------------------------------------------------------
-        addnoise=0;
+        addnoise=1;
         if addnoise
             % Multiply in the {semi-stochastic} neuronal fluctuations
             % note this would be a convolution in the time domain
             for i = 1:length(Hz)
-                Pf(i,ins,ins) = sq(Pf(i,ins,ins))*diag(Gu(i,ins))*sq(Pf(i,ins,ins));
+                Pf(i,ins,ins) = sq(Pf(i,ins,ins))*real(diag(Gu(i,ins)))*sq(Pf(i,ins,ins));
             end
         end
         
@@ -1042,7 +1049,7 @@ if isfield(M,'y')
     % Re-incorporate other noise components for auto (Gs) and cross (Gn) spectra
     %----------------------------------------------------------------------
     %if ns > 1
-    addnoise=0;
+    addnoise=1;
     if addnoise        
         for i = 1:ns
             for j = 1:ns

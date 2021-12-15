@@ -222,8 +222,8 @@ for s = i;%1:length(Data.Datasets)
     Nf = length(w);
     Q  = {spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1)};
     %Q  = {spm_Q(1/2,Nf,1)*(Qw)*spm_Q(1/2,Nf,1)};
-    %Qw = Qw * Q{:};
-    Qw = Q{:};
+    Qw = Qw * Q{:};
+    %Qw = Q{:};
     
     
     
@@ -249,17 +249,18 @@ for s = i;%1:length(Data.Datasets)
             0  0  0  1  0  0  0  0;
             0  0  0  1  0  0  0  0;
             0  0  0  0  0  0  0  0;
-            0  0  0  0  0  1  0  1]/8;
+            0  0  0  0  0  1  0  0]/8;
 
     %DCM.M.pE.T = repmat(DCM.M.pE.T,[8 1]);
-    pC.T = [1    0    0    0;
+    pC.T = [1    0    1    0;
             1    0    1    0;
             0    1    0    1;
             1    0    1    0;
+            0    1    0    1;
             0    0    0    0;
-            0    0    0    0;
-            0    0    0    0;
-            1    1    1    0]/8;
+            0    1    0    0;
+            1    0    1    0]/8;
+ 
 
     pC.L = 1/8;
     pC.R = [1 1 1]/8;
@@ -275,7 +276,7 @@ for s = i;%1:length(Data.Datasets)
     % new priors (again...)
     x = load('Priors_22Oct_b','Ep');
     DCM.M.pE = x.Ep;
-    DCM.M.pE.L = -2;
+    DCM.M.pE.L = 0;%-2;
     DCM.M.pE.J([1 4])=-1000;
     
     %DCM.M.pE.J([2 4]) = log([1.1 1.1]);
@@ -284,6 +285,8 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE.ID = zeros(1,8);
     DCM.M.pC.ID = ones(1,8)/18;
     
+    %DCM.M.pC.CV = ones(1,8)/8;
+    
     DCM.M.pC.Ly = 0;
     DCM.M.pE.Ly = -2;
     DCM.M.pE.ID(1)=-0.4;
@@ -291,12 +294,22 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE.f = [0 0];
     DCM.M.pC.f = [0 0]+1/8;
     
+    DCM.M.pE.b = [0;0];
+    DCM.M.pC.b = [1;1]/8;
+    
     % fit noise component and remove
-    mNoise = atcm.fun.c_oof(w(:),spm_vec(DCM.xY.y));
-    DCM.xY.y{1} = DCM.xY.y{1} - mNoise;
-    DCM.M.mNoise = mNoise;
+%     mNoise = atcm.fun.c_oof(w(:),spm_vec(DCM.xY.y));
+%     DCM.xY.y{1} = DCM.xY.y{1} - mNoise;
+%     DCM.M.mNoise = mNoise;
+%     DCM.M.y  = DCM.xY.y;
     DCM.M.y  = DCM.xY.y;
 
+    DCM.M.pE.L=-.5;
+    DCM.M.IncDCS=1;
+    DCM.M.pE.b = [-4;-1];
+    DCM.M.pC.b = [1; 1]/8;
+    DCM.M.pC.d = ones(8,1)/8;
+    
     % keep for saving after
     ppE = DCM.M.pE;
             
@@ -307,10 +320,10 @@ for s = i;%1:length(Data.Datasets)
     % Bias and feature selection
     M.opts.Q  = real(Qw);  
     M.opts.FS = @(x) [real(sqrt(x))];
-    M.opts.FS = @(x) real( Pf2VMD(x,3) );
+    %M.opts.FS = @(x) real( spm_vec(atcm.fun.Pf2VMD(x,3)) );
     
     % opt set 1.
-    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.EnforcePriorProb=1; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams=1;   % hyperparameter tuning
@@ -320,7 +333,7 @@ for s = i;%1:length(Data.Datasets)
     M.opts.objective = 'rmse'; % objective (error) function
     M.opts.criterion = 1e-3;
     
-    M.default_optimise([1],[28])
+    M.default_optimise([7],[28])
     
     % Extract fit and run again
     Ep = spm_unvec(M.Ep,DCM.M.pE);
@@ -335,7 +348,7 @@ for s = i;%1:length(Data.Datasets)
     M.opts.FS = @(x) real(sqrt(x));
     
     % opt set 1.
-    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.EnforcePriorProb=1; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams=1;   % hyperparameter tuning

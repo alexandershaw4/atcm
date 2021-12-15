@@ -370,9 +370,11 @@ if isfield(P,'ID')
     if npp == 8 
         del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
         del = exp(P.ID).*[4 1/4 1 8 1/2 4 2 20]/2.4;
-        %del = exp(P.ID).*[1 1 1 1 1 1 1 1];
+        
+        %ID = [1 1/8 1/4 1 1/2 1 1 8];
+        %del = -ID.*exp(P.ID)/1000;
         del = repmat(del,[1 nk]);
-        del=1./del;
+        del = 1./del;
         if ns > 1
             if ~isfield(P,'delay')
                 del = (spm_vec(repmat(del,[ns 1])))';
@@ -419,24 +421,7 @@ DoSpecResp = 1;
 
 % convert parameterised delay vector to state-by-state matrix
 del = sqrt(del)'*sqrt(del);
-
-% % Expicit delays built into Q
-% if isfield(P,'Delays')
-%     Sk = [ 1   1   1   0   0   1   0   1;
-%            1   1   20  0   0   0   0   1;
-%            0   20  20  1   0   1   0   0;
-%            1   1   0   1   1   1   0   1;
-%            0   1   1   1   1   1   0   0;
-%            0   0   0   1   1   1   0   1;
-%            0   0   0   1   0   1   1   1;
-%            0   0   0   1   0   1   1   1]*1e-6;
-%     
-%     Sk = -Sk.*exp(P.Delays);
-%     
-%     Q = Q + repmat(Sk,nk,nk);
-%     
-% end
-
+N = 3;
 
 % Initialise states [v] and period [t] for integration loop
 %--------------------------------------------------------------------------
@@ -530,7 +515,7 @@ switch IntMethod
                     %v  = v + del'.*(Q*f(spm_unvec(v,M.x),drive(i,:),P,M));
                     %v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),0.0001,P,M)); 
                     
-                    v  = v + (del.*Q*f(spm_unvec(v,M.x),drive(i,:),P,M));
+                    v  = v + ((del.*Q)*f(spm_unvec(v,M.x),drive(i,:),P,M));
                     v0 = v0 + (del.*Q*f(spm_unvec(v0,M.x),0.0001,P,M)); 
                     
                     %v  = v + (Q*f(spm_unvec(v,M.x),drive(i,:),P,M));
@@ -858,6 +843,15 @@ for ins = 1:ns
     
     Eigenvectors = yx;
     
+    if isfield(M,'dmd') && M.dmd
+        [Eigenvalues, Eigenvectors] = atcm.fun.dmd(yx', 8, dt);
+        yx = Eigenvectors*yx;
+        Eigenvectors = yx;
+        % the user supplied j-vector no longer makes sense
+        Ji = 1:8;
+        P.J(1:8) = log(1.1);
+    end
+    
     warning on;
     
     % loop spatio-temporal modes (in this region) and weight them
@@ -894,7 +888,7 @@ for ins = 1:ns
             % Smoothed Fourier transform (atcm.fun.AfftSmooth)
             %--------------------------------------------------------------
             for i = 1:nn; 
-                [Ppf(i,:),~,Pfm(i,:,:)] = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 30) ;
+                [Ppf(i,:),~,Pfm(i,:,:)] = atcm.fun.AfftSmooth( pc(i,:), dw./dt, w, 50) ;
             end
             
             % Non-smoothed fft version:
@@ -904,7 +898,7 @@ for ins = 1:ns
             % Sliding window smoothing of spectrum
             %--------------------------------------------------------------
             Pf = Ppf;
-            Pf = atcm.fun.moving_average(Pf,2);
+            %Pf = atcm.fun.moving_average(Pf,2);
             
             Pf(isnan(Pf))=0;
             Pf(isinf(Pf))=0;
@@ -921,18 +915,18 @@ for ins = 1:ns
             end
             
             Pf  = spm_vec(Pf);
-            Pf  = Pf(:);
-            
-            if ij == 2
-                disp(' ');
-            end
-            
+                        
             % Spectral 'whitening' - estimate & remove coloured noise
             %--------------------------------------------------------------
-            g  = fittype( 'a-b*(x.^c)' );
-            m  = atcm.fun.c_oof(w(:),Pf(:),g,'StartPoint',[1 1 -1]); %^ better than 'exp2';
-            
+            if isfield(M,'model')
+                g = fittype( 'exp(a).*x.^(-exp(b))' );
+            else
+                g = 'exp2';
+            end
+            %g  = fittype( 'exp(a).*x.^(-exp(b))' );
+            m  = atcm.fun.c_oof(w(:),Pf(:),g);
             Pf = Pf - m;
+            %Pf = atcm.fun.moving_average(Pf - m,2);
         end
     
         warning on;
