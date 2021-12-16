@@ -391,6 +391,7 @@ for i = 1:Ne;
             end
             
         else
+            DCM.xY.trial_spectra = Pfull;
             Pfull = squeeze(spm_robust_average(Pfull));
             
             if DOBASE

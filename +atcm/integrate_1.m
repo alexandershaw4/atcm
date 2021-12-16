@@ -894,18 +894,14 @@ for ins = 1:ns
             
             Pf  = spm_vec(Pf);
                         
-            % Spectral 'whitening' - estimate & remove coloured noise
-            %--------------------------------------------------------------
-            if isfield(M,'model')
-                g = fittype( 'exp(a).*x.^(-exp(b))' );
-            else
-                g = 'exp2';
-            end
-            
-            m  = atcm.fun.c_oof(w(:),Pf(:),g);
-            C  = [Pf(:) m(:)];
-            b  = (pinv(C*C')*C)'*squeeze(M.y{ci}(:,ins,ins));
-            Pf = atcm.fun.moving_average(C*b,2);
+            % Gaussian mixture model - estimate & remove coloured noise
+            %-------------------------------------------------------------- 
+            tmp = Pf;
+            % g = fittype( 'exp(a).*x.^(-exp(b))' );
+            c   = atcm.fun.c_oof(w(:),tmp,'exp2');% constrained exponent
+            m   = fit(w(:),real(tmp-c),'Gauss4'); % gmm on residual
+            Pf  = (c/4) + m(w);
+
         end
     
         warning on;
@@ -1003,7 +999,7 @@ if isfield(M,'y')
             % Multiply in the {semi-stochastic} neuronal fluctuations
             % note this would be a convolution of signal and noise in the time domain
             for i = 1:length(Hz)
-                Pf(i,ins,ins) = sq(Pf(i,ins,ins))*real(diag(Gu(i,ins)))*sq(Pf(i,ins,ins));
+                Pf(i,ins,ins) = (sq(real(Pf(i,ins,ins)))*real(diag(Gu(i,ins)))*sq(real(Pf(i,ins,ins)))) + sqrt(-1)*imag(Pf(i,ins,ins));
             end
         end
         

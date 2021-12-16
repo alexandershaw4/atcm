@@ -363,6 +363,7 @@ try
 end
 
 % Set up custom delay operator - parameterised state x state delays
+% conferred by population delays (c.f. conduction delay)
 %--------------------------------------------------------------------------
 if isfield(P,'ID')
     
@@ -902,9 +903,12 @@ for ins = 1:ns
             end
             
             m  = atcm.fun.c_oof(w(:),Pf(:),g);
-            C  = [Pf(:) m(:)];
-            b  = (pinv(C*C')*C)'*squeeze(M.y{ci}(:,ins,ins));
-            Pf = atcm.fun.moving_average(C*b,2);
+            %C  = [Pf(:) m(:)];
+            Pf = atcm.fun.moving_average(Pf(:) - (m(:)./2),2);
+            %Pf(Pf<0)=0;
+            %Pf(Pf<0) = -Pf(Pf<0);
+            %b  = (pinv(C*C')*C)'*squeeze(M.y{ci}(:,ins,ins));
+            %Pf = C*b;
         end
     
         warning on;
@@ -1002,7 +1006,7 @@ if isfield(M,'y')
             % Multiply in the {semi-stochastic} neuronal fluctuations
             % note this would be a convolution of signal and noise in the time domain
             for i = 1:length(Hz)
-                Pf(i,ins,ins) = sq(Pf(i,ins,ins))*real(diag(Gu(i,ins)))*sq(Pf(i,ins,ins));
+                Pf(i,ins,ins) = (sq(real(Pf(i,ins,ins)))*real(diag(Gu(i,ins)))*sq(real(Pf(i,ins,ins)))) + sqrt(-1)*imag(Pf(i,ins,ins));
             end
         end
         
@@ -1049,6 +1053,15 @@ if isfield(P,'f')
             Pf(:,i,j) = Pf(:,i,j).*f;
         end
     end
+end
+
+if isfield(M,'GMM') && M.GMM
+   for i = 1:ns
+            for j = 1:ns
+                
+                
+    
+    
 end
 
 % returns for this trial - {g}

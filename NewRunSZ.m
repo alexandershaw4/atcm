@@ -116,7 +116,7 @@ for s = i;%1:length(Data.Datasets)
 
     % Alex additions - 1010 = use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 2;
+    DCM.options.FFTSmooth     = 1;
     %DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;        % use .5 Hz steps
@@ -225,7 +225,7 @@ for s = i;%1:length(Data.Datasets)
             0  0  0  0  0  1  1  1]/8;
 
     pC.Hn= [0  1  0  0  0  0  0  1;
-            1  0  0  0  0  0  0  0;
+            1  1  0  0  0  0  0  0;
             1  1  0  0  0  0  0  0;
             1  1  0  0  0  0  0  0;
             0  0  0  1  0  0  0  0;
@@ -276,11 +276,16 @@ for s = i;%1:length(Data.Datasets)
     
     DCM.M.y  = DCM.xY.y;
 
-    DCM.M.pE.L=-.5;
-    DCM.M.IncDCS=1;
+    DCM.M.pE.L   = 0;
+    DCM.M.IncDCS = 1;
+    
     DCM.M.pE.b = [-4;-1];
     DCM.M.pC.b = [1; 1]/8;
     DCM.M.pC.d = ones(8,1)/8;
+    
+    % use a GMM representation of the output and rescale the gain
+    DCM.M.GMM  = 1;
+    DCM.M.pE.L = -.5;
     
     % keep for saving after
     ppE = DCM.M.pE;
