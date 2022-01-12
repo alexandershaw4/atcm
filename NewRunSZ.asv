@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};         % condition names
 Data.Design.tCode = [1];             % condition codes in SPM
 Data.Design.Ic    = [1];             % channel indices
 Data.Design.Sname = {'V1'};         % channel (node) names
-Data.Prefix       = 'TCM_10Dec_';      % outputted DCM prefix
+Data.Prefix       = 'nfinalTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -116,16 +116,33 @@ for s = i;%1:length(Data.Datasets)
 
     % Alex additions - 1010 = use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 1;
+    DCM.options.FFTSmooth     = 2;
     %DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;        % use .5 Hz steps
             
-    
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;      
         
+    %yx = fit(DCM.xY.Hz.',DCM.xY.y{1},'Gauss4');
+    %DCM.xY.y{1} = yx(DCM.xY.Hz);
+    
+    DCM.xY.yorig = DCM.xY.y;
+    
+    tmp = real(DCM.xY.y{1});
+    w   = DCM.xY.Hz;
+    c   = atcm.fun.c_oof(w(:),tmp,'exp2');% constrained exponent
+    m   = fit(w(:),real(tmp-c),'Gauss4'); % gmm on residual
+    r   = tmp - (m(w) + c);
+    tmp = (c/4) + m(w) + (r/4);
+    DCM.xY.y{1} = tmp;
+    
+    DCM.xY.c = c;
+    DCM.xY.r = r;
+    DCM.xY.m = m;
+    
+    
     % Subfunctions and priors
     %----------------------------------------------------------------------
     %DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
@@ -198,17 +215,18 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE.C = 0;
     DCM.M.pC.C = 1/8;
     
-    % Set Q - a precision operator
+    % Set Q - a precision operator, using central freqs for gauss fit
     %----------------------------------------------------------------------
     y  = spm_vec(DCM.xY.y{1});
     w  = spm_vec(DCM.xY.Hz);
     Qw = diag(DCM.xY.y{:}./max(DCM.xY.y{:}));
+    %Qw = 2*exp(-((w-m.b1)/(m.c1/4)).^2) + 2*exp(-((w-m.b2)/(m.c2/4)).^2) + ... 
+    %     2*exp(-((w-m.b3)/(m.c3/4)).^2) + 2*exp(-((w-m.b4)/(m.c4/4)).^2);
+    %Qw = diag(Qw);
     Nf = length(w);
     Q  = {spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1)};
-    %Q  = {spm_Q(1/2,Nf,1)*(Qw)*spm_Q(1/2,Nf,1)};
     Qw = Qw * Q{:};
-    %Qw = Q{:};
-        
+
     % New 2021: Try fititng with only the synaptioc
     % parameters corresponding to the CMC13 connections!
     %----------------------------------------------------------------------
@@ -239,11 +257,10 @@ for s = i;%1:length(Data.Datasets)
             0    1    0    1;
             1    0    1    0;
             0    1    0    1;
-            0    0    0    0;
+            1    0    1    0;
             0    1    0    0;
             1    0    1    0]/8;
- 
-
+         
     pC.L = 1/8;
     pC.R = [1 1 1]/8;
     
@@ -268,26 +285,32 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pE.Ly = -2;
     DCM.M.pE.ID(1)=-0.4;
     
-    DCM.M.pE.f = [0 0];
-    DCM.M.pC.f = [0 0]+1/8;
+    %DCM.M.pE.f = [0 0];
+    %DCM.M.pC.f = [0 0]+1/8;
     
-    DCM.M.pE.b = [0;0];
-    DCM.M.pC.b = [1;1]/8;
-    
+    %DCM.M.pE.b = [0;0];
+    %DCM.M.pC.b = [1;1]/8;
+        
     DCM.M.y  = DCM.xY.y;
 
-    DCM.M.pE.L   = 0;
-    DCM.M.IncDCS = 1;
+    DCM.M.pE.L   = -.5;
+    DCM.M.pC.L   = 4;
+    %DCM.M.IncDCS = 1;
     
-    DCM.M.pE.b = [-4;-1];
-    DCM.M.pC.b = [1; 1]/8;
-    DCM.M.pC.d = ones(8,1)/8;
-    
-    % use a GMM
-    
+    %DCM.M.pE.b = [-4;-1];
+    %DCM.M.pC.b = [1; 1]/8;
+    %DCM.M.pC.b = [0;0];
+    %DCM.M.pC.d = ones(8,1)/8;
+        
+    %DCM.M.pC.E = 1/8;
+    %DCM.M.pC.S = ones(1,8)/16;
+        
     % keep for saving after
     ppE = DCM.M.pE;
             
+    DCM.M.pC   = spm_unvec(spm_vec(DCM.M.pC)./12,DCM.M.pC);
+    DCM.M.pC.L = 4;
+        
     % Optimise --- 1                                                           1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
@@ -296,19 +319,29 @@ for s = i;%1:length(Data.Datasets)
     M.opts.Q  = real(Qw);  
     M.opts.FS = @(x) [real(sqrt(x))];
     M.opts.FS = @(x) real( spm_vec(atcm.fun.Pf2VMD(x,3)) );
-    
+        
     % opt set 1.
-    M.opts.EnforcePriorProb=1; % forcibly constrain parameters to within prior dist
+    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams=1;   % hyperparameter tuning
     M.opts.fsd=0;           % fixed-step for derivatives
     M.opts.corrweight = 0;  % weight log evidence by correlation 
-    
+        
     M.opts.objective = 'rmse'; % objective (error) function
     M.opts.criterion = 1e-3;
     
+    %M.opts.order = 4;
+    
     M.default_optimise([7],[28])
+    
+    % afterward, use AODCM object to loop through the optimisation steps
+    % for a visualisation:
+    %for i = 1:28; 
+    %    dydp(i,:) = spm_vec(M.opts.fun(M.history.p{i}));
+    %end
+    
+    Morig=M;
     
     % Extract fit and run again
     Ep = spm_unvec(M.Ep,DCM.M.pE);
@@ -321,19 +354,20 @@ for s = i;%1:length(Data.Datasets)
     % Bias and feature selection
     M.opts.Q  = Qw;  
     M.opts.FS = @(x) real(sqrt(x));
-    
+    M.opts.FS = @(x) real( spm_vec(atcm.fun.Pf2VMD(x,3)) );
+
     % opt set 1.
-    M.opts.EnforcePriorProb=1; % forcibly constrain parameters to within prior dist
+    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
-    M.opts.hyperparams=1;   % hyperparameter tuning
-    M.opts.fsd=0;           % fixed-step for derivatives
+    M.opts.hyperparams=0;   % hyperparameter tuning
+    M.opts.fsd=1.2;           % fixed-step for derivatives
     M.opts.corrweight = 0;  % weight log evidence by correlation 
     
     M.opts.objective = 'rmse'; % objective (error) function
     M.opts.criterion = 1e-3;
 
-    M.default_optimise([1],[28])
+    M.default_optimise([7],[8])
       
     % reinstate the actual priors before saving
     DCM.M.pE = ppE;

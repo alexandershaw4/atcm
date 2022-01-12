@@ -312,6 +312,7 @@ VR   = -40;   %55                            % threshold potential (firing)
 VN   =  10;                               % reversal Ca(NMDA)   
 VB   = -100;                              % reversal of GABA-B
 
+
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
 CV   = exp(P.CV).*      [128 128 128  128 64  128  64  64*2]/1000;  

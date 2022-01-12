@@ -392,7 +392,13 @@ for i = 1:Ne;
             
         else
             DCM.xY.trial_spectra = Pfull;
-            Pfull = squeeze(spm_robust_average(Pfull));
+            %Pfull = squeeze(spm_robust_average(Pfull));
+            
+            % retain first eidenmode
+            m        = 1;
+            [u s v]  = spm_svd(Pfull',1);
+            Pfull    = u(:,m)*s(m,m)*mean(v(:,m));
+            Pfull    = full(Pfull)';
             
             if DOBASE
                 Pfullbase = squeeze(spm_robust_average(Pfullbase));

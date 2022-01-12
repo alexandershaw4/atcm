@@ -1,8 +1,9 @@
 function [Pf,f,Pfm] = AfftSmooth(signal,fs,varargin)
 % A smoothing wrapper on Afft.m for CSDs.
 % 
-% 
+% [Pf,f,Pfm] = AfftSmooth(signal,fs,varargin)
 %
+% Third argument is number of bins (trials) to split series into
 %
 
 nt    = size(signal,2); % number of time points
@@ -14,7 +15,7 @@ try varargin{2} ;
     bins = floor( linspace(1, nt, varargin{2}) );
 end
 
-for i = 1:length(bins) / 2
+for i = 1:(length(bins) - 2)
     chunk  = signal(: , bins(i):bins(i+2) );    
     if nargin > 2
         [Pfm(:,:,:,i),f] = atcm.fun.Afft(chunk,fs,varargin{1});
