@@ -130,17 +130,18 @@ for s = i;%1:length(Data.Datasets)
     
     DCM.xY.yorig = DCM.xY.y;
     
-    tmp = real(DCM.xY.y{1});
-    w   = DCM.xY.Hz;
-    c   = atcm.fun.c_oof(w(:),tmp,'exp2');% constrained exponent
-    m   = fit(w(:),real(tmp-c),'Gauss4'); % gmm on residual
-    r   = tmp - (m(w) + c);
-    tmp = (c/4) + m(w) + (r/4);
-    DCM.xY.y{1} = tmp;
+%     tmp = real(DCM.xY.y{1});
+%     w   = DCM.xY.Hz;
+%     c   = atcm.fun.c_oof(w(:),tmp,'exp2');% constrained exponent
+%     m   = fit(w(:),real(tmp-c),'Gauss4'); % gmm on residual
+%     r   = tmp - (m(w) + c);
+%     tmp = tmp(:) - c(:);%(c/4) + m(w) ;%+ (r/4);
+%     DCM.xY.y{1} = tmp;
+%     DCM.M.y     = DCM.xY.y;
     
-    DCM.xY.c = c;
-    DCM.xY.r = r;
-    DCM.xY.m = m;
+    %DCM.xY.c = c;
+    %DCM.xY.r = r;
+    %DCM.xY.m = m;
     
     
     % Subfunctions and priors
@@ -202,18 +203,11 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.CV = ones(1,8)/8; 
     DCM.M.pC.J([2 4])=1/8;
     DCM.M.pC.S = ones(1,8)/16;
-    
-    DCM.M.pE.L = -2.5;
-    DCM.M.pC.R = [1 1 1]/8;
-    DCM.M.pE.R = [0 0 0];
-    
-    DCM.M.ppE=DCM.M.pE;
-    
+            
     DCM.M.pE.Ly = 2;
     DCM.M.pC.Ly = 1/8;
     
     DCM.M.pE.C = 0;
-    DCM.M.pC.C = 1/8;
     
     % Set Q - a precision operator, using central freqs for gauss fit
     %----------------------------------------------------------------------
@@ -230,7 +224,6 @@ for s = i;%1:length(Data.Datasets)
     % New 2021: Try fititng with only the synaptioc
     % parameters corresponding to the CMC13 connections!
     %----------------------------------------------------------------------
-
     pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
 
     pC.H = [1  1  1  0  0  0  0  1;
@@ -239,7 +232,7 @@ for s = i;%1:length(Data.Datasets)
             1  1  0  1  1  0  0  0;
             0  1  0  1  0  0  0  0;
             0  0  0  1  1  0  0  0;
-            0  0  0  0  0  0  0  0;
+            0  0  0  0  0  0  0  1;
             0  0  0  0  0  1  1  1]/8;
 
     pC.Hn= [0  1  0  0  0  0  0  1;
@@ -251,21 +244,20 @@ for s = i;%1:length(Data.Datasets)
             0  0  0  0  0  0  0  0;
             0  0  0  0  0  1  0  0]/8;
 
-    %DCM.M.pE.T = repmat(DCM.M.pE.T,[8 1]);
     pC.T = [1    0    1    0;
-            1    0    1    0;
+            1    1    1    0;
             0    1    0    1;
             1    0    1    0;
             0    1    0    1;
             1    0    1    0;
-            0    1    0    0;
+            0    1    0    1;
             1    0    1    0]/8;
-         
+        
     pC.L = 1/8;
     pC.R = [1 1 1]/8;
     
     DCM.M.pC = pC;
-                
+    
     DCM.M.fmethod='none';
     DCM.M.pE.L = -2.5;
         
@@ -284,62 +276,69 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.Ly = 0;
     DCM.M.pE.Ly = -2;
     DCM.M.pE.ID(1)=-0.4;
-    
-    %DCM.M.pE.f = [0 0];
-    %DCM.M.pC.f = [0 0]+1/8;
-    
-    %DCM.M.pE.b = [0;0];
-    %DCM.M.pC.b = [1;1]/8;
-        
+            
     DCM.M.y  = DCM.xY.y;
 
-    DCM.M.pE.L   = -.5;
+    DCM.M.pE.L   = -1;
     DCM.M.pC.L   = 4;
-    %DCM.M.IncDCS = 1;
-    
-    %DCM.M.pE.b = [-4;-1];
-    %DCM.M.pC.b = [1; 1]/8;
-    %DCM.M.pC.b = [0;0];
-    %DCM.M.pC.d = ones(8,1)/8;
-        
-    %DCM.M.pC.E = 1/8;
-    %DCM.M.pC.S = ones(1,8)/16;
-        
+            
     % keep for saving after
     ppE = DCM.M.pE;
-            
-    DCM.M.pC   = spm_unvec(spm_vec(DCM.M.pC)./12,DCM.M.pC);
-    DCM.M.pC.L = 4;
+    
+    DCM.M.pC.ID([1 2 3 4 5 6 7 8])=1/8;
+    DCM.M.pC.Gsc = [1 1 1 1 0 1 0 1]./8;
         
+    DCM.M.burnin=0;
+    
+    DCM.M.pE.J(4)=log(0.8);
+    DCM.M.pE.J(1) = log(1.1);
+    
+    DCM.M.sim.dt  = 1./300;
+    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(3)-DCM.M.sim.dt)');
+    
+    %DCM.xY.y{1} = real(DCM.xY.y{1});
+    
+    DCM.M.pE.R = [0 0 0 0];
+    DCM.M.pC.R = [1 1 1 1]./8;
+    DCM.M.InputType=4;
+    DCM.M.pE.L = 0.8;
+    
+    x = load('NewParams_Jan28','Ep','pE','pC');
+    DCM.M.pE = x.pE;
+    DCM.M.pC = x.pC;
+    x = load('NewSet');
+    DCM.M.pE = x.P;
+    
     % Optimise --- 1                                                           1
     %----------------------------------------------------------------------
     M = AODCM(DCM);
 
     % Bias and feature selection
     M.opts.Q  = real(Qw);  
-    M.opts.FS = @(x) [real(sqrt(x))];
-    M.opts.FS = @(x) real( spm_vec(atcm.fun.Pf2VMD(x,3)) );
+    %M.opts.FS = @(x) [real(sqrt(x))];
+    %M.opts.FS = @(x) [real( spm_vec(atcm.fun.Pf2VMD(x,3)) )];    
+    %M.opts.FS = @(x) real([sqrt(x)./sum(sqrt(x)); sqrt(x); spm_vec(atcm.fun.maxpointsinds(x,20)./length(x))]);
         
     % opt set 1.
     M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams=1;   % hyperparameter tuning
-    M.opts.fsd=0;           % fixed-step for derivatives
+    M.opts.fsd = 1.2;         % fixed-step for derivatives
     M.opts.corrweight = 0;  % weight log evidence by correlation 
+    M.opts.inner_loop = 3;
         
-    M.opts.objective = 'rmse'; % objective (error) function
+    M.opts.objective = 'qrmse'; % objective (error) function
     M.opts.criterion = 1e-3;
-    
-    %M.opts.order = 4;
+    %M.opts.isGaussNewton = 1;
     
     M.default_optimise([7],[28])
     
     % afterward, use AODCM object to loop through the optimisation steps
     % for a visualisation:
-    %for i = 1:28; 
-    %    dydp(i,:) = spm_vec(M.opts.fun(M.history.p{i}));
-    %end
+%     for i = 1:28; 
+%        dydp(i,:) = spm_vec(M.opts.fun(M.history.p{i}));
+%     end
     
     Morig=M;
     
@@ -360,11 +359,11 @@ for s = i;%1:length(Data.Datasets)
     M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
-    M.opts.hyperparams=0;   % hyperparameter tuning
-    M.opts.fsd=1.2;           % fixed-step for derivatives
+    M.opts.hyperparams=1;   % hyperparameter tuning
+    M.opts.fsd=0;           % fixed-step for derivatives
     M.opts.corrweight = 0;  % weight log evidence by correlation 
     
-    M.opts.objective = 'rmse'; % objective (error) function
+    M.opts.objective = 'qrmse'; % objective (error) function
     M.opts.criterion = 1e-3;
 
     M.default_optimise([7],[8])

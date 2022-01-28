@@ -233,7 +233,7 @@ GIa(1,:) = [32  0   8   0   0   0   0   0 ];
 GIa(2,:) = [0   32  16  0   0   0   0   0 ]; %spsp was 16
 GIa(3,:) = [0   0   32  0   0   0   0   0 ];
 GIa(4,:) = [0   0   0   8   12  0   0   0 ];
-GIa(5,:) = [0   0   0   0   16  0   0   0 ];
+GIa(5,:) = [0   0   32  0   16  0   0   0 ];
 GIa(6,:) = [0   0   0   0   32  8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   32]; 
@@ -390,7 +390,11 @@ for i = 1:ns
         else
             dU = 0;
         end
-                
+        
+        if length(u) > 1
+            5;
+        end
+        
         Gsc = ~eye(8);
         Gsc = Gsc +  (diag(exp(P.Gsc)));
         
@@ -416,7 +420,7 @@ for i = 1:ns
       
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = [8 2];%[8 1 2 4 6];
+        input_cell        = 8;%[8 1 2 4 6];
         
         if isfield(M,'inputcell');
             input_cell = M.inputcell;

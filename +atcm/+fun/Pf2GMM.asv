@@ -1,0 +1,17 @@
+function model = Pf2GMM(y)
+% returns sqrt(y) and n central frequencies of the n IMFs discovered by
+% variational mode decomposition
+%
+% model = Pf2VMD(y,n)
+%
+% AS
+
+y = denan(y);
+
+w = 1:length(y);
+
+try
+    m = fit(w.',real(y),'Gauss4');
+    model = {sqrt(y) spm_vec(coeffvalues(m))};
+catch
+    model = {sqrt(y) 

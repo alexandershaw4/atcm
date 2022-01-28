@@ -1,5 +1,5 @@
 function X = makef(w,Fq,Amp,Wid,model)
-% Generate a Gaussian/Cauchy/Lapalce/Gamma distribution / mixture, e.g.
+% Generate a Gaussian/Cauchy distribution / mixture, e.g.
 %   
 %   atcm.fun.makef(w,Fq,Amp,Wid,model)
 %
@@ -54,9 +54,7 @@ switch model
     case 'cauchy'
         X   = X + Amp./(1+((w-f)/Wid).^2);
     case 'laplace'
-        X    = X + Amp * ( 1/(sqrt(2)*Wid)*exp(-sqrt(2)*abs(w-f)/Wid) );
-    case 'gamma'
-        X    = X + Amp * gampdf(w,f);
+        X    = X + Amp * 1/(sqrt(2)*sigma)*exp(-sqrt(2)*abs(xprim-mu)/sigma);
 end
 w   = w + mw;
 
