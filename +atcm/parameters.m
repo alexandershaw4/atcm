@@ -18,7 +18,7 @@ if Ns == 1
         %load NewDelayPriors.mat
         pth = fileparts(mfilename('fullpath'));
         %load([pth '/AugSpectralPriors']);
-        load([pth '/+fun/Priors2021b']);
+        load([pth '/+fun/TCM_NC_Priors4Feb']);
     else
         load(priorfile)
     end

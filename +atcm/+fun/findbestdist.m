@@ -15,6 +15,12 @@ function opty = findbestdist(w,f,a,wid,y)
 %
 % AS22
 
+if isstruct(f)
+    a   = f.Amp;
+    wid = f.Wid;
+    f   = f.Freq;
+end
+
 % generate distbriutions
 for i = 1:length(f)
     m0(i,:) = atcm.fun.makef(w,f(i),a(i),wid(i),'gaussian');

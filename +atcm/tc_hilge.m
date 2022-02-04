@@ -199,7 +199,7 @@ GEa(2,:) = [6   4   0   0   0   0   0   2];
 GEa(3,:) = [1   8   0   0   0   0   0   0]; 
 GEa(4,:) = [4   6   0   0   0   2   0   1];
 GEa(5,:) = [0   1   0   4   0   2   0   0];
-GEa(6,:) = [0   0   0   6   0   0   0   1/4]; 
+GEa(6,:) = [0   0   0   6   0   0   0   8]; 
 GEa(7,:) = [0   0   0   1   0   2   0   2]; 
 GEa(8,:) = [0   0   0   1   0   2   0   0];
 
@@ -213,11 +213,11 @@ GEa(8,:) = [0   0   0   1   0   2   0   0];
 % GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
 
 % added TP>SI = 2 (was 0)
-GEa = GEa./8;
+GEa = GEa./4;
 %GEa = GEa .* ~eye(np);
 %GEa = GEa + eye(np);      % KILLED
 
-GEa = GEa + diag([1 1 1 1 0 1 0 1]);
+GEa = GEa + diag([1 1 1 1 1 1 1 1]./8);
 
 %GEa(4)=4;
 
@@ -229,14 +229,14 @@ GEn = GEa;
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
 %           ss  sp  si  dp  di  tp  rt  rl
-GIa(1,:) = [32  0   8   0   0   0   0   0 ];
-GIa(2,:) = [0   32  16  0   0   0   0   0 ]; %spsp was 16
+GIa(1,:) = [4   0   2   0   0   0   0   0 ];
+GIa(2,:) = [0   64  16  0   0   0   0   0 ]; %spsp was 16
 GIa(3,:) = [0   0   32  0   0   0   0   0 ];
 GIa(4,:) = [0   0   0   8   12  0   0   0 ];
-GIa(5,:) = [0   0   0   0   16  0   0   0 ];
+GIa(5,:) = [0   0   4   0   16  0   0   0 ];
 GIa(6,:) = [0   0   0   0   32  8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
-GIa(8,:) = [0   0   0   0   0   0   8   32]; 
+GIa(8,:) = [0   0   0   0   0   0   8   64]; % tr-tr was 32
 
 
 % GIa(1,:) = [2   0   16  0   0   0   0   0 ];
@@ -416,16 +416,28 @@ for i = 1:ns
       
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = [8 2];%[8 1 2 4 6];
-        
+        input_cell        = [7 8];%[8 1 2 4 6];
+                
         if isfield(M,'inputcell');
             input_cell = M.inputcell;
         end
         
-        %dU = dU*[1 1 0 0 0];
-        
         E(input_cell)     = E(input_cell)         +dU';
         ENMDA(input_cell) = ENMDA(input_cell)     +dU';
+        
+%         %dU = dU*[1 1 0 0 0];
+%         
+%         if length(dU) < 2
+%             E(input_cell)     = E(input_cell)         +dU';
+%             ENMDA(input_cell) = ENMDA(input_cell)     +dU';
+%         else
+%             E([ 8])     = E([ 8])         +dU(1);
+%             ENMDA([ 8]) = ENMDA([ 8])     +dU(1);
+%             
+%             E([2 3])     = E([2 3])         +dU(2);
+%             ENMDA([2 3]) = ENMDA([2 3])     +dU(2);
+%             
+%         end
                 
         % Voltage equation
         %==================================================================
@@ -561,7 +573,7 @@ Ds = ~Sp & Ss;                       % states: same source different pop.
 if ~isfield(P,'delays')
     D  = d(2)*Dp + d(1)*Ds + Tc  ;
 else
-    D = d(1)*Ds ;%+ Tc  ;       %+ Dself;% Complete delay matrix
+    D = d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
 end
 
 %D = d(2)*Dp + Tc; %%%%%!!!!!!

@@ -29,14 +29,12 @@ clear global;
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'SZ_Datasets.txt';
-%Data.Datasets     = 'Meansets.txt';
-%Data.Datasets     = 'PMP_Datasets.txt';  % textfile list of LFP SPM datasets (.txt)
-Data.Design.X     = [];              % std/dev
-Data.Design.name  = {'undefined'};         % condition names
-Data.Design.tCode = [1];             % condition codes in SPM
-Data.Design.Ic    = [1];             % channel indices
-Data.Design.Sname = {'V1'};         % channel (node) names
+Data.Datasets     = 'SZ_Datasets.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Design.X     = [];                % design matrix
+Data.Design.name  = {'undefined'};     % condition names
+Data.Design.tCode = [1];               % condition codes in SPM
+Data.Design.Ic    = [1];               % channel indices
+Data.Design.Sname = {'V1'};            % channel (node) names
 Data.Prefix       = 'nfinalTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
@@ -48,7 +46,6 @@ F = (T==1);
 B = (T==2);
 C = [1]';          % input(s)
 L = sparse(1,1); 
-
 
 % Set up, over subjects
 %--------------------------------------------------------------------------
@@ -93,6 +90,7 @@ for s = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     fprintf('Running Dataset %d / %d\n',s,length(Data.Datasets));
     
+    % Frequency range of interest
     fq = [3 90];
     
     % Prepare Data
@@ -114,44 +112,21 @@ for s = i;%1:length(Data.Datasets)
     DCM.options.model         = 'tc6';              %... neural model
     DCM.options.Nmodes        = length(DCM.M.U);    %... number of modes
 
-    % Alex additions - 1010 = use atcm.fun.AFFT.m
+    % 1010 == use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 2;
     %DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = 1;        % use .5 Hz steps
+    DCM.options.FrequencyStep = 1;     
             
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;      
-        
-    %yx = fit(DCM.xY.Hz.',DCM.xY.y{1},'Gauss4');
-    %DCM.xY.y{1} = yx(DCM.xY.Hz);
-    
-    DCM.xY.yorig = DCM.xY.y;
-    
-%     tmp = real(DCM.xY.y{1});
-%     w   = DCM.xY.Hz;
-%     c   = atcm.fun.c_oof(w(:),tmp,'exp2');% constrained exponent
-%     m   = fit(w(:),real(tmp-c),'Gauss4'); % gmm on residual
-%     r   = tmp - (m(w) + c);
-%     tmp = tmp(:) - c(:);%(c/4) + m(w) ;%+ (r/4);
-%     DCM.xY.y{1} = tmp;
-%     DCM.M.y     = DCM.xY.y;
-    
-    %DCM.xY.c = c;
-    %DCM.xY.r = r;
-    %DCM.xY.m = m;
-    
-    
-    % Subfunctions and priors
+                
+    % Subfunctions and default priors
     %----------------------------------------------------------------------
-    %DCM = atcm.parameters(DCM,Ns,'Priors2021c');       % gets latet priors for tc nmm     
-    DCM = atcm.parameters(DCM,Ns,'~/Dropbox/code/atcm/+atcm/+fun/Priors2021b');
-    
-    DCM.M.pE.gaba = zeros(1,8);
-    DCM.M.pC.gaba = zeros(1,8)+1/16;
-    
+    DCM = atcm.parameters(DCM,Ns);
+        
     % if using AOPTIM for inversion, invoke the linear model g(x) output by
     % placing data (DCM.xY.y) in model struct - DCM.M.y
     DCM.M.y  = DCM.xY.y;
@@ -159,38 +134,11 @@ for s = i;%1:length(Data.Datasets)
     
     % If using DCM inversion, select whether to block graph or not
     DCM.M.nograph = 0;
-    
-    % Final options for integrator
-    DCM.M.fmethod = 'none';
-    DCM.M.DoEnv   = 0;
-    
-    DCM.M.ncompe=0;
-    DCM.M.envonly=1;
-    DCM.M.EnvLFP=1;
-    DCM.M.burnin = 300;
-    DCM.M.solvefixed=1;
-    DCM.M.DoHamming=0;
-    DCM.M.LFPsmooth=12;
-    DCM.M.usesmoothkernels=0;
-    DCM.M.intmethod=2;
-    DCM.M.IncDCS=0;
-    
-    DCM.M.pC.d = zeros(8,1);
-    DCM.M.pE.L = -1.75;
-    DCM.M.pC.CV = zeros(1,8);
-    DCM.M.pC.T = [1 1 1 1]/16;
             
-    DCM.M.InputType=2; % NOT OSCILLATION
-        
-    X = load('~/Dropbox/code/atcm/+atcm/+fun/Priors2021a.mat');
-    DCM.M.pC.H = DCM.M.pC.H + (X.pC.H/2);
-        
-    % Feature function for the integrator
+    % Feature function for the integrator [NOT USED]
     %----------------------------------------------------------------------
-    %DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
     DCM = atcm.complete(DCM);
     DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
-    
     imscale = sum(spm_vec(abs(real(DCM.xY.y{:})))) ./ sum(spm_vec(abs(imag(DCM.xY.y{:}))));
     DCM.M.FS = @(x) [real(x) ; imscale*imag(x) ];
 
@@ -199,138 +147,59 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.solvefixed=0;      % oscillations == no fixed point search
     DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
     DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
-    DCM.M.ncompe =0;         % no component analysis
-    DCM.M.pC.CV = ones(1,8)/8; 
-    DCM.M.pC.J([2 4])=1/8;
-    DCM.M.pC.S = ones(1,8)/16;
-            
-    DCM.M.pE.Ly = 2;
-    DCM.M.pC.Ly = 1/8;
     
-    DCM.M.pE.C = 0;
-    
-    % Set Q - a precision operator, using central freqs for gauss fit
+    % Set Q - a precision operator, increasing with frequency
     %----------------------------------------------------------------------
     y  = spm_vec(DCM.xY.y{1});
     w  = spm_vec(DCM.xY.Hz);
     Qw = diag(DCM.xY.y{:}./max(DCM.xY.y{:}));
-    %Qw = 2*exp(-((w-m.b1)/(m.c1/4)).^2) + 2*exp(-((w-m.b2)/(m.c2/4)).^2) + ... 
-    %     2*exp(-((w-m.b3)/(m.c3/4)).^2) + 2*exp(-((w-m.b4)/(m.c4/4)).^2);
-    %Qw = diag(Qw);
     Nf = length(w);
     Q  = {spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1)};
     Qw = Qw * Q{:};
 
-    % New 2021: Try fititng with only the synaptioc
-    % parameters corresponding to the CMC13 connections!
+    % Newton-Cotes integration parameters
     %----------------------------------------------------------------------
-    pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-
-    pC.H = [1  1  1  0  0  0  0  1;
-            1  1  1  0  0  0  0  0;
-            1  1  1  0  0  0  0  0;
-            1  1  0  1  1  0  0  0;
-            0  1  0  1  0  0  0  0;
-            0  0  0  1  1  0  0  0;
-            0  0  0  0  0  0  0  1;
-            0  0  0  0  0  1  1  1]/8;
-
-    pC.Hn= [0  1  0  0  0  0  0  1;
-            1  1  0  0  0  0  0  0;
-            1  1  0  0  0  0  0  0;
-            1  1  0  0  0  0  0  0;
-            0  0  0  1  0  0  0  0;
-            0  0  0  1  0  0  0  0;
-            0  0  0  0  0  0  0  0;
-            0  0  0  0  0  1  0  0]/8;
-
-    pC.T = [1    0    1    0;
-            1    1    1    0;
-            0    1    0    1;
-            1    0    1    0;
-            0    1    0    1;
-            1    0    1    0;
-            0    1    0    1;
-            1    0    1    0]/8;
-        
-    pC.L = 1/8;
-    pC.R = [1 1 1]/8;
-    
-    DCM.M.pC = pC;
-    
-    DCM.M.fmethod='none';
-    DCM.M.pE.L = -2.5;
-        
-    DCM.M.InputType=2;
-    DCM.M.burnin=300;
-        
-    % new priors (again...)
-    x = load('Priors_22Oct_b','Ep');
-    DCM.M.pE = x.Ep;
-    DCM.M.pE.L = 0;%-2;
-    DCM.M.pE.J([1 4])=-1000;
-        
-    DCM.M.pE.ID = zeros(1,8);
-    DCM.M.pC.ID = ones(1,8)/18;
-        
-    DCM.M.pC.Ly = 0;
-    DCM.M.pE.Ly = -2;
-    DCM.M.pE.ID(1)=-0.4;
-            
-    DCM.M.y  = DCM.xY.y;
-
-    DCM.M.pE.L   = -1;
-    DCM.M.pC.L   = 4;
-            
-    % keep for saving after
-    ppE = DCM.M.pE;
-    
-    DCM.M.pC.ID([1 2 3 4 5 6 7 8])=1/8;
-    DCM.M.pC.Gsc = [1 1 1 1 0 1 0 1]./8;
-        
-    DCM.M.burnin=0;
-    
-    DCM.M.pE.J(4)=log(0.8);
-    DCM.M.pE.J(1) = log(1.1);
-    
     DCM.M.sim.dt  = 1./300;
     DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(3)-DCM.M.sim.dt)');
+    DCM.M.burnin  = 300;
+    DCM.M.intmethod = 44;
     
-    %DCM.xY.y{1} = real(DCM.xY.y{1});
-    
-    DCM.M.pE.R = [0 0 0 0];
-    DCM.M.pC.R = [1 1 1 1]./8;
-    DCM.M.InputType=4;
-    DCM.M.pE.L = 0.8;
-    
-    x = load('NewParams_Jan28','Ep','pE','pC');
-    DCM.M.pE = x.pE;
-    DCM.M.pC = x.pC;
-    x = load('NewSet');
-    DCM.M.pE = x.P;
-    
-    % Optimise --- 1                                                           1
+    % Input is an ERP
+    DCM.M.InputType = 2;
+    DCM.M.pE.C = log(.01);
+        
+    % only interested in real psd rn
+    %----------------------------------------------------------------------
+    DCM.xY.y{1} = real(DCM.xY.y{1});
+        
+    % Optimise using AO.m                                                     
     %----------------------------------------------------------------------
     M = AODCM(DCM);
 
     % Bias and feature selection
     M.opts.Q  = real(Qw);  
-    %M.opts.FS = @(x) [real(sqrt(x))];
-    %M.opts.FS = @(x) [real( spm_vec(atcm.fun.Pf2VMD(x,3)) )];    
+    M.opts.FS = @(x) [real(sqrt(x))];
+    M.opts.FS = @(x) [real( spm_vec(atcm.fun.Pf2VMD(x,3)) )];    
     %M.opts.FS = @(x) real([sqrt(x)./sum(sqrt(x)); sqrt(x); spm_vec(atcm.fun.maxpointsinds(x,20)./length(x))]);
-        
+    %M.opts.FS = @(x) real([sqrt(x); sqrt(x)./sum(sqrt(x))]);
+    
     % opt set 1.
     M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams=1;   % hyperparameter tuning
-    M.opts.fsd = 1.2;         % fixed-step for derivatives
+    M.opts.fsd = 0;         % fixed-step for derivatives
     M.opts.corrweight = 0;  % weight log evidence by correlation 
     M.opts.inner_loop = 3;
         
     M.opts.objective = 'qrmse'; % objective (error) function
     M.opts.criterion = 1e-3;
-    %M.opts.isGaussNewton = 1;
+    %M.opts.objective = 'fe'; % objective (error) function
+    %M.opts.criterion = -inf;    %M.opts.isGaussNewton = 1;
+    
+    %M.opts.step_method=100;
+    %M.opts.steps_choice = [1 7];
+    %M.default_optimise([100],[28])
     
     M.default_optimise([7],[28])
     

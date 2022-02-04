@@ -23,6 +23,18 @@ for i = 1:(length(bins) - 2)
         w = linspace(1 , size(signal,2)/2 , size(signal,2) );
         [Pfm(:,:,:,i),f] = atcm.fun.Afft(chunk,fs,w);
     end
+    
+    % flip it and go ageain
+    chunk = fliplr(chunk);
+    if nargin > 2
+        [Pfm1(:,:,:,i)] = atcm.fun.Afft(chunk,fs,varargin{1});
+    else
+        w = linspace(1 , size(signal,2)/2 , size(signal,2) );
+        [Pfm1(:,:,:,i)] = atcm.fun.Afft(chunk,fs,w);
+    end    
+    
+    Pfm(:,:,:,i) = (Pfm(:,:,:,i) + Pfm1(:,:,:,i)) ./ 2;
+    
 end
 
 % Average windows
