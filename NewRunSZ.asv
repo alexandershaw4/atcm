@@ -114,7 +114,7 @@ for s = i;%1:length(Data.Datasets)
 
     % 1010 == use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 2;
+    DCM.options.FFTSmooth     = 3;
     %DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;     
@@ -165,13 +165,14 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.intmethod = 44;
     
     % Input is an ERP
-    DCM.M.InputType = 2;
+    DCM.M.InputType = 0;
     DCM.M.pE.C = log(.01);
-        
+    
     % only interested in real psd rn
     %----------------------------------------------------------------------
     DCM.xY.y{1} = real(DCM.xY.y{1});
-        
+    DCM.M.y     = DCM.xY.y;[y
+    
     % Optimise using AO.m                                                     
     %----------------------------------------------------------------------
     M = AODCM(DCM);
@@ -180,26 +181,20 @@ for s = i;%1:length(Data.Datasets)
     M.opts.Q  = real(Qw);  
     M.opts.FS = @(x) [real(sqrt(x))];
     M.opts.FS = @(x) [real( spm_vec(atcm.fun.Pf2VMD(x,3)) )];    
-    %M.opts.FS = @(x) real([sqrt(x)./sum(sqrt(x)); sqrt(x); spm_vec(atcm.fun.maxpointsinds(x,20)./length(x))]);
-    %M.opts.FS = @(x) real([sqrt(x); sqrt(x)./sum(sqrt(x))]);
     
     % opt set 1.
     M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams=1;   % hyperparameter tuning
-    M.opts.fsd = 0;         % fixed-step for derivatives
+    M.opts.fsd = 1;         % fixed-step for derivatives
     M.opts.corrweight = 0;  % weight log evidence by correlation 
     M.opts.inner_loop = 3;
         
-    %M.opts.objective = 'qrmse'; % objective (error) function
-    %M.opts.criterion = 1e-3;
-    M.opts.objective = 'fe'; % objective (error) function
-    M.opts.criterion = -inf;    %M.opts.isGaussNewton = 1;
+    M.opts.objective = 'qrmse'; % objective (error) function
+    M.opts.criterion = 1e-3;
     
-    %M.opts.step_method=100;
-    %M.opts.steps_choice = [1 7];
-    %M.default_optimise([100],[28])
+    %M.opts.isGaussNewton=1;
     
     M.default_optimise([7],[28])
     

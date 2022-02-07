@@ -643,7 +643,7 @@ end
 
 warning on;
 
-% Break phase-loking if modelling an induced response
+% Break phase-locking if modelling an induced response
 RandPhase = 1;
 if RandPhase
     for i = 1:size(y,1)
@@ -953,7 +953,7 @@ for ins = 1:ns
             
             % Distribution mixture model - estimate distributions & system noise
             %--------------------------------------------------------------
-            [~,pk] = atcm.fun.maxpoints(Pf,50); % peak n points
+            [~,pk] = atcm.fun.maxpoints(Pf,60); % peak n points
             wint   = 1:length(w);
             
             % Dist fits are on residuals - ie data minus already explained.
@@ -962,6 +962,8 @@ for ins = 1:ns
             if ij == 1; ResY = squeeze(M.y{ci}(:,ins,ins));
             else;       ResY = ResY - Pf0;
             end
+            
+            ek = 
             
             % This function compares fitting with Gaussian, Cauchy, Laplace 
             % and Gamma dists and returns best fit
