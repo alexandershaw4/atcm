@@ -12,3 +12,4 @@ It further includes functions for plotting, extracting parameters and example
 application scripts. It integrates easily into the Dynamic Causal Modelling framework 
 and can be optimised/ inverted using AO.m from my aoptim toolbox. 
 
+![screenshot](TCM_Overview.png)
