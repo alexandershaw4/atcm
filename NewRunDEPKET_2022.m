@@ -1,4 +1,4 @@
-function NewRunSZ(i)
+function NewRunDEPKET_2022(i)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data. 
 %
@@ -30,15 +30,14 @@ function NewRunSZ(i)
 %==========================================================================
 clear global;
 
+% for cubric system, add paths -
 % addpath(genpath('~/spm12'));
 % addpath(genpath('/home/sapas10/code/atcm/'));
 % addpath(genpath('/home/sapas10/code/aoptim/'));
  
-%cd /cubric/scratch/sapas10/tcm/LauSZ/
-
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'SZ_Datasets.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'ketdep_list.txt';
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
@@ -211,6 +210,7 @@ for s = i;%1:length(Data.Datasets)
     
     % afterward, use AODCM object to loop through the optimisation steps
     % for a visualisation:
+    %-------------------------------------------------------------------
 %     for i = 1:28; 
 %        dydp(i,:) = spm_vec(M.opts.fun(M.history.p{i}));
 %     end
