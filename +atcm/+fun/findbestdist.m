@@ -1,4 +1,4 @@
-function opty = findbestdist(w,f,a,wid,y)
+function [opty,m] = findbestdist(w,f,a,wid,y,elimination)
 % Given observation x-vector w and positions of peaks on x-axis (f) and 
 % corresponding y-axis values (a) and widths (wid), generate and select 
 % from a combination of Gaussians, Cauchy, Laplace and Gamma distributions 
@@ -14,6 +14,10 @@ function opty = findbestdist(w,f,a,wid,y)
 % and the sum of the best distribution for each will be returned.
 %
 % AS22
+
+if nargin < 6 || isempty(elimination)
+    elimination = 0;
+end
 
 if isstruct(f)
     a   = f.Amp;
@@ -34,7 +38,7 @@ mm(2,:,:) = m1;
 mm(3,:,:) = m2;
 mm(4,:,:) = m3;
 
-f  = @(x) lmod(x,mm,y);
+f  = @(x,yy) lmod(x,mm,yy);
 x0 = ones(size(mm,2),1); 
 
 % (hierarchically) find best fits for each component
@@ -42,8 +46,14 @@ nc  = size(mm,2);
 xx0 = x0;
 for i = 1:nc
     for j = 1:4
+        if i == 1 || ~elimination
+            yy = y;
+        else
+            yy = yy - squeeze(mm(xx0(i-1),i-1,:));
+        end
+        
         xx0(i) = j;
-        e(j) = f(xx0);
+        e(j) = f(xx0,yy);
         
         [~,I] = min(e);
         xx0(i) = I;

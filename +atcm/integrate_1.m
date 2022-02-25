@@ -352,6 +352,12 @@ if isfield(P,'ID')
             end
         end
         condel=del;
+        
+    elseif npp == 2
+        del = exp(P.ID).*[1 1]./2.4;
+        del = repmat(del,[1 nk]);
+        del = 1./del;
+        deli=del;
     end
     
 else
@@ -361,7 +367,11 @@ end
 
 % convert parameterised delay vector to state-by-state matrix
 %--------------------------------------------------------------------------
-del = sqrt(del)'*sqrt(deli);
+if isfield(P,'ID')
+    del = sqrt(del)'*sqrt(deli);
+else
+    del = 1;
+end
 
 % Can also pass a full np-by-np delay matrix (that would be a lot of params)
 if isfield(P,'ID') && all(size(P.ID)==8)
@@ -390,12 +400,25 @@ end
 % Newton-Cotes integration algorithm
 %--------------------------------------------------------------------------
 if WithDelays == 44
-    del = exp(P.ID).*[.01 1.2 1 1 1 1 .08 .08]; % (tau = 1./x)
+    if isfield(P,'ID')
+        if npp == 8
+            del = exp(P.ID).*[.01 1.2 1 1 1 1 .08 .08]; % (tau = 1./x)
+            %del = exp(P.ID).*[1 2 2 8 8 8 200 200]./64; % (tau = 1./x)
+        elseif npp == 2
+            del = exp(P.ID).*[1.2 1];
+        end
+    else
+        del = [1 1];
+    end
+    
     del = repmat(del,[1 nk]);
     del = 1./del;
-    %Q = spm_expm(dt*diag(del)*dfdx/(N*n)); % matrix exponential diagonal delay operator
-    Q = spm_expm(dt*diag(del));
+    Q = spm_expm(dt*diag(del)*dfdx/(N*n)); % matrix exponential diagonal delay operator
+    %Q = spm_expm(dt*diag(del));
 end
+
+condel = 1;
+QD    = Q; 
 
 % firing rate & count when fired (membrane potential passes threshold)
 %--------------------------------------------------------------------------
@@ -644,7 +667,7 @@ end
 warning on;
 
 % Break phase-locking if modelling an induced response
-RandPhase = 1;
+RandPhase = 0;
 if RandPhase
     for i = 1:size(y,1)
         tmp = fft(y(i,:));
@@ -918,9 +941,9 @@ for ins = 1:ns
                 end
 
                 % Retain principal eigenmode over (Gaussian) time-freq windows
-                Ppf = squeeze(Pfm)';
-                [u,s,v] = svd(Ppf');n = 1;
-                Ppf = spm_vec(u(:,n)*s(n,n)*mean(v(:,n)));
+                %Ppf = squeeze(Pfm)';
+                %[u,s,v] = svd(Ppf');n = 1;
+                %Ppf = spm_vec(u(:,n)*s(n,n)*mean(v(:,n)));
     
             else % (else use non smooth)
             
@@ -951,22 +974,27 @@ for ins = 1:ns
             %--------------------------------------------------------------
             Pf  = spm_vec(Pf);
             
+            Pf  = lowpass(Pf,.2,1);
+            
             % Distribution mixture model - estimate distributions & system noise
             %--------------------------------------------------------------
-            [~,pk] = atcm.fun.maxpoints(Pf,50); % peak n points
+            [~,pk] = atcm.fun.maxpoints(Pf,length(Pf)); % peak n points
+            [~,pk] = atcm.fun.maxpoints(Pf,round(length(Pf)./4)); % peak n points
             wint   = 1:length(w);
             
             % Dist fits are on residuals - ie data minus already explained.
             % This is to avoid all populations converging on same portion of spectrum 
             %--------------------------------------------------------------
-            if ij == 1; ResY = squeeze(M.y{ci}(:,ins,ins));
-            else;       ResY = ResY - Pf0;
-            end
+            %if ij == 1; ResY = squeeze(M.y{ci}(:,ins,ins));
+            %else;       ResY = ResY - Pf0;
+            %end
+            ResY = squeeze(M.y{ci}(:,ins,ins));
             
             % This function compares fitting with Gaussian, Cauchy, Laplace 
             % and Gamma dists and returns best fit
             %-------------------------------------------------------------- 
-            Pf0  = atcm.fun.findbestdist(wint,wint(pk)-1,Pf(pk),2*ones(length(find(pk)),1),ResY);
+            Pf0  = atcm.fun.findbestdist(wint,wint(pk)-1,Pf(pk),2*ones(length(find(pk)),1),ResY,1);
+            %Pf0  = atcm.fun.makef(wint,wint(pk)-1,Pf(pk),2*ones(length(find(pk)),1),'gaussian');
             Pf   = Pf0;
             
         end
@@ -1087,6 +1115,7 @@ end
 %--------------------------------------------------------------------------
 if ns == 1 
     y = real(Pf);
+    %y=Pf;
 else
     y = Pf;
 end

@@ -44,7 +44,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'nfinalTCM_';      % outputted DCM prefix
+Data.Prefix       = 'nnfinalTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -182,30 +182,44 @@ for s = i;%1:length(Data.Datasets)
     DCM.xY.y{1} = real(DCM.xY.y{1});
     DCM.M.y     = DCM.xY.y;
     
-    ppE = DCM.M.pE;
+    ppE  = DCM.M.pE;
     
+    % restricted set
+    pC   = DCM.M.pC;
+    V    = spm_unvec(spm_vec(pC)*0,pC);
+    V.H  = pC.H;
+    V.Hn = pC.Hn;
+    V.T  = pC.T;
+    V.L  = pC.L;
+    V.ID = pC.ID;
+    DCM.M.pC = V;
+        
     % Optimise using AO.m                                                     
     %----------------------------------------------------------------------
     M = AODCM(DCM);
 
     % Bias and feature selection
     M.opts.Q  = real(Qw);  
-    M.opts.FS = @(x) [real(sqrt(x))];
-    M.opts.FS = @(x) [real( spm_vec(atcm.fun.Pf2VMD(x,3)) )];    
     
+    M.opts.FS = @(x) [real(sqrt(x))];
+    M.opts.FS = @(x) [real( spm_vec(atcm.fun.Pf2VMD(x,3)) )];
+         
     % opt set 1.
     M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
-    M.opts.hyperparams=1;   % hyperparameter tuning
+    M.opts.hyperparams=0;   % hyperparameter tuning
     M.opts.fsd = 1;         % fixed-step for derivatives
     M.opts.corrweight = 0;  % weight log evidence by correlation 
-    M.opts.inner_loop = 3;
+    M.opts.inner_loop = 5;
         
     M.opts.objective = 'qrmse'; % objective (error) function
     M.opts.criterion = 1e-3;
-    
+    %M.opts.objective = 'fe'; % objective (error) function
+    %M.opts.criterion = -1000;
     %M.opts.isGaussNewton=1;
+    M.opts.factorise_gradients=0;
+    %M.opts.normalise_gradients=1;
     
     M.default_optimise([7],[28])
     

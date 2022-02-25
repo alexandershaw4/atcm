@@ -4,9 +4,6 @@ global DD
 % and optimisation via minimising either:
 %   e = sum( data - model ).^2 
 %
-% or the free-energy:
-%   see atcm.optim.fe0.m
-%
 % Parameter space paritioning (reduction) is achieved by 
 % clustering of the system Jacobian (df/dx) for parameters of non-zero
 % prior variance. This requires a one-off calculation of J regardless of

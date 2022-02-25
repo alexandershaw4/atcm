@@ -1,117 +1,5 @@
-function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
-% Numerical integration and spectral response of a neural mass model.
-% This version, which can handle networks of connected models,
-% and with different trial types. This version (atcm.integrate_1) has a number 
-% of options for the integration method (Euler, Runge-Kutta 1, 2, 4th) and
-% for the transfer function - such as the use of dynamic mode decomposition 
-% (DMD), different smothed FFTs and the option to form the output signal
-% from a weighted sum of different levels of smoothed time series.
-% 
-% Usage is designed to be plug-n-play with the way that SPM's Dynamic Causal 
-% Modelling (DCM) is structured:
-%
-% [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate_1(P,M,U)
-%
-% Use as a replacement for spm_csd_mtf.m, for calculating the voltage time-series
-% and spectral response from a neural mass, using numerical methods.
-%
-% The optimisation problem becomes highly nonlinear so i suggest using AO.m
-% optimisation (https://github.com/alexandershaw4/aoptim).
-%
-% This routine is more basic than the deault DCM transfer functions because, 
-% rather than taking an fft of the system's kernels (eigenvectors of the 
-% Jacobian), it uses the  approach of integrating ( dx/dt ) using a Euler 
-% or Runge-Kutta scheme over ~3s to first generate a states time series 
-% (voltages, currents). Finally, weighting & an fft of  the resultant 
-% timeseries provide the spectral response.
-% This is nice because one can access both the continuous and discrete 
-% time responses of the system. Channel noise (exponetial decay functions)
-% are computed and returned.
-%
-% Set DCM.M.IS = @atcm.integrate_1 to use this function with DCM as a 
-% replacement for spm_csd_mtf. 
-%
-% Outputs: y = full model prediction (for comparison to data in DCM.xY.y/csd)
-%          w = frequency window (as per DCM.M.Hz)
-%          s = the model voltage timeseries for each cell (states)
-%          g = the weighted [LFP] timeseries
-%          t = the input, over time, to the model
-%          pst    = poststim sample times
-%          layers = structure with layer specific spectral outputs
-%          noise  = structure with (freq space) parameterised noise components 
-%          firing = firing rate from each integration step
-%
-%
-% Definitions, methods and options:
-%--------------------------------------
-% All options are selected by specifying fields in the input 'M' structure.
-%
-% Selecting Input Type:
-% -------------------------------------
-% By default, the input is a constant (D.C).
-% Set M.InputType = 0 ... constant
-%                 = 1 ... a sine wave oscillation
-%                 = 2 ... an ERP (Guassian) bump
-%                 = 3 ... high frequency noise
-%
-% Select Sample Period:
-% ----------------------------------------------------------------------
-% Default = 3s @ 600Hz.
-% Set M.sim.pst = vector of sample times
-%     M.sim.dt  = update step (1./fs)
-%
-% Selecting Numerical Integration Method:
-% ----------------------------------------------------------------------
-% By default a modified Euler scheme incorporating a delay operator is
-% used. 
-% To switch from a numerical integration to another option:
-% Set M.IntMethod = 'kernels' ... use spm kernel scheme
-%       ~~~~      = 'ode45'   ... built in matlab ode solver
-%                 = ' '       ... use a numerical method (default)
-%                 = 'linearise' ... local linearisation using
-%                 eigendecomposition of the jacobian
-% 
-% If using a numerical method, switch the method type:
-% Set M.intmethod = 0  ... Euler no delays
-%       ~~~~      = 2  ... Euler with delays
-%                 = 44 ... Newton-Cotes with delays
-%                 = 21 ... integration with bilinear jacobian
-%                 = 23 ... full jacobian integration
-%                 = 24 ... stochastic equation integration
-%                 = 8  ... 8th-order Runge-Kutta w/ delays
-%                 = 45 ... 4th order Runge-Kutta w/ delays
-%
-% Time series decomposition 
-% ----------------------------------------------------------------------
-% Set M.decompose = 'ssa'   - singular spectrum analysis algorithm
-%                 = 'fourier' - fit a fourier series
-%
-%
-% Selecting Spectral (transfer) Method
-% ----------------------------------------------------------------------
-% Set M.fmethod = 'dmd' ... use dynamic mode decomposition to identify 
-%                           frequency modes in the intgrated timeseries
-%               = 'none' ... just use an fft (or smooth fft) of the data
-%
-% Note - when using 'none', optionally specify how many smoothing windows
-% to use in M.smth, default = 30
-%
-% Spectral smoothing
-% ----------------------------------------------------------------------
-% The fft(x) for each state is computed using a sliding window-smoothed
-% fourier transfer (atcm.fun.AfftSmooth) on a DCT filtered (retaining 99%)
-% version of the timeseries. The resulting spectrum is fit with a contrained
-% exponential (atcm.fun.c_oof) or some combinatorial multivariate distribution
-% model (using Gaussian, Cauchy, Laplace and Gamma dists) 
-% 
-% Other options:
-% -------------------------------------
-% M.IncDCS = flag to include a discrete cosine set (a semi-stochastic set
-% of neuronal fluctuations in frequency space).
-%
-% Also required: SPM12 w/ DCM,  
-%
-% AS
+function [y,w,s,g,t,pst,layers,other] = integrate_dev(P,M,U,varargin)
+% Development version of integrate_1
 
 % w, initial states, dt | fs is specified & generate sampletimes & inputs
 %--------------------------------------------------------------------------
@@ -352,6 +240,12 @@ if isfield(P,'ID')
             end
         end
         condel=del;
+        
+    elseif npp == 2
+        del = exp(P.ID).*[1 1]./2.4;
+        del = repmat(del,[1 nk]);
+        del = 1./del;
+        deli=del;
     end
     
 else
@@ -361,7 +255,11 @@ end
 
 % convert parameterised delay vector to state-by-state matrix
 %--------------------------------------------------------------------------
-del = sqrt(del)'*sqrt(deli);
+if isfield(P,'ID')
+    del = sqrt(del)'*sqrt(deli);
+else
+    del = 1;
+end
 
 % Can also pass a full np-by-np delay matrix (that would be a lot of params)
 if isfield(P,'ID') && all(size(P.ID)==8)
@@ -390,12 +288,23 @@ end
 % Newton-Cotes integration algorithm
 %--------------------------------------------------------------------------
 if WithDelays == 44
-    del = exp(P.ID).*[.01 1.2 1 1 1 1 .08 .08]; % (tau = 1./x)
+    if isfield(P,'ID')
+        if npp == 8
+            del = exp(P.ID).*[.01 1.2 1 1 1 1 .08 .08]; % (tau = 1./x)
+        elseif npp == 2
+            del = exp(P.ID).*[1.2 1];
+        end
+    else
+        del = [1 1];
+    end
+    
     del = repmat(del,[1 nk]);
     del = 1./del;
     %Q = spm_expm(dt*diag(del)*dfdx/(N*n)); % matrix exponential diagonal delay operator
     Q = spm_expm(dt*diag(del));
 end
+
+condel = 1;
 
 % firing rate & count when fired (membrane potential passes threshold)
 %--------------------------------------------------------------------------
@@ -900,7 +809,7 @@ for ins = 1:ns
 
             % Select sliding-window smoothed fft or whole chunk fft
             %--------------------------------------------------------------
-            UseSmooth = 0;
+            UseSmooth = 1;
             if UseSmooth
                 
                 % User specified FFT smoothing (num windows)
@@ -953,7 +862,7 @@ for ins = 1:ns
             
             % Distribution mixture model - estimate distributions & system noise
             %--------------------------------------------------------------
-            [~,pk] = atcm.fun.maxpoints(Pf,60); % peak n points
+            [~,pk] = atcm.fun.maxpoints(Pf,50); % peak n points
             wint   = 1:length(w);
             
             % Dist fits are on residuals - ie data minus already explained.
@@ -962,8 +871,6 @@ for ins = 1:ns
             if ij == 1; ResY = squeeze(M.y{ci}(:,ins,ins));
             else;       ResY = ResY - Pf0;
             end
-            
-            ek = 
             
             % This function compares fitting with Gaussian, Cauchy, Laplace 
             % and Gamma dists and returns best fit
