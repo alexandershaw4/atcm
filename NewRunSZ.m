@@ -44,7 +44,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'nnfinalTCM_';      % outputted DCM prefix
+Data.Prefix       = 'New22_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -170,11 +170,11 @@ for s = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     DCM.M.sim.dt  = 1./300;
     DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(3)-DCM.M.sim.dt)');
-    DCM.M.burnin  = 300;
+    DCM.M.burnin  = 1000;
     DCM.M.intmethod = 44;
     
     % Input is an ERP
-    DCM.M.InputType = 0;
+    DCM.M.InputType = 2;
     DCM.M.pE.C = log(.01);
     
     % only interested in real psd rn
@@ -183,33 +183,41 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.y     = DCM.xY.y;
     
     ppE  = DCM.M.pE;
+    %DCM.M.pC.CV = [1 1 1 1 1 1 1 1]./64;
     
-    % restricted set
-    pC   = DCM.M.pC;
-    V    = spm_unvec(spm_vec(pC)*0,pC);
-    V.H  = pC.H;
-    V.Hn = pC.Hn;
-    V.T  = pC.T;
-    V.L  = pC.L;
-    V.ID = pC.ID;
-    DCM.M.pC = V;
+    DCM.M.pC   = spm_unvec(spm_vec(DCM.M.pC)*8,DCM.M.pC);
+    DCM.M.pC.R = [1 1 1]./8;
+    DCM.M.pE.L = -.25;
+    
+%     % restricted set
+%     pC   = DCM.M.pC;
+%     V    = spm_unvec(spm_vec(pC)*0,pC);
+%     V.H  = pC.H;
+%     V.Hn = pC.Hn;
+%     V.T  = pC.T;
+%     V.L  = pC.L;
+%     V.ID = pC.ID;
+%     DCM.M.pC = V;
         
+    DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
+
     % Optimise using AO.m                                                     
     %----------------------------------------------------------------------
     M = AODCM(DCM);
 
     % Bias and feature selection
+    %Qw = diag(y{:}) + diag(gradient(y{:}(1:end-1)),1) + diag(gradient(y{:}(1:end-1)),-1);
     M.opts.Q  = real(Qw);  
     
     M.opts.FS = @(x) [real(sqrt(x))];
     M.opts.FS = @(x) [real( spm_vec(atcm.fun.Pf2VMD(x,3)) )];
          
     % opt set 1.
-    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.EnforcePriorProb=1; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
-    M.opts.hyperparams=0;   % hyperparameter tuning
-    M.opts.fsd = 1;         % fixed-step for derivatives
+    M.opts.hyperparams=1;   % hyperparameter tuning
+    M.opts.fsd = 0;         % fixed-step for derivatives
     M.opts.corrweight = 0;  % weight log evidence by correlation 
     M.opts.inner_loop = 5;
         
@@ -217,11 +225,11 @@ for s = i;%1:length(Data.Datasets)
     M.opts.criterion = 1e-3;
     %M.opts.objective = 'fe'; % objective (error) function
     %M.opts.criterion = -1000;
-    %M.opts.isGaussNewton=1;
-    M.opts.factorise_gradients=0;
+    M.opts.isGaussNewton=0;
+    M.opts.factorise_gradients=1;
     %M.opts.normalise_gradients=1;
     
-    M.default_optimise([7],[28])
+    M.default_optimise([1],[28])
     
     % afterward, use AODCM object to loop through the optimisation steps
     % for a visualisation:
@@ -245,7 +253,7 @@ for s = i;%1:length(Data.Datasets)
     M.opts.FS = @(x) real( spm_vec(atcm.fun.Pf2VMD(x,3)) );
 
     % opt set 1.
-    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.EnforcePriorProb=1; % forcibly constrain parameters to within prior dist
     M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams=1;   % hyperparameter tuning
@@ -254,12 +262,15 @@ for s = i;%1:length(Data.Datasets)
     
     M.opts.objective = 'qrmse'; % objective (error) function
     M.opts.criterion = 1e-3;
-
-    M.default_optimise([7],[8])
+    
+    M.opts.isGaussNewton=0;
+    
+    M.default_optimise([1],[8])
       
     % reinstate the actual priors before saving
     DCM.M.pE = ppE;
     
     save(DCM.name); close; clear global;    
     
+    close all; drawnow;
 end

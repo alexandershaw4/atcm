@@ -1008,8 +1008,8 @@ for ins = 1:ns
             %-------------------------------------------------------------- 
             wt   = rescale(w(:).^-1);
             
-            dist_method = 4;
-            switch dist_method
+            dist_method = 3;
+            switch dist_met4od
                 case 1
                     % smoothed spline
                     Pf0   = csaps(w(pk),Pf(pk).*wt(1:n),0.01,w);
