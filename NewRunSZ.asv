@@ -38,13 +38,13 @@ clear global;
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'SZ_Datasets.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'MeanSZDatasets.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'nnfinalTCM_';      % outputted DCM prefix
+Data.Prefix       = 'Mar9_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -189,25 +189,64 @@ for s = i;%1:length(Data.Datasets)
     DCM.M.pC.R = [1 1 1]./8;
     DCM.M.pE.L = -.25;
     
+    DCM.M.pE.J(1)=-1000;
+    
 %     % restricted set
-%     pC   = DCM.M.pC;
-%     V    = spm_unvec(spm_vec(pC)*0,pC);
+     pC   = DCM.M.pC;
+     V    = spm_unvec(spm_vec(pC)*0,pC);
+     
+     V.H = [...
+     0     0     0     0     0     0     0     1;
+     1     1     1     0     0     0     0     0;
+     0     1     1     0     0     0     0     0;
+     0     1     0     0     1     0     0     0;
+     0     0     0     0     0     0     0     0;
+     0     0     0     1     0     1     0     0;
+     0     0     0     0     0     0     0     1;
+     0     0     0     0     0     1     1     0]/8;
+     
+ V.Hn= [...
+     0     0     0     0     0     0     0     1;
+     1     1     0     0     0     0     0     0;
+     0     1     0     0     0     0     0     0;
+     0     1     0     0     0     0     0     0;
+     0     0     0     0     0     0     0     0;
+     0     0     0     1     0     0     0     0;
+     0     0     0     0     0     0     0     0;
+     0     0     0     0     0     1     0     0]/8;
+ 
+ V.Gsc = [1 1 1 1 0 1 0 1]./8;
+ V.ID  = [1 1 1 1 0 0 0 1]./8;
+ 
+ V.T = [...
+     1     0     0     0;
+     1     0     1     0;
+     0     1     0     1;
+     1     0     1     0;
+     0     0     0     0;
+     0     0     0     0;
+     0     0     0     0;
+     1     0     0     0]/8;
+ 
+ 
+ 
 %     V.H  = pC.H;
 %     V.Hn = pC.Hn;
 %     V.T  = pC.T;
-%     V.L  = pC.L;
+     V.L  = pC.L;
 %     V.ID = pC.ID;
-%     DCM.M.pC = V;
+     DCM.M.pC = V;
         
-    DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
+     DCM.M.pE.L=.5;
+     
+    %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
 
     % Optimise using AO.m                                                     
     %----------------------------------------------------------------------
     M = AODCM(DCM);
 
-    % Bias and feature selection
-    %Qw = diag(y{:}) + diag(gradient(y{:}(1:end-1)),1) + diag(gradient(y{:}(1:end-1)),-1);
-    M.opts.Q  = real(Qw);  
+    % Bias and feature selection - ensure FS(y) remains smooth
+    M.opts.Q  = atcm.fun.HighResMeanFilt(real(Qw),1,4);  
     
     M.opts.FS = @(x) [real(sqrt(x))];
     M.opts.FS = @(x) [real( spm_vec(atcm.fun.Pf2VMD(x,3)) )];
@@ -272,4 +311,5 @@ for s = i;%1:length(Data.Datasets)
     
     save(DCM.name); close; clear global;    
     
+    close all; drawnow;
 end

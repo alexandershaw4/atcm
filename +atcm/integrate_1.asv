@@ -985,45 +985,46 @@ for ins = 1:ns
             % make sure its a nx1 vector
             %--------------------------------------------------------------
             Pf  = spm_vec(Pf);
+            Pf(Pf<0) = -Pf(Pf<0);
                         
             % Distribution mixture model - estimate distributions & system noise
             %--------------------------------------------------------------            
-            dfn        = real(Pf)./sum(real(Pf));
-            [odfn,ord] = sort(dfn,'descend');
-            
-            n    = atcm.fun.findthenearest(cumsum(odfn),.8);
-            pk   = ord(1:n);            
-            wint = 1:length(w);
-            
-            % Dist fits are on residuals - ie data minus already explained.
-            % This is to avoid all populations converging on same portion of spectrum 
-            %--------------------------------------------------------------
-            %if ij == 1; ResY = squeeze(M.y{ci}(:,ins,ins));
-            %else;       ResY = ResY - Pf0;
-            %end
-            ResY = squeeze(M.y{ci}(:,ins,ins));
-            
-            % This function compares fitting with Gaussian, Cauchy, Laplace 
-            % and Gamma dists and returns best fit
-            %-------------------------------------------------------------- 
-            wt   = rescale(w(:).^-1);
-            
-            dist_method = 3;
-            switch dist_met4od
-                case 1
-                    % smoothed spline
-                    Pf0   = csaps(w(pk),Pf(pk).*wt(1:n),0.01,w);
-                case 2
-                    % normal cubic spline
-                    Pf0   = spline(w(pk),Pf(pk).*wt(1:n),w);
-                case 3
-                    % gaussians
-                    Pf0   = atcm.fun.makef(wint,wint(pk)-1,Pf(pk).*wt(1:n),2*ones(length(find(pk)),1),'gaussian');
-                case 4
-                    % optimised gaussian, cauchy, laplacian or gamma
-                    Pf0   = atcm.fun.findbestdist(wint,wint(pk)-1,Pf(pk).*wt(1:n),2.5*ones(length(find(pk)),1),ResY);
-            end
-            Pf   = Pf0(:) ;
+%             dfn        = real(Pf)./sum(real(Pf));
+%             [odfn,ord] = sort(dfn,'descend');
+%             
+%             n    = atcm.fun.findthenearest(cumsum(odfn),.8);
+%             pk   = ord(1:n);            
+%             wint = 1:length(w);
+%             
+%             % Dist fits are on residuals - ie data minus already explained.
+%             % This is to avoid all populations converging on same portion of spectrum 
+%             %--------------------------------------------------------------
+%             %if ij == 1; ResY = squeeze(M.y{ci}(:,ins,ins));
+%             %else;       ResY = ResY - Pf0;
+%             %end
+%             ResY = squeeze(M.y{ci}(:,ins,ins));
+%             
+%             % This function compares fitting with Gaussian, Cauchy, Laplace 
+%             % and Gamma dists and returns best fit
+%             %-------------------------------------------------------------- 
+%             wt   = rescale(w(:).^-1);
+%             
+%             dist_method = 1;
+%             switch dist_method
+%                 case 1
+%                     % smoothed spline
+%                     Pf0   = csaps(w(pk),Pf(pk).*wt(1:n),0.01,w);
+%                 case 2
+%                     % normal cubic spline
+%                     Pf0   = spline(w(pk),Pf(pk).*wt(1:n),w);
+%                 case 3
+%                     % gaussians
+%                     Pf0   = atcm.fun.makef(wint,wint(pk)-1,Pf(pk).*wt(1:n),2*ones(length(find(pk)),1),'gaussian');
+%                 case 4
+%                     % optimised gaussian, cauchy, laplacian or gamma
+%                     Pf0   = atcm.fun.findbestdist(wint,wint(pk)-1,Pf(pk).*wt(1:n),2.5*ones(length(find(pk)),1),ResY);
+%             end
+%             Pf   = Pf0(:) ;
         end
     
         % Make it non-sparse and vectorised
@@ -1081,6 +1082,39 @@ Pf = (Pf)/length(w);
 % Addition of system noise & Leadfield scaling: L, Gu, Gn, Gs
 %--------------------------------------------------------------------------
 for ins = 1:ns
+        
+    dfn        = real(Pf(:,ins,ins))./sum(real(Pf(:,ins,ins)));
+    [odfn,ord] = sort(dfn,'descend');
+    
+    n    = atcm.fun.findthenearest(cumsum(odfn),.6);
+    pk   = ord(1:n);
+    wint = 1:length(w);
+    
+    ResY = squeeze(M.y{ci}(:,ins,ins));
+    
+    % This function compares fitting with Gaussian, Cauchy, Laplace
+    % and Gamma dists and returns best fit
+    %--------------------------------------------------------------
+    wt   = rescale(w(:).^-1);
+    
+    dist_method = 4;
+    switch dist_method
+        case 1
+            % smoothed spline
+            Pf0   = csaps(w(pk),Pf(pk,ins,ins).*wt(1:n),0.01,w);
+        case 2
+            % normal cubic spline
+            Pf0   = spline(w(pk),Pf(pk,ins,ins).*wt(1:n),w);
+        case 3
+            % gaussians
+            Pf0   = atcm.fun.makef(wint,wint(pk)-1,Pf(pk,ins,ins).*wt(1:n),2*ones(length(find(pk)),1),'gaussian');
+        case 4
+            % optimised gaussian, cauchy, laplacian or gamma
+            Pf0   = atcm.fun.findbestdist(wint,wint(pk)-1,Pf(pk,ins,ins).*wt(1:n),2.6*ones(length(find(pk)),1),ResY);
+    end
+    Pf(:,ins,ins)   = Pf0(:) ;
+
+
     
     % Electrode gain & smoothing
     %----------------------------------------------------------------------
