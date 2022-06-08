@@ -35,7 +35,7 @@ function [f,J,Q,D] = tc_hilge(x,u,P,M,m)
 %
 %        state: 1 V   - voltage
 %               2 gE  - conductance: AMPA   (excitatory)
-%               3 gI  -  conductance: GABA-A (inhibitory)
+%               3 gI  - conductance: GABA-A (inhibitory)
 %               4 gN  - conductance: NMDA   (excitatory)
 %               5 gB  - conductance: GABA-B (inhibitory)
 %               6 gM  - conductance: M-channels (inhibitory)
@@ -64,8 +64,8 @@ function [f,J,Q,D] = tc_hilge(x,u,P,M,m)
 % A{3} = Back/Lat TP -> SS & TP
 % A{4} = Inter-Thal [B] RT -> RC
 % A{5} = Inter-Thal [F] RC -> RT
-%--------------------------------------------------------------------------
-
+%
+% Dr Alexander Shaw | 2020 | alexandershaw4[@]gmail.com
 
 
 % Flag: include M- & H- channels on L6 TP & Thalamic Relay cells, or not
@@ -193,16 +193,27 @@ GIa = zeros(8,8);
 %--------------------------------------------------------------------------
 % This is a simplified, predictive-coding friendly excitatory architecture
 % NEW - BASED ON HILGETAG PAPER
-%           ss  sp  si  dp  di  tp  rt  rl   
-GEa(1,:) = [0   4   0   0   0   2   0   24];
-GEa(2,:) = [6   4   0   0   0   0   0   2];
-GEa(3,:) = [1   8   0   0   0   0   0   0]; 
-GEa(4,:) = [4   6   0   0   0   2   0   1];
-GEa(5,:) = [0   1   0   4   0   2   0   0];
-GEa(6,:) = [0   0   0   6   0   0   0   8]; 
-GEa(7,:) = [0   0   0   1   0   2   0   2]; 
-GEa(8,:) = [0   0   0   1   0   2   0   0];
+%           ss    sp    si  dp  di  tp  rt  rl   
+GEa(1,:) = [0     4     0   0   0   2   0   24];
+GEa(2,:) = [6     4     0   0   0   0   0   2];
+GEa(3,:) = [1     8     0   0   0   0   0   0]; 
+GEa(4,:) = [1/4   8     0   0   0   2   0   1];
+GEa(5,:) = [0     1     0   4   0   2   0   0];
+GEa(6,:) = [0     0     0   6   0   0   0   8]; 
+GEa(7,:) = [0     0     0   1   0   2   0   2]; 
+GEa(8,:) = [4     0     0   1   0   2   0   0];
+ 
 
+GEa(1,:) = [0     4     0   0   0   0   0   24];
+GEa(2,:) = [6     4     0   0   0   0   0   2];
+GEa(3,:) = [1     8     0   0   0   0   0   0]; 
+GEa(4,:) = [2     8     0   0   0   2   0   0];
+GEa(5,:) = [0     1     0   4   0   2   0   0];
+GEa(6,:) = [0     0     0   6   0   0   0   8]; 
+GEa(7,:) = [0     0     0   0   0   2   0   2]; 
+GEa(8,:) = [4     0     0   0   0   2   0   0];
+
+% %           ss  sp  si  dp  di  tp  rt  rl   
 % GEa(1,:) = [0   0   0   0   0   0   0   2]/1;
 % GEa(2,:) = [4   0   0   0   0   0   0   0]/1;
 % GEa(3,:) = [0   4   0   0   0   0   0   0]/1; 
@@ -211,13 +222,34 @@ GEa(8,:) = [0   0   0   1   0   2   0   0];
 % GEa(6,:) = [0   0   0   2   0   0   0   1]/1; 
 % GEa(7,:) = [0   0   0   0   0   0   0   2]/1; 
 % GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
+% 
+% v = 24;
+% b = 8;
+%s = 2;
+%t = 1;
+% 
+% GEa(1,:) = [0   t   0   0   0   s   0   v];
+% GEa(2,:) = [s   0   0   0   0   0   0   s];
+% GEa(3,:) = [t   b   0   0   0   0   0   0]; 
+% GEa(4,:) = [0   s   0   0   0   0   0   t];
+% GEa(5,:) = [0   0   0   b   0   b   0   0];
+% GEa(6,:) = [0   0   0   s   0   0   0   s]; 
+% GEa(7,:) = [0   0   0   0   0   0   0   b]; 
+% GEa(8,:) = [s   0   0   0   0   s   0   0];
+
 
 % added TP>SI = 2 (was 0)
 GEa = GEa./4;
 %GEa = GEa .* ~eye(np);
 %GEa = GEa + eye(np);      % KILLED
 
-GEa = GEa + diag([1 1 1 1 1 1 1 1]./8);
+%GEa = GEa + diag([1 1 1 1 1 1 1 1]./8);
+
+GEa = GEa + diag([1 1 1 1 1 1 1 1]/8);
+
+
+%GEa = GEa + diag([t s t t t t t t]*2);
+
 
 %GEa(4)=4;
 
@@ -229,7 +261,7 @@ GEn = GEa;
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
 %           ss  sp  si  dp  di  tp  rt  rl
-GIa(1,:) = [12   0   2   0   0   0   0   0 ];
+GIa(1,:) = [12  0   2   0   0   0   0   0 ];
 GIa(2,:) = [0   64  16  0   0   0   0   0 ]; %spsp was 16
 GIa(3,:) = [0   0   32  0   0   0   0   0 ];
 GIa(4,:) = [0   0   0   8   12  0   0   0 ];
@@ -238,6 +270,14 @@ GIa(6,:) = [0   0   0   0   32  8   0   0 ];
 GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   64]; % tr-tr was 32
 
+GIa(1,:) = [12  0   2   0   0   0   0   0 ];
+GIa(2,:) = [0   2   16  0   0   0   0   0 ]; %spsp was 16
+GIa(3,:) = [0   0   32  0   0   0   0   0 ];
+GIa(4,:) = [0   0   0   8   12  0   0   0 ];
+GIa(5,:) = [0   0   4   0   16  0   0   0 ];
+GIa(6,:) = [0   0   0   0   32  8   0   0 ];
+GIa(7,:) = [0   0   0   0   0   0   32  0 ];
+GIa(8,:) = [0   0   0   0   0   0   8   64]; % tr-tr was 32
 
 % GIa(1,:) = [2   0   16  0   0   0   0   0 ];
 % GIa(2,:) = [0   64  16  0   0   0   0   0 ]; %spsp was 16
@@ -416,7 +456,7 @@ for i = 1:ns
       
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = [7 8];%[8 1 2 4 6];
+        input_cell        = [8];%[8 1 2 4 6];
                 
         if isfield(M,'inputcell');
             input_cell = M.inputcell;
@@ -451,7 +491,15 @@ for i = 1:ns
             
         elseif IncludeMH
             
-          f(i,:,1) =         (GL*(VL - x(i,:,1))+...
+%           f(i,:,1) =         (GL*((VL - x(i,:,1)).*exp(P.pr))+...
+%                        x(i,:,2).*(VE - x(i,:,1))+...
+%                        x(i,:,3).*(VI - x(i,:,1))+...
+%                        x(i,:,5).*(VB - x(i,:,1))+...
+%                        x(i,:,6).*(VM - x(i,:,1))+...
+%                        x(i,:,7).*(VH - x(i,:,1))+...
+%                        x(i,:,4).*(VN - x(i,:,1)).*mg_switch(x(i,:,1)))./CV;
+          
+          f(i,:,1) =  (GL*(VL - x(i,:,1))+...
                        x(i,:,2).*(VE - x(i,:,1))+...
                        x(i,:,3).*(VI - x(i,:,1))+...
                        x(i,:,5).*(VB - x(i,:,1))+...
@@ -472,6 +520,7 @@ for i = 1:ns
         %else
         %    nmdat = pop_rates;
         %end
+        
         
         f(i,:,2) = (E'     - x(i,:,2)).* (KE(:,:)');%*pop_rates);
         f(i,:,3) = (I'     - x(i,:,3)).* (KI(:,:)');%*gabaa_rate);

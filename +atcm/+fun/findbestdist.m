@@ -33,10 +33,15 @@ for i = 1:length(f)
     m3(i,:) = atcm.fun.makef(w,f(i),a(i),wid(i),'gamma');
 end
 
-mm(1,:,:) = m0;
-mm(2,:,:) = m1;
-mm(3,:,:) = m2;
-mm(4,:,:) = m3;
+try
+    mm(1,:,:) = m0;
+    mm(2,:,:) = m1;
+    mm(3,:,:) = m2;
+    mm(4,:,:) = m3;
+catch
+    opty = zeros(size(y))*inf;
+    return;
+end
 
 f  = @(x,yy) lmod(x,mm,yy);
 x0 = ones(size(mm,2),1); 
@@ -49,7 +54,7 @@ for i = 1:nc
         if i == 1 || ~elimination
             yy = y;
         else
-            yy = yy - squeeze(mm(xx0(i-1),i-1,:));
+            yy = yy - squeeze(mm(xx0(i-1),i-1,:));            
         end
         
         xx0(i) = j;
@@ -78,10 +83,10 @@ function g = lmod(x,mm,y)
     for i = 1:length(x)
         m(:,i) = squeeze( mm(x(i),i,:) );
 
-        %e = y(:) - sum(m,2);
-        %g = sum( e.^2 );
+        e = y(:) - sum(m,2);
+        g = sum( e.^2 );
 
-        g = 1 - (corr(y(:),sum(m,2))).^2;
+        %g = 1 - (corr(y(:),sum(m,2))).^2;
         
     end
 end

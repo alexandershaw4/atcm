@@ -1,4 +1,4 @@
-function RC = assa(X,MM,reduce)
+function [RC,lam] = assa(X,MM,reduce)
 % Singular spectrum analysis 
 %
 %   RC = assa(X,MM);
@@ -27,6 +27,8 @@ LAMBDA = diag(LAMBDA);               % extract the diagonal elements
 RHO = RHO(:,ind);                    % and eigenvectors
 
 PC = Y*RHO;
+
+lam=LAMBDA;
 
 RC=zeros(N,MM);
 for m=1:MM

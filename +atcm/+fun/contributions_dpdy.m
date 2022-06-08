@@ -57,6 +57,11 @@ con.par = par;
 con.Names = N;
 con.pindices = find(spm_vec(DCM.M.pC));
 
+% plot -
+% imagesc(con.redmap'*con.RelChangeSpec)
+% caxis([-100 100])
+% set(gca, 'ytick',1:size(con.redmap,2),'yticklabels',con.Names(con.pindices))
+
 % find the rank of the covariance of the derivative matrix and project
 % principal components:
 %

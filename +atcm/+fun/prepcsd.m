@@ -118,6 +118,11 @@ catch
     trial = D.nconditions;
 end
 
+% alex - allow [] to specify all
+if isempty(DCM.options.trials)
+    trial = 1;
+end
+
 % KRISH HAS COMMENTED OUT THIS CODE AS I WANT TO SPECIFY MY OWN DOWNSAMPLE RATE - THIS ACTUALLY HAS A BIG EFFECT ON THE SPECTRAL SHAPE
 %
 % check data are not oversampled (< 4ms)
@@ -212,7 +217,11 @@ for i = 1:Ne;
     % trial indices
     %----------------------------------------------------------------------
     %c = D.pickconditions(condlabels{trial(i)});
-    c = D.indtrial(condlabels(trial(i)), 'GOOD');
+    if ~isempty(DCM.options.trials)
+        c = D.indtrial(condlabels(trial(i)), 'GOOD');
+    else
+        c = 1:size(D,3); 
+    end
     
     if isfield(DCM.options,'TrialIndices')
         fprintf('Using only specified trial range...\n');
@@ -394,11 +403,17 @@ for i = 1:Ne;
             DCM.xY.trial_spectra = Pfull;
             %Pfull = squeeze(spm_robust_average(Pfull));
             
-            % retain first eidenmode
-            m        = 1;
-            [u s v]  = spm_svd(Pfull',1);
-            Pfull    = u(:,m)*s(m,m)*mean(v(:,m));
-            Pfull    = full(Pfull)';
+            if size(Pfull,1) > 1 && Nm==1
+                % retain first eidenmode
+                m        = 1;
+                [u s v]  = spm_svd(Pfull',1);
+                Pfull    = u(:,m)*s(m,m)*mean(v(:,m));
+                Pfull    = full(Pfull)';
+            elseif size(Pfull,1) > 1 && Nm>1
+                Pfull = squeeze(spm_robust_average(Pfull));
+            else
+                Pfull = squeeze(Pfull);
+            end
             
             if DOBASE
                 Pfullbase = squeeze(spm_robust_average(Pfullbase));

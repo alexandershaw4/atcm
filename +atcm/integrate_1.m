@@ -43,11 +43,11 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 %
 %
 % Definitions, methods and options:
-%--------------------------------------
+%--------------------------------------------------------------------------
 % All options are selected by specifying fields in the input 'M' structure.
 %
 % Selecting Input Type:
-% -------------------------------------
+% -------------------------------------------------------------------------
 % By default, the input is a constant (D.C).
 % Set M.InputType = 0 ... constant
 %                 = 1 ... a sine wave oscillation
@@ -55,13 +55,13 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 %                 = 3 ... high frequency noise
 %
 % Select Sample Period:
-% ----------------------------------------------------------------------
+% -------------------------------------------------------------------------
 % Default = 3s @ 600Hz.
 % Set M.sim.pst = vector of sample times
 %     M.sim.dt  = update step (1./fs)
 %
 % Selecting Numerical Integration Method:
-% ----------------------------------------------------------------------
+% -------------------------------------------------------------------------
 % By default a modified Euler scheme incorporating a delay operator is
 % used. 
 % To switch from a numerical integration to another option:
@@ -82,13 +82,13 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 %                 = 45 ... 4th order Runge-Kutta w/ delays
 %
 % Time series decomposition 
-% ----------------------------------------------------------------------
+% -------------------------------------------------------------------------
 % Set M.decompose = 'ssa'   - singular spectrum analysis algorithm
 %                 = 'fourier' - fit a fourier series
 %
 %
 % Selecting Spectral (transfer) Method
-% ----------------------------------------------------------------------
+% -------------------------------------------------------------------------
 % Set M.fmethod = 'dmd' ... use dynamic mode decomposition to identify 
 %                           frequency modes in the intgrated timeseries
 %               = 'none' ... just use an fft (or smooth fft) of the data
@@ -97,7 +97,7 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 % to use in M.smth, default = 30
 %
 % Spectral smoothing
-% ----------------------------------------------------------------------
+% -------------------------------------------------------------------------
 % The fft(x) for each state is computed using a sliding window-smoothed
 % fourier transfer (atcm.fun.AfftSmooth) on a DCT filtered (retaining 99%)
 % version of the timeseries. The resulting spectrum is fit with a contrained
@@ -105,13 +105,14 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 % model (using Gaussian, Cauchy, Laplace and Gamma dists) 
 % 
 % Other options:
-% -------------------------------------
+% -------------------------------------------------------------------------
 % M.IncDCS = flag to include a discrete cosine set (a semi-stochastic set
 % of neuronal fluctuations in frequency space).
 %
 % Also required: SPM12 w/ DCM,  
 %
-% AS
+% Dr Alexander Shaw | 2020 | alexandershaw4[@]gmail.com
+
 
 % w, initial states, dt | fs is specified & generate sampletimes & inputs
 %--------------------------------------------------------------------------
@@ -168,7 +169,7 @@ switch InputType
         % For oscillatory inputs...
         %------------------------------------------------------------------
         mu    = .2*exp(P.R(1));                      % mean amplitude
-        mf    = 20*exp(P.R(2));                      % frequency
+        mf    = 10*exp(P.R(2));                      % frequency
         drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
                      %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
                   
@@ -274,6 +275,8 @@ other.Spike = Spike;
 other.drive = drive;
 other.condel=condel;
 other.series = series;
+other.dt = dt;
+other.Fs = Fs;
 end
 
 function [y,w,s,g,t,layers,noise,firing,QD,spike,condel,series] = ...
@@ -302,128 +305,34 @@ end
 [fx, dfdx,D] = f(M.x,4,P,M);
 dFdx = dfdx;
 
-% debug instabilities
-if any(isnan(fx)) || any(isnan(dfdx(:)))
-    fx   = zeros(size(fx));
-    dfdx = zeros(size(dfdx));
-    D    = zeros(size(D));
-end
-
-OPT.tol = 1e-6*norm((dfdx),'inf');
-if OPT.tol == 0
-     OPT.tol = 1;
-end
+ OPT.tol = 1e-6*norm((dfdx),'inf');
+ if OPT.tol == 0
+      OPT.tol = 1;
+ end
 p     = abs(eigs(dfdx,1,'SR',OPT));
 N     = ceil(max(1,dt*p*2));
-n     = spm_length(M.x);
-dfdx  = dfdx - speye(n,n)*exp(-16);
-Q     = (spm_expm(dt*D*dfdx/N) - speye(n,n))/dfdx;
-%Q    = sum( ((D.^N).*J)*(Q^N)/factorial(N) ):
-QD    = Q;        
 
-% Set up custom delay operator - parameterised state x state delays
-% conferred by population delays (c.f. conduction delay)
-%--------------------------------------------------------------------------
+
 if isfield(P,'ID')
-    
-    if npp == 8 
-        del = exp(P.ID).*[2 1/4 1/2 8 1/2 4 2 2]/2.4;
-        del = exp(P.ID).*[4 1/4 1 1/2 1/2 4 2 1]/2.4;
-        del = exp(P.ID).*[1 1 1/2 1 1/2 1 1 1];
-                
-        if isfield(P,'IDb')
-            deli = exp(P.IDb).*[1 1/5 1/2 1 1/2 1 1/2 8]/2.4;
-            deli = exp(P.IDb).*[4 1/5 1 1/2 1/2 4 2 144]/2.4;
-        end
-        
-        del = repmat(del,[1 nk]);
-        del = 1./del;
-        
-        if isfield(P,'IDb')
-            deli = repmat(deli,[1 nk]);
-            deli = 1./deli;
-        else
-            deli=del;
-        end
-        
-        if ns > 1
-            if ~isfield(P,'delay')
-                del = (spm_vec(repmat(del,[ns 1])))';
-            else
-            end
-        end
-        condel=del;
-        
+    if npp == 8
+        %del = exp(P.ID).*[.01 1.2 1 1 1 1 .08 .08]; % (tau = 1./x)
+        del = exp(P.ID).*[4 .1 .1 2 .1 2 8 8]; % (tau = 1./x)
     elseif npp == 2
-        del = exp(P.ID).*[1 1]./2.4;
-        del = repmat(del,[1 nk]);
-        del = 1./del;
-        deli=del;
+        del = exp(P.ID).*[1.2 1];
     end
-    
 else
-    del    = 1;
-    condel = 1;
+    del = [1 1];
 end
 
-% convert parameterised delay vector to state-by-state matrix
-%--------------------------------------------------------------------------
-if isfield(P,'ID')
-    del = sqrt(del)'*sqrt(deli);
-else
-    del = 1;
-end
-
-% Can also pass a full np-by-np delay matrix (that would be a lot of params)
-if isfield(P,'ID') && all(size(P.ID)==8)
-    del = [4 1/4 1 8 1/2 4 2 20]/2.4;
-    del = exp(P.ID).*( sqrt(del)'*sqrt(del) );
-    del = repmat(del,[nk nk]);
-    del = 1./del;    
-end
-
-% Recompute operator with del incorporated - i.e. approximate a full DDE
-% using a delay operator (Q) following Q ~ mexp(dt*D*del*dfdx./N - I)
-%--------------------------------------------------------------------------
-if isfield(P,'ID')
-    deldfdx = del.*dfdx;
-    deldfdx(isnan(deldfdx))=0;
-    deldfdx(isinf(deldfdx))=0;
-    p       = abs(eigs(deldfdx,1,'SR',OPT));
-    N       = ceil(max(1,dt*p*1));
-    n       = spm_length(M.x(:));
-    dfdx    = dfdx - speye(n,n)*exp(-16);
-    %Q       = (spm_expm(dt*D*(del.*dfdx)/N) - speye(n,n))/(dfdx);
-    Q       = (spm_expm(dt*D*(deldfdx)/N) - speye(n,n))/(dfdx);
-end
- 
-% Use a different delay operator (within population {diagonal}) with the
-% Newton-Cotes integration algorithm
-%--------------------------------------------------------------------------
-if WithDelays == 44
-    if isfield(P,'ID')
-        if npp == 8
-            del = exp(P.ID).*[.01 1.2 1 1 1 1 .08 .08]; % (tau = 1./x)
-            %del = exp(P.ID).*[1 1 1 1 1 1 1 1]; % (tau = 1./x)
-            %del = exp(P.ID).*[1 2 2 8 8 8 200 200]./64; % (tau = 1./x)
-        elseif npp == 2
-            del = exp(P.ID).*[1.2 1];
-        end
-    else
-        del = [1 1];
-    end
-    
-    del = repmat(del,[1 nk]);
-    %del = spm_cat({ diag(del), []; ...
-    %                    [], eye((nk*npp)-npp) });
-    del = 1./del;
-    %Q = spm_expm(dt*diag(del)*dfdx/(N*n)); % matrix exponential diagonal delay operator
-    Q = spm_expm(dt*diag(del));
-    %Q = spm_expm(dt*del);
-end
+del = repmat(del,[1 nk]);
+%del = spm_cat({ diag(del), []; ...
+%                    [], eye((nk*npp)-npp) });
+del = 1./del;
+%Q = spm_expm(dt*diag(del-dt));
+Q = diag( 1./(1 - (dt*del))-dt );
 
 condel = 1;
-QD    = Q; 
+QD     = Q; 
 
 % firing rate & count when fired (membrane potential passes threshold)
 %--------------------------------------------------------------------------
@@ -533,8 +442,8 @@ switch IntMethod
                     %v  = v + ((del.*Q)*f(spm_unvec(v,M.x),drive(i,:),P,M));
                     %v0 = v0 + (del.*Q*f(spm_unvec(v0,M.x),0.0001,P,M)); 
 
-                    v  = v + (Q*f(spm_unvec(v,M.x),drive(i,:),P,M));
-                    v0 = v0 + (Q*f(spm_unvec(v0,M.x),0.0001,P,M)); 
+                    v  = v  + (Q*dt*f(spm_unvec(v,M.x),drive(i,:),P,M));
+                    v0 = v0 + (Q*dt*f(spm_unvec(v0,M.x),0.0001,P,M)); 
                 end
                 y(:,i) = v; %- spm_vec(M.x);  
                 y0(:,i) = v0;
@@ -542,11 +451,9 @@ switch IntMethod
                 
             elseif WithDelays == 44
                 % Newton-Cotes quadrature, including Q
+                % note this is a Lagrange polynomial method
                 
                 % forced temporal filter over membrane potentials -
-                flt = 1./[1 1 1 1 1 1 80 80]';
-                
-                flt(9:56)=1;
                 for j = 1:(N)
                     k1 = f(v      ,drive(i,:),P,M);
                     k2 = f(v+dt*k1,drive(i,:),P,M);
@@ -554,11 +461,23 @@ switch IntMethod
                     k4 = f(v+dt*k3,drive(i,:),P,M);
                     k5 = f(v+dt*k4,drive(i,:),P,M);
 
-                    dxdt = ((2*dt)./45)*(7*k1 + 32*k2 + 12*k3 + 32*k4 + 7*k5);
-                    v    = v + flt.*(Q*dxdt);
+                    dxdt = ((2*dt)./45)*(7*k1 + 32*k2 + 12*k3 + 32*k4 + 7*k5);                    
+                    v    = v + (Q*dxdt);
                     
+                    %v = v + Q*(dxdt - v);
                 end
+                
                 y(:,i) = v;
+                
+                % the addition of a delay operator can mean that the step
+                % exceeds the nyquist - 
+%                 if i > 1
+%                   dy = y(:,i) - y(:,i-1);
+%                   in = abs(dy)>(1/dt)/2;
+%                   y(in,i) = y(in,i-1) + dy(in)/2;
+%                   v = y(:,i);
+%                 end
+%                 
                 %y0(i,:) = v0;
                                     
             elseif WithDelays == 20
@@ -669,29 +588,29 @@ switch IntMethod
                 fired=[];
                 firings=[];
             end
-            
-            
-                        
         end
-        
 end
 
 warning on;
 
-% Break phase-locking if modelling an induced response
-RandPhase = 0;
-if RandPhase
-    for i = 1:size(y,1)
-        tmp = fft(y(i,:));
-        y(i,:) = ifft(real(tmp)+sqrt(-1)*fliplr(imag(tmp)));
-    end
-end
 
 % Reshape to model state space outputs
 %--------------------------------------------------------------------------
 [ns,npp,nk] = size(M.x);
 y(isnan(y)) = 0;
 y(isinf(y)) = 0;
+
+
+% sf = fft(y);
+% c = cov(real(sf));
+% [u,d]=eig(c);
+% d=diag(d);
+% [~,I]=sort(d,'descend');
+% d = d(I);
+% u = u(:,I);
+% y = ifft(u(1:56,1:56)'*fft(y));
+
+
 y           = reshape(y,[ns npp nk size(y,2)]);
 timeseries  = y;
 firing      = S;
@@ -709,46 +628,14 @@ series.States_with_inp = y;
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
 
-% EVOKED spectrum: fft(f(input) - f(no_input))
-%------------------------------------------------------
-%[y,s,g,noise,layers] = spectral_response(P,M,y-yy,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1);
-
-% INDUCED spectrum: fft(f(input)) - fft(f(no_input))
-%------------------------------------------------------
-% Randomise phase if modelling an induced response
-% RandPhase = 1;
-% if RandPhase
-%     for j = 1:10;
-%         for i = 1:size(y,1)
-%             tmp = fft(y(i,:));
-%             r   = rand(size(tmp));
-%             r   = exp( 2*pi*1i*r );
-%             yph(i,:) = ifft(tmp.*r);
-%         end
-%         [y1{j},s,g,noise,layers1] = spectral_response(P,M,yph,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1);
-%     end
-% end
-% 
-% y1 = mean(cat(2,y1{:}),2);
 
 % system spectral response with specified input
 [y1,s,g,noise,layers1] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1);
-%[y0,s,g,noise,layers0] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1);
-
-%y = spm_unvec( (spm_vec(y1) - spm_vec(y0))./spm_vec(y0), y1);
-%y = spm_unvec( (spm_vec(y1) - spm_vec(y0)), y1);
 
 y = y1;
-%y = spm_unvec( real(spm_vec(y)), y);
-%y(y<0) = -y(y<0);
-
 series.with_inp = y;
-
-y = full(exp(P.Ly)*y);
 t = drive;
-
 layers = layers1;
-%layers = spm_unvec( (spm_vec(layers1)-spm_vec(layers0)), layers1);
 
 end
 
@@ -859,9 +746,9 @@ for ins = 1:ns
         
     % add noise to make it look like a real signal
     %----------------------------------------------------------------------
-    s2n = mean(ts0(:))*1/16;
-    ts0 = ts0 + s2n*randn(size(ts0));
-    ts0 = ts0 - mean(ts0);
+    %s2n = mean(ts0(:))*1/16;
+    %ts0 = ts0 + s2n*randn(size(ts0));
+    %ts0 = ts0 - mean(ts0);
     
     % apply electrode gain & store this channel / node
     %----------------------------------------------------------------------
@@ -927,16 +814,18 @@ for ins = 1:ns
                 pc = test;
                 nn = size(test,1);
             end
-            
-            % Remove super slow drifts
-            pc = detrend(pc);
-            
-            clear Ppf  Pfm Ppf1 Ppf2 Ppf3
+                        
+            clear Ppf  Pfm Ppf1 Ppf2 Ppf3 
 
             % Select sliding-window smoothed fft or whole chunk fft
             %--------------------------------------------------------------
             UseSmooth = 0;
-            if UseSmooth
+            
+            if isfield(M,'UseSmooth') && ~isempty(M.UseSmooth)
+                UseSmooth = M.UseSmooth;
+            end
+            
+            if UseSmooth == 1
                 
                 % User specified FFT smoothing (num windows)
                 %----------------------------------------------------------
@@ -948,21 +837,30 @@ for ins = 1:ns
 
                 % Smoothed Fourier transform (atcm.fun.AfftSmooth)
                 %----------------------------------------------------------
-                for i = 1:nn; 
-                    [Ppf(i,:),~,Pfm(i,:,:)] = atcm.fun.AfftSmooth( pc, dw./dt, w, smth) ;
-                end
+                [Ppf,~,Pfm] = atcm.fun.AfftSmooth( pc, dw./dt, w, smth) ;
 
                 % Retain principal eigenmode over (Gaussian) time-freq windows
                 %Ppf = squeeze(Pfm)';
                 %[u,s,v] = svd(Ppf');n = 1;
                 %Ppf = spm_vec(u(:,n)*s(n,n)*mean(v(:,n)));
     
-            else % (else use non smooth)
+            elseif UseSmooth == 0 % (else use non smooth)
             
                 % Non-smoothed fft version:
                 %--------------------------------------------------------------
-                for i = 1:nn; Ppf = atcm.fun.Afft( pc(i,:), dw./dt, w) ;end
+                for i = 1:nn; Ppf = atcm.fun.Afft( pc, dw./dt, w) ;end
+                %Ppf = atcm.fun.HighResMeanFilt(Ppf,1,4);                
+                %for i = 1:nn; Ppf = periodogram( pc(i,:), [], w,1./dt) ;end
+                
+            elseif UseSmooth == 2
 
+                %c   = atcm.fun.assa(pc,12);
+                %ex  = corr(pc',c).^2;
+                %ind = atcm.fun.findthenearest(cumsum(ex)./sum(ex),.9);
+                %pc = sum(c(:,1:ind),2)';
+                                
+                [Ppf,c] = atcm.fun.tfdecomp(pc,dt,w,10,1,@mean);
+                %Ppf = atcm.fun.HighResMeanFilt(Ppf,1,2); 
             end
             
             % De-NaN/inf the spectrum
@@ -985,46 +883,8 @@ for ins = 1:ns
             % make sure its a nx1 vector
             %--------------------------------------------------------------
             Pf  = spm_vec(Pf);
-            Pf(Pf<0) = -Pf(Pf<0);
+            %Pf(Pf<0) = -Pf(Pf<0);
                         
-            % Distribution mixture model - estimate distributions & system noise
-            %--------------------------------------------------------------            
-%             dfn        = real(Pf)./sum(real(Pf));
-%             [odfn,ord] = sort(dfn,'descend');
-%             
-%             n    = atcm.fun.findthenearest(cumsum(odfn),.8);
-%             pk   = ord(1:n);            
-%             wint = 1:length(w);
-%             
-%             % Dist fits are on residuals - ie data minus already explained.
-%             % This is to avoid all populations converging on same portion of spectrum 
-%             %--------------------------------------------------------------
-%             %if ij == 1; ResY = squeeze(M.y{ci}(:,ins,ins));
-%             %else;       ResY = ResY - Pf0;
-%             %end
-%             ResY = squeeze(M.y{ci}(:,ins,ins));
-%             
-%             % This function compares fitting with Gaussian, Cauchy, Laplace 
-%             % and Gamma dists and returns best fit
-%             %-------------------------------------------------------------- 
-%             wt   = rescale(w(:).^-1);
-%             
-%             dist_method = 1;
-%             switch dist_method
-%                 case 1
-%                     % smoothed spline
-%                     Pf0   = csaps(w(pk),Pf(pk).*wt(1:n),0.01,w);
-%                 case 2
-%                     % normal cubic spline
-%                     Pf0   = spline(w(pk),Pf(pk).*wt(1:n),w);
-%                 case 3
-%                     % gaussians
-%                     Pf0   = atcm.fun.makef(wint,wint(pk)-1,Pf(pk).*wt(1:n),2*ones(length(find(pk)),1),'gaussian');
-%                 case 4
-%                     % optimised gaussian, cauchy, laplacian or gamma
-%                     Pf0   = atcm.fun.findbestdist(wint,wint(pk)-1,Pf(pk).*wt(1:n),2.5*ones(length(find(pk)),1),ResY);
-%             end
-%             Pf   = Pf0(:) ;
         end
     
         % Make it non-sparse and vectorised
@@ -1042,9 +902,9 @@ for ins = 1:ns
 
         % store the weighted and unweighted population outputs
         %------------------------------------------------------------------
-        layers.unweighted(ins,ij,:) = ( Pf             )      * exp(real(P.L(ins)));
-        layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) ) * exp(real(P.L(ins)));
-        layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) ) * exp(real(P.L(ins)));
+        layers.unweighted(ins,ij,:) = ( Pf             )     ;% * exp(real(P.L(ins)));
+        layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
+        layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
         
     end   % end of state contribution(s) to region loop
 end   % end of loop of regions
@@ -1076,28 +936,61 @@ end
 
 % Take the absolute (magnitude) of the cross spectra
 %--------------------------------------------------------------------------
-Pf = (Pf)/length(w);
+%Pf = (Pf)/length(w);
 
 
-% Addition of system noise & Leadfield scaling: L, Gu, Gn, Gs
+% Addition of system noise & Lead field scaling: L, Gu, Gn, Gs
 %--------------------------------------------------------------------------
 for ins = 1:ns
         
-    dfn        = real(Pf(:,ins,ins))./sum(real(Pf(:,ins,ins)));
-    [odfn,ord] = sort(dfn,'descend');
+    % Peak detection and multivariate distribution fitting
+    %----------------------------------------------------------------------
+    if isfield(M,'threshold') && ~isempty(M.threshold)
+        threshold = M.threshold;
+    else
+        threshold = 0.8;
+    end
+        
+    % estimate system noise (exponential decay) & remove before fit
+    %Pf(:,ins,ins) = atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,2);
     
-    n    = atcm.fun.findthenearest(cumsum(odfn),.8);
+    modelexp   =  'exp(a)*(x.^(-exp(b)))';
+    aperiod    = atcm.fun.c_oof(w,(Pf(:,ins,ins)),modelexp);
+    
+    
+    %Pf(:,ins,ins) = max(real([Pf(:) aperiod(:)]'));
+    
+    %dfn        = real(Pf(:,ins,ins))./sum(real(Pf(:,ins,ins)));
+    dfn        = (Pf(:,ins,ins));
+    dfn        = dfn(:) - aperiod(:);
+    sdfn       = sum(dfn);
+    dfn        = dfn./sum(dfn);
+    
+    %dfn  = detrend(dfn);
+        
+    [odfn,ord] = sort(dfn,'descend');
+        
+    n    = atcm.fun.findthenearest(cumsum(odfn),threshold); 
     pk   = ord(1:n);
     wint = 1:length(w);
-    
+        
     ResY = squeeze(M.y{ci}(:,ins,ins));
     
-    % This function compares fitting with Gaussian, Cauchy, Laplace
-    % and Gamma dists and returns best fit
-    %--------------------------------------------------------------
-    wt   = rescale(w(:).^-1);
+    % Fitting, smoothing and/or filtering of the LFP spectrum for region i
+    %----------------------------------------------------------------------
+    if UseSmooth == 0
+        wt   = rescale(w(:).^-1);
+    else
+        wt = w'.^0;
+    end
+    wt = w'.^0;
     
-    dist_method = 4;
+    if isfield(M,'dist_method') && ~isempty(M.dist_method)
+        dist_method = M.dist_method;
+    else
+        dist_method = 4;
+    end
+    
     switch dist_method
         case 1
             % smoothed spline
@@ -1107,18 +1000,53 @@ for ins = 1:ns
             Pf0   = spline(w(pk),Pf(pk,ins,ins).*wt(1:n),w);
         case 3
             % gaussians
-            Pf0   = atcm.fun.makef(wint,wint(pk)-1,Pf(pk,ins,ins).*wt(1:n),2*ones(length(find(pk)),1),'gaussian');
+            Pf0   = atcm.fun.makef(wint,wint(pk)-1,Pf(pk,ins,ins).*wt(1:n),.5*ones(length(find(pk)),1),'gaussian');
+            %Pf0   = atcm.fun.makef(wint,wint(pk)-1,dfn(pk),1.4*ones(length(find(pk)),1),'gaussian');
+            
+            %for i = 1:length(pk)
+            %    Pf0(i,:)   = atcm.fun.makef(wint,wint(pk(i))-1,Pf(pk(i),ins,ins),2.6,'gaussian');
+            %end
+            %Pf0 = max(Pf0);
+            %Pf0 = atcm.fun.moving_average(Pf0,2);
+            
+            %[u,s,v] = spm_svd(Pf0);
+            %Pf0 = sum( abs(u(:,1:4)'*Pf0) ,1);
+            
         case 4
             % optimised gaussian, cauchy, laplacian or gamma
             Pf0   = atcm.fun.findbestdist(wint,wint(pk)-1,Pf(pk,ins,ins).*wt(1:n),2.6*ones(length(find(pk)),1),ResY);
+            %Pf0   = atcm.fun.findbestdist(wint,wint(pk)-1,Pf(pk,ins,ins).*wt(1:n),ones(length(find(pk)),1),ResY);
+        case 5
+            % linear interpolation with smoothing
+            Pf0 = interp1([w(1)-1 w(pk) w(end)+1],Pf([1 pk' end],ins,ins).*[1; wt(1:n); 1],w,'pchip');
+            %Pf0 = atcm.fun.HighResMeanFilt(Pf0,1,4);
+        case 6
+            %Pf0 = atcm.fun.HighResMeanFilt(Pf(:,ins,ins),1,2);
+            %Pf0 = atcm.fun.tsmovavg(Pf(:,ins,ins)','e',4);
+            %Pf0 = atcm.fun.moving_average(Pf(:,ins,ins),2);
+            Pf0 = Pf(:,ins,ins);
+            %Pf0 = sdfn*dfn;
+            %Pf0 = atcm.fun.moving_average(Pf0,2);
+            %Pf0 = atcm.fun.HighResMeanFilt(Pf0,1,2);
+        case 7
+            Pf0 = lowpass(squeeze(Pf(:,ins,ins)),.2,1);
+        case 8
+            Pf0 = squeeze(Pf(:,ins,ins));
+            curv = atcm.fun.c_oof(w,Pf0);
+            Pf0 = Pf0 - curv;
+            m   = fit(w.',real(Pf0),'Gauss5');
+            Pf0 = curv + m(w);
+        case 9
+            Pf0 = atcm.fun.component_spectrum(w,squeeze(Pf(:,ins,ins)),5);
+ 
     end
-    Pf(:,ins,ins)   = Pf0(:) ;
-
-
+        
+    % Add aperiodic component back in
+    %Pf(:,ins,ins) = aperiod(:) + Pf0(:) ;
+    Pf(:,ins,ins) = Pf0(:) ;
     
     % Electrode gain & smoothing
     %----------------------------------------------------------------------
-    %Pf(:,ins,ins) = atcm.fun.moving_average(Pf(:,ins,ins),8);
     Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
 
     % Add noise to (in frequency space) to this LFP channel spectrum
@@ -1181,6 +1109,7 @@ if ns == 1
 else
     y = Pf;
 end
+
 s = timeseries;
 g = ts;
 
@@ -1236,3 +1165,6 @@ warning on;
 j = j';
 j(isnan(j))=0;
 end
+
+
+
