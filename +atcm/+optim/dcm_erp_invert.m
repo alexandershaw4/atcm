@@ -14,6 +14,7 @@ fprintf('Integrator: %s\n',char(DCM.M.IS));
 fprintf('Model function: %s\n',char(DCM.M.f));
 
 M.nograph = 0;
+M.Nmax = 128;
 
 % EM: inversion
 %==========================================================================

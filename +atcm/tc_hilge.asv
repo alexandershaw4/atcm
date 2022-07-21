@@ -457,11 +457,10 @@ for i = 1:ns
         
         tcd(1:6,[7 8]) = TC;
         tcd([7 8],1:6) = CT;
-                
+        
         % apply operator to G and GN
-        G  = (1./(1+tcd)).*G;
-        Gn = (1./(1+tcd)).*Gn;
-                
+        
+        
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------
         E      = ( (G(:,:,i).*GEa).*Gsc )*m(i,:)'; % AMPA currents

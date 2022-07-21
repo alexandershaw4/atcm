@@ -44,8 +44,11 @@ pE = DCM.M.pE;
 
 % initial states and equations of motion
 %--------------------------------------------------------------------------
-[x,~] = atcm.fun.solvefixedpoint(pE,DCM.M);
- 
+%[x,~] = atcm.fun.solvefixedpoint(pE,DCM.M);
+ x = zeros(Ns,8,7);
+x(:,:,1)=-70;
+
+
 % create DCM
 %--------------------------------------------------------------------------
 DCM.M.FS = 'spm_fs_csd';
@@ -64,7 +67,10 @@ DCM.M.u  = sparse(Ns,1);
 %-Feature selection using principal components (U) of lead-field
 %==========================================================================
  % re-initialise states given new priors
-[x,f] = atcm.fun.solvefixedpoint(pE,DCM.M);
+%[x,f] = atcm.fun.solvefixedpoint(pE,DCM.M);
+
+x = zeros(Ns,8,7);
+x(:,:,1)=-70;
 DCM.M.x = x;
 
 % get data-features (in reduced eigenspace)
