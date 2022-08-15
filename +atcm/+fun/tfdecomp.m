@@ -1,4 +1,4 @@
-function [y,hx] = tfdecomp(x,dt,w,space,order,method)
+function [y,hx,yda] = tfdecomp(x,dt,w,space,order,method)
 % Spectral estimation by time-frequency decomposition of a signal x.
 %
 % usage: [y,hx] = tfdecomp(x,dt,w,space,order)
@@ -34,11 +34,14 @@ for i = 1:length(w)
     % extract amplitude for this frequency step
     y(i) = method(hx(i,ind));
     
+    yda(i,:) = (fx);
+    
 end
 
 % remove padding
 hx = hx(:,ind);
 
+yda = yda(:,ind);
 
 % C = cov(hx);
 % [RHO,LAMBDA] = eig(C);

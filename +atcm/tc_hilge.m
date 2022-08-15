@@ -1,4 +1,4 @@
-function [f,J,Q,D] = tc_hilge(x,u,P,M,m)
+function [f,J,Q,D] = tc_hilge(x,u,P,M)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -214,14 +214,14 @@ GEa(7,:) = [0     0     0   0   0   2   0   2];
 GEa(8,:) = [4     0     0   0   0   2   0   0];
 
 % %           ss  sp  si  dp  di  tp  rt  rl   
-% GEa(1,:) = [0   0   0   0   0   0   0   2]/1;
+% GEa(1,:) = [0   0   0   0   0   2   0   4]/1;
 % GEa(2,:) = [4   0   0   0   0   0   0   0]/1;
-% GEa(3,:) = [0   4   0   0   0   0   0   0]/1; 
+% GEa(3,:) = [4   4   0   0   0   0   0   0]/1; 
 % GEa(4,:) = [0   4   0   0   0   0   0   0]/1;
-% GEa(5,:) = [0   0   0   2   0   2   0   0]/1;
+% GEa(5,:) = [0   0   0   2   0   0   0   0]/1;
 % GEa(6,:) = [0   0   0   2   0   0   0   1]/1; 
 % GEa(7,:) = [0   0   0   0   0   0   0   2]/1; 
-% GEa(8,:) = [0   0   0   0   0   2   0   0]/1;
+% GEa(8,:) = [8   0   0   0   0   2   0   0]/1;
 % 
 % v = 24;
 % b = 8;
@@ -271,8 +271,8 @@ GIa(7,:) = [0   0   0   0   0   0   32  0 ];
 GIa(8,:) = [0   0   0   0   0   0   8   64]; % tr-tr was 32
 
 GIa(1,:) = [12  0   2   0   0   0   0   0 ];
-GIa(2,:) = [0   48  16  0   0   0   0   0 ]; %spsp was 16
-GIa(3,:) = [0   0   32  0   0   0   0   0 ];
+GIa(2,:) = [0  48  16   0   0   0   0   0 ]; %spsp was 16
+GIa(3,:) = [0   0  32   0   0   0   0   0 ];
 GIa(4,:) = [0   0   0   8   12  0   0   0 ];
 GIa(5,:) = [0   0   4   0   16  0   0   0 ];
 GIa(6,:) = [0   0   0   0   32  8   0   0 ];
@@ -356,7 +356,7 @@ end
 VL   = -70;                               % reversal  potential leak (K)
 VE   =  60;                               % reversal  potential excite (Na)
 VI   = -90;                               % reversal  potential inhib (Cl)
-VR   = -55;   %55                            % threshold potential (firing)
+VR   = -40;   %55                            % threshold potential (firing)
 VN   =  10;                               % reversal Ca(NMDA)   
 VB   = -100;                              % reversal of GABA-B
 
@@ -380,22 +380,14 @@ Vx   = exp(P.S)*32; % 32
 %    {ss    sp    ii    dp    di    tp    rt    rl}
 %Vx = [Vx(1) Vx(1) Vx(2) Vx(1) Vx(2) Vx(1) Vx(3) Vx(3)];
 
-%if nargin < 5
-    % compute only if not passed by integrator
-   % m    =     spm_Ncdf_jdw(x(:,:,1),VR,Vx);
-    
-    
     %-Approximate integral
     %--------------------------------------------------------------------------
     x0    = (x(:,:,1) - VR)./sqrt(abs(Vx));
     F    = sqrt(1 - exp(-(2/pi)*x0.^2))/2;
     i    = x0 < 0;
     F(i) = -F(i);
-    m    = F ;%+ 1/2;
+    m    = F + 1/2;
     
-    
-%end
-
 % extrinsic effects
 %--------------------------------------------------------------------------
 a       = zeros(ns,5);
@@ -436,8 +428,11 @@ for i = 1:ns
         % input scaling: 
         %------------------------------------------------------------------
         if any(full(U(:))) ;
-            dU = u(1)*C(i,1) ;
-            dU = u*C(i,1);
+            
+            %dU = u(1)*C(i,1) ;
+            dU = u(1)*C(i,1);
+            
+            
             %dU = u(1)*( C(i,:).*[1 1/64 1/64 1/64 1/64] );
         else
             dU = 0;
@@ -446,13 +441,12 @@ for i = 1:ns
         Gsc = ~eye(8);
         Gsc = Gsc +  (diag(exp(P.Gsc)));
         
+        
         % CT and TC delays on G
+        %-----------------------------------------------------------------
         CT = 8*exp(P.CT); %60;
         TC = 3*exp(P.TC); %20;
-        
-        tc = [1 1 1 1 1 1 TC TC];
-        ct = [CT CT CT CT CT CT 1 1];
-        
+                
         tcd = zeros(8,8);
         
         tcd(1:6,[7 8]) = TC;
@@ -484,7 +478,7 @@ for i = 1:ns
       
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = [7 8];%[8 1 2 4 6];
+        input_cell        = [8];%[8 1 2 4 6];
                 
         if isfield(M,'inputcell');
             input_cell = M.inputcell;
@@ -493,29 +487,19 @@ for i = 1:ns
         E(input_cell)     = E(input_cell)         +dU';
         ENMDA(input_cell) = ENMDA(input_cell)     +dU';
         
+        %E(2) = E(2) + ( exp(P.C(2))*u(2) );
+        %ENMDA(2) = ENMDA(2) + ( exp(P.C(2))*u(2) );
+        
         try
-            E(2)     = E(2)     + ( 1./(1+exp(-P.sp_drive)) );
-            ENMDA(2) = ENMDA(2) + ( 1./(1+exp(-P.sp_drive)) );
+           E(2)     = E(2)     + ( 1./(1+exp(-P.sp_drive)) );
+           ENMDA(2) = ENMDA(2) + ( 1./(1+exp(-P.sp_drive)) );
         end
                 
         if isfield(P,'ID')
             
-            id = exp(P.ID).*[1 1 1 1 1 1 8 8];
-            
-%             CT = 8*exp(P.CT); %60;
-%             TC = 3*exp(P.TC); %20;
-%             
-%             tc = [1 1 1 1 1 1 TC TC];
-%             ct = [CT CT CT CT CT CT 1 1];
-            
-            del = zeros(8,8);
-            
-            %del(1:6,[7 8]) = TC;
-            %del([7 8],1:6) = CT;
-            
-            del = id; %diag(del + diag(id))';
-            
+            del = exp(P.ID).*[1 1 1 1 1 1 1 1];
             del = 1./del;
+            %del = [1 1 1 1 1 1 1 1];
                         
         end
         
@@ -534,12 +518,12 @@ for i = 1:ns
             
           
           f(i,:,1) =  (GL*(VL - x(i,:,1))+...
-                       x(i,:,2).*(VE - x(i,:,1).*del)+...
-                       x(i,:,3).*(VI - x(i,:,1).*del)+...
-                       x(i,:,5).*(VB - x(i,:,1).*del)+...
-                       x(i,:,6).*(VM - x(i,:,1).*del)+...
-                       x(i,:,7).*(VH - x(i,:,1).*del)+...
-                       x(i,:,4).*(VN - x(i,:,1).*del).*mg_switch(x(i,:,1)))./CV;
+                       x(i,:,2).*((VE - x(i,:,1)).*del)+...
+                       x(i,:,3).*((VI - x(i,:,1)).*del)+...
+                       x(i,:,5).*((VB - x(i,:,1)).*del)+...
+                       x(i,:,6).*((VM - x(i,:,1)).*del)+...
+                       x(i,:,7).*((VH - x(i,:,1)).*del)+...
+                       x(i,:,4).*((VN - x(i,:,1)).*del).*mg_switch(x(i,:,1)))./CV;
         end
                    
         % Conductance equations
@@ -555,44 +539,14 @@ for i = 1:ns
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
         end
         
-
         % Conductance Delays: f = state update, x = state previous
-%         if isfield(P,'ID')
-%             df = f - x';
-%             
-%             id = exp(P.ID).*[1 1 1 1 1 1 1 1];
-% 
-%             CT = 8*exp(P.CT); %60;
-%             TC = 3*exp(P.TC); %20;
-% 
-%             tc = [1 1 1 1 1 1 TC TC];
-%             ct = [CT CT CT CT CT CT 1 1];
-% 
-%             del = zeros(8,8);
-% 
-%             del(1:6,[7 8]) = TC;
-%             del([7 8],1:6) = CT;
-%             
-%             del = del + diag(id);
-%             
-%             del = kron(eye(7),del);
-%             
-%             del = denan(1./del);
-%             
-%             df = real(denan(df));
-%             
-%             %b = find(~real(denan(f(:))));
-%             %b = unique([find(~df(:)); find(~x(:))]);
-%             
-%             del(:,b) = 0;
-%             del(b,:) = 0;
-%             
-%             update = ( del'*spm_vec(df) );
-%             
-%             f = spm_unvec( spm_vec(x) + update , x);
-%         
-%         end
-                
+        % population delays
+        %df = f(:) - x(:);
+        %d  = exp(P.ID).*[1 1 1 1 1 1 1 4];
+        %d  = 1./d;
+        
+        %f = spm_unvec( spm_vec(x) + df(:).*repmat(d(:),[nk 1]), f);
+                        
 end
 
 
@@ -602,6 +556,7 @@ f = spm_vec(f);
 pE = P;
  
 [J,Q,D]=deal([]);
+
 if nargout < 2 || nargout == 5, return, end
 
 % Only compute Jacobian (gradients) if requested
