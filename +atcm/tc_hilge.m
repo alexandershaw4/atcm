@@ -500,7 +500,7 @@ for i = 1:ns
             del = exp(P.ID).*[1 1 1 1 1 1 1 1];
             del = 1./del;
             %del = [1 1 1 1 1 1 1 1];
-                        
+               del = [1 1 1 1 1 1 1 1];         
         end
         
         

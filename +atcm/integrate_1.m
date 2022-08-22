@@ -539,7 +539,7 @@ switch IntMethod
         I = eye(length(dfdx));
         C = exp(P.J);
         
-        H = C*inv(I - A)*B;
+        H = C*inv(I - A)*B; % Numerical Laplace
         
         for Sk = 1:size(H,1)
             Pf(i,:) = 1./(1j*2*pi*w - H(Sk));
@@ -579,7 +579,27 @@ switch IntMethod
                 %%dxdt0   = f(v0,0,P,M);                
                 %v0      = v0 + dt*dxdt0;  
                 %y0(:,i) = v0;
+            elseif WithDelays == 1010
+                
+                %delays
+                del = exp(P.ID).*[1 1 1 1 1 1 1 1];
+                del = repmat(del,[1 nk]);                
+                del = 1./del;
+                                
+                Tau = ( 1./(1 - (dt*del))-dt );  % <-- NOTE!
+                
+                for j = 1:N
+                    % motion
+                    dxdt = f(v,drive(i,:),P,M); 
 
+                    % delay state update
+                    dx = (dxdt - v)./Tau(:);
+
+                    v = v + dt*dx;
+                end
+                
+                y(:,i) = v;
+                
             elseif WithDelays == 10
                 
                 ff = @(x) f(x,drive(i),P,M);
@@ -1111,6 +1131,8 @@ for ins = 1:ns
                 %for i = 1:nn; Ppf = periodogram( pc(i,:), [], w,1./dt) ;end
                 %Ppf = atcm.fun.HighResMeanFilt(Ppf,1,2); 
                 
+                Ppf = atcm.fun.moving_average(Ppf,2);
+                
                 nd = size(P.d,1);
                 X  = spm_dctmtx(length(w),nd + 1);
                 Mu = exp(X(:,2:end)*(P.d));
@@ -1123,52 +1145,101 @@ for ins = 1:ns
                 
             elseif UseSmooth == 2
 
-                K = 12;
+                K = 24;
                                 
                 % Compute Dynamic Mode Decomposition on TF data
-                [Ppf,~,c] = atcm.fun.tfdecomp(pc,dt,w,12,2,@mean);
-                
+                [Ppf,~,c] = atcm.fun.tfdecomp(pc,dt,w,8,2,@mean);
+                                
+                % Remove ~1/f system noise
+                c = abs(c) ./ repmat(Gn(:),[1 size(c,2)]);
+                                                
                 % Eigenvectors of the DMD of TF matrix are spectra of modes
-                [Eigenvalues, ev, ModeAmplitudes, ModeFrequencies, GrowthRates, POD_Mode_Energies] = atcm.fun.dmd(c', K, dt);
+                [Eigenvalues, ev, ModeAmplitudes, ModeFrequencies, GrowthRates, POD_Mode_Energies] = atcm.fun.dmd(c, K, dt);
                 
-                % sign flip
-                %ev(ev<0) = -ev(ev<0);
-                ev = abs(ev);
+                % Compute modal frequencies
+                ModeFrequencies=(angle(Eigenvalues)/pi)*(1/(2*dt));
+                                
+                % Make values positive (as per a psd estimate)
+                ModeAmplitudes  = abs(ModeAmplitudes);
+                ModeFrequencies = abs(ModeFrequencies);
+                ModeFrequencies = round(ModeFrequencies*100)./100;
                 
-                % spectrum over modes
-                Ppf = mean(ev);
+                %[ModeFrequencies ModeAmplitudes]
                 
-                %c = get_delay_vector(pc(:),K+1,1);
+                % remove dupplaicates
+                [~,I]=unique(ModeFrequencies);
                 
+                ModeFrequencies = ModeFrequencies(I);
+                ModeAmplitudes  = ModeAmplitudes(I);
+                
+                % Remove stuff outside freqs of interest
+                G = find( ModeFrequencies>w(1) & ModeFrequencies<w(end) );
+                
+                wt = round(ModeFrequencies)/max(w);
+                ModeAmplitudes = ModeAmplitudes(:).*wt(:);
+                                                               
+                % Convert to (Gaussian) series and average
+                for ijf = 1:length(G)
+                   PF(ijf,:) = atcm.fun.makef(w,ModeFrequencies(G(ijf)),ModeAmplitudes(G(ijf)),1/8);
+                   
+                   GL = AGenQ(PF(ijf,:));
+                   
+                   PF(ijf,:) = PF(ijf,:)*GL;
+                end
+                
+                % average and smooth
+                Ppf = spm_vec(sum(PF));
+                
+                % dct transform
+                nd  = size(P.d,1);
+                X   = spm_dctmtx(length(w),nd + 1);
+                Mu  = exp(X(:,2:end)*P.d);
+                Ppf = idct( dct(Ppf(:)).*Mu(:) );
+                                
+            elseif UseSmooth == 3
+                
+                [Ppf,~,c] = atcm.fun.tfdecomp(pc,dt,w,8,2,@mean);
                 %[Eigenvalues, ev, ModeAmplitudes, ModeFrequencies, GrowthRates, POD_Mode_Energies] = atcm.fun.dmd(c', K, dt);
                 
-%                 % Compute modal frequencies
-%                 ModeFrequencies=(angle(Eigenvalues)/pi)*(1/(2*dt));
-%                                 
-%                 % Make values positive (as per a psd estimate)
-%                 ModeAmplitudes  = abs(ModeAmplitudes);
-%                 ModeFrequencies = abs(ModeFrequencies);
-%                 ModeFrequencies = round(ModeFrequencies*100)./100;
-%                 
-%                 % remove dupplaicates
-%                 [~,I]=unique(ModeFrequencies);
-%                 
-%                 ModeFrequencies = ModeFrequencies(I);
-%                 ModeAmplitudes  = ModeAmplitudes(I);
-%                 
-%                 G = find( ModeFrequencies>w(1) & ModeFrequencies<w(end) );
-%                                 
-%                 % Convert to (Gaussian) series
-%                 for ijf = 1:length(G)
-%                    PF(ijf,:) = atcm.fun.makef(w,ModeFrequencies(G(ijf)),ModeAmplitudes(G(ijf)),1);
-%                 end
-%                 Ppf = spm_vec(max(PF));
+                %ev(ev<0)=-ev(ev<0);
+                %Ppf = max(ev);
+                
+                C   = c*c';
+                Ppf = sqrt(diag(C));
+%                 [V,D] = eig(C);
+%                 Ppf = abs(c*V(:,1));
                 
                 nd  = size(P.d,1);
                 X   = spm_dctmtx(length(w),nd + 1);
                 Mu  = exp(X(:,2:end)*P.d);
                 Ppf = idct( dct(Ppf(:)).*Mu(:) );
-                                 
+                
+            elseif UseSmooth == 4
+                 
+                Ppf = atcm.fun.Afft( pc, dw./dt, w)' ;
+                Ppf = atcm.fun.moving_average(Ppf,2);
+                
+                [~,~,c] = atcm.fun.tfdecomp(pc,dt,w,12,2,@mean);
+                
+                C = cov(c');
+                                
+                % Laplacian smoothing
+                A  = real(C) .* ~eye(length(C));
+                N  = size(A,1);
+                GL = speye(N,N) + (A - spdiags(sum(A,2),0,N,N))/4;
+                
+                Ppf = GL*Ppf;
+                Ppf = GL*Ppf;
+                Ppf(Ppf<0) = 0;
+                %Ppf = abs(Ppf);
+                
+                                
+                nd  = size(P.d,1);
+                X   = spm_dctmtx(length(w),nd + 1);
+                Mu  = exp(X(:,2:end)*P.d);
+                Ppf = idct( dct(Ppf(:)).*Mu(:) );
+                
+                
             end
             
             % De-NaN/inf the spectrum
@@ -1458,6 +1529,7 @@ end
 if ns == 1 
     y = real(Pf);
     %y=Pf;
+    %y=abs(Pf);
 else
     y = Pf;
 end
