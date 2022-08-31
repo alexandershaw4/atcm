@@ -566,14 +566,28 @@ switch IntMethod
         % Do an actual numerical integration for a discrete epoch, if not using kernel approach
         %------------------------------------------------------------------
         for i   = 1:length(t) 
+            %delays
+            del = exp(P.ID).*[1 1/2 1 1 1 1 1 1];
+            del = repmat(del,[1 nk]);
+            del = 1./del;
             
+            Tau = ( 1./(1 - (dt*del))-dt );  % <-- NOTE!
+                
             if ~WithDelays 
+                
                 % Use a Euler integration scheme
-                for j = 1:N
-                % Next step with input
-                dxdt   = f(v,drive(i,:),P,M);                
-                v      = v + dt*dxdt;  
-                y(:,i) = v;
+                for j = 1:2;
+                    
+                    % Next step with input
+                    dxdt   = f(v,drive(i,:),P,M);                
+
+                    % delay state update: state time constants
+                    dxdt = v + ( (dxdt - v)./Tau(:) );
+
+                    % full update
+                    v      = v + dt*dxdt;  
+
+                    y(:,i) = v;
                 end
                 % Next step without input
                 %%dxdt0   = f(v0,0,P,M);                
@@ -583,17 +597,18 @@ switch IntMethod
                 
                 %delays
                 del = exp(P.ID).*[1 1 1 1 1 1 1 1];
-                del = repmat(del,[1 nk]);                
+                %del = repmat(del,[1 nk]);   
+                del = [del(:); ones(48,1)];
                 del = 1./del;
                                 
                 Tau = ( 1./(1 - (dt*del))-dt );  % <-- NOTE!
                 
-                for j = 1:N
+                for j = 1:8
                     % motion
                     dxdt = f(v,drive(i,:),P,M); 
 
                     % delay state update
-                    dx = (dxdt - v)./Tau(:);
+                    dx = v + (dxdt - v)./Tau(:);
 
                     v = v + dt*dx;
                 end
@@ -614,7 +629,7 @@ switch IntMethod
                 % A simple second order integration routine akin to an
                 % Euler or RK routine - but with a (matrix) delay operator
                 
-                for j = 1;%:N
+                for j = 1:4;%:N
                     
                     %v  = v + Q*f(spm_unvec(v,M.x),drive(i,:),P,M);
                     
@@ -636,14 +651,19 @@ switch IntMethod
                     %e.g. expm([0   0     ]) = (expm(t*dfdx) - I)*inv(dfdx)*f
                     %          [t*f t*dfdx]
                                    
-%                     J = full(spm_cat({0   [];
-%                                     dt*dx Q}));
-%                                  
-%                     % solve using matrix expectation & recover dv
-%                     %------------------------------------------------------
-%                     step = expm(J);
-%                                         
-%                     v = v + step(2:end,1);
+                    J = full(spm_cat({0   [];
+                                    dt*dx dt*dfdx}));
+                                 
+                    % solve using matrix expectation & recover dv
+                    %------------------------------------------------------
+                    step = expm(J);
+                    
+                    dx = step(2:end,1);
+                    
+                    % delay state update
+                    dx = v + (dx - v)./Tau(:);
+                                        
+                    v = v + dx;
                                  
                     %dx = spm_dx(dfdx,dx,diag(Q));
                     %dx = Q*dx;
@@ -1131,7 +1151,15 @@ for ins = 1:ns
                 %for i = 1:nn; Ppf = periodogram( pc(i,:), [], w,1./dt) ;end
                 %Ppf = atcm.fun.HighResMeanFilt(Ppf,1,2); 
                 
-                Ppf = atcm.fun.moving_average(Ppf,2);
+                %Ppf = atcm.fun.moving_average(Ppf,2);
+                
+                %Ppf = Ppf(:)./Gn(:);
+                
+                %Ppf = abs(AGenQ(Ppf))*Ppf(:);
+                
+                %[~,GL] = AGenQ(Ppf);
+                
+                %Ppf = GL*Ppf(:);
                 
                 nd = size(P.d,1);
                 X  = spm_dctmtx(length(w),nd + 1);
@@ -1139,22 +1167,27 @@ for ins = 1:ns
                 
                 %Ppf = atcm.fun.aenv(Ppf,6);
                 
-                %Ppf = Ppf(:) .* Mu(:);
+                Ppf = Ppf(:) .* Mu(:);
                 
-                Ppf = idct( dct(Ppf(:)).*Mu(:) );
+                %Ppf = idct( dct(Ppf(:)).*Mu(:) );
                 
             elseif UseSmooth == 2
 
                 K = 24;
                                 
                 % Compute Dynamic Mode Decomposition on TF data
-                [Ppf,~,c] = atcm.fun.tfdecomp(pc,dt,w,8,2,@mean);
+                [Ppf,~,c] = atcm.fun.tfdecomp(pc,dt,w,4,1,@median);
+                
+                %c = AGenQ(Ppf)*c;
                                 
                 % Remove ~1/f system noise
-                c = abs(c) ./ repmat(Gn(:),[1 size(c,2)]);
+                %c = abs(c) ./ repmat(Gn(:),[1 size(c,2)]);
                                                 
                 % Eigenvectors of the DMD of TF matrix are spectra of modes
                 [Eigenvalues, ev, ModeAmplitudes, ModeFrequencies, GrowthRates, POD_Mode_Energies] = atcm.fun.dmd(c, K, dt);
+                
+                %Pp  = c*ev';
+                %Ppf = spm_vec(max(abs(Pp)'));
                 
                 % Compute modal frequencies
                 ModeFrequencies=(angle(Eigenvalues)/pi)*(1/(2*dt));
@@ -1166,7 +1199,7 @@ for ins = 1:ns
                 
                 %[ModeFrequencies ModeAmplitudes]
                 
-                % remove dupplaicates
+                % remove duplicates
                 [~,I]=unique(ModeFrequencies);
                 
                 ModeFrequencies = ModeFrequencies(I);
@@ -1175,39 +1208,38 @@ for ins = 1:ns
                 % Remove stuff outside freqs of interest
                 G = find( ModeFrequencies>w(1) & ModeFrequencies<w(end) );
                 
-                wt = round(ModeFrequencies)/max(w);
-                ModeAmplitudes = ModeAmplitudes(:).*wt(:);
+                %wt = round(ModeFrequencies)/max(w);
+                %ModeAmplitudes = ModeAmplitudes(:).*wt(:);
                                                                
                 % Convert to (Gaussian) series and average
                 for ijf = 1:length(G)
-                   PF(ijf,:) = atcm.fun.makef(w,ModeFrequencies(G(ijf)),ModeAmplitudes(G(ijf)),1/8);
-                   
-                   GL = AGenQ(PF(ijf,:));
-                   
-                   PF(ijf,:) = PF(ijf,:)*GL;
+                   PF(ijf,:) = atcm.fun.makef(w,ModeFrequencies(G(ijf)),ModeAmplitudes(G(ijf)),1.5);
                 end
+                 
+                 % average and smooth
+                 Ppf = spm_vec(mean(PF));
+                 wt  = w(:)./(max(w)*exp(P.Ly));
+                 Ppf = Ppf.*( wt );
                 
-                % average and smooth
-                Ppf = spm_vec(sum(PF));
+                %[~,GL] = AGenQ(Ppf);                
+                %Ppf = GL*Ppf(:);
                 
                 % dct transform
-                nd  = size(P.d,1);
-                X   = spm_dctmtx(length(w),nd + 1);
-                Mu  = exp(X(:,2:end)*P.d);
-                Ppf = idct( dct(Ppf(:)).*Mu(:) );
+                %nd  = size(P.d,1);
+                %X   = spm_dctmtx(length(w),nd + 1);
+                %Mu  = exp(X(:,2:end)*P.d);
+                %Ppf = idct( dct(Ppf(:)).*Mu(:) );
                                 
             elseif UseSmooth == 3
                 
-                [Ppf,~,c] = atcm.fun.tfdecomp(pc,dt,w,8,2,@mean);
-                %[Eigenvalues, ev, ModeAmplitudes, ModeFrequencies, GrowthRates, POD_Mode_Energies] = atcm.fun.dmd(c', K, dt);
+                [Ppf,~,c] = atcm.fun.tfdecomp(pc,dt,w,8,   1,@max);
                 
-                %ev(ev<0)=-ev(ev<0);
-                %Ppf = max(ev);
+                [~,GL] = AGenQ(std(c'));
                 
-                C   = c*c';
-                Ppf = sqrt(diag(C));
-%                 [V,D] = eig(C);
-%                 Ppf = abs(c*V(:,1));
+                Ppf = GL*Ppf(:);
+                %Ppf = AGenQ(Ppf)*Ppf;
+                %Ppf = AGenQ(std(c'))*Ppf;
+                %Ppf = AGenQ(Ppf)*Ppf;
                 
                 nd  = size(P.d,1);
                 X   = spm_dctmtx(length(w),nd + 1);
@@ -1268,15 +1300,24 @@ for ins = 1:ns
     
         % Make it non-sparse and vectorised
         warning on;
-        Pf = (Pf)';
+        try
+            Pf = (Pf)';
+        catch
+            Pf = inf*size(w);
+            y = Pf;
+            s = timeseries;
+            g = ts;
+            return;
+        end
+        
         Pf = full(Pf)';
         J  = full(exp(P.J));
         
         if DoHamming
             H = .5+hamming(nf,'periodic');
-            [val,ind] = max(H);
-            H(1:ind)  = val;
-            H = H - min(H);
+            %[val,ind] = max(H);
+            %H(1:ind)  = val;
+            %H = H - min(H);
             Pf = Pf(:).*H(:);
         end
 
