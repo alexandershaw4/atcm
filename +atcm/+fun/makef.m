@@ -45,11 +45,16 @@ try Amp ; catch Amp = 2; end
 mw  = min(w);
 X   = 0*w;
 f   = atcm.fun.findthenearest(Fq,w);
-f   = f(1);
+
+try
+    f   = f(1);
+catch
+    f   = Fq(1);
+end
 
 w   = w - mw;
 switch model
-    case 'gaussian'
+    case {'Gauss' 'gauss' 'gaussian'}
         X   = X + Amp * exp( -(w-f).^2 / (2*(2*Wid)^2) );
     case 'cauchy'
         X   = X + Amp./(1+((w-f)/Wid).^2);

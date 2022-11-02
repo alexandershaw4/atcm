@@ -1,4 +1,4 @@
-function y = HighResMeanFilt(mIn,n,m)
+function [y,L,R] = HighResMeanFilt(mIn,n,m)
 % Mean window filtering & matrix sampling
 % mIn in an n dimensional matrix
 % n   is a resampling value (1 = no resamp, .5 = half, 2 = double etc).
@@ -16,7 +16,7 @@ end
 
 
 M = imresize(full(mIn),n);
-y = smoothmat(M,m,m);
+[y,R,L] = smoothmat(M,m,m);
 
 warning off;
 try mOut;
@@ -27,7 +27,7 @@ warning on;
 
 end
 
-function matrixOut = smoothmat(matrixIn,Nr,Nc)
+function [matrixOut, eL, eR] = smoothmat(matrixIn,Nr,Nc)
 % Smooths 2D array data.  Ignores NaN's.
 if nargin < 2, error('Not enough input arguments!'), end
 

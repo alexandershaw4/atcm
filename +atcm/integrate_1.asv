@@ -1146,8 +1146,14 @@ for ins = 1:ns
                 
                 [Ppf,~,MM] = atcm.fun.AfftSmooth( pc, dw./dt, w, 30) ;
                 MM  = squeeze(MM);
-                Ppm = cov(MM');
-                                
+                
+                X = atcm.fun.quadbasis(w);
+                X = (exp(P.a(1:3))'*X)';
+                
+                %Ppm = cov(MM');
+                
+                Ppm = MM*diag(X)
+                
                 %Ppf = pyulear(pc,8,w,1/dt);
                 %Ppm = AGenQ(Ppf);
                 
