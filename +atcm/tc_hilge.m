@@ -150,12 +150,12 @@ Gn = exp(Gn);
 % % extrinsic connections (F B) - from superficial and deep pyramidal cells
 % %--------------------------------------------------------------------------
 %       SP  DP  tp  rt  rc
-SA   = [1   0   1   0   0;   %  SS    % added TP->SP
+SA   = [1   0   0   0   0;   %  SS    % added TP->SP
         0   1   0   0   0;   %  SP
         0   1   0   0   0;   %  SI
-        1   0   0   0   0;   %  DP
+        0   0   0   0   0;   %  DP
         0   0   0   0   0;   %  DI
-        0   0   1   0   0;   %  TP % 0 in ket study
+        0   0   0   0   0;   %  TP % 0 in ket study
         0   0   0   0   1;   %  rt % 0 in ket study
         0   0   0   1   0]/8;%  rc % 0 in ket study
     
@@ -164,12 +164,12 @@ SA   = [1   0   1   0   0;   %  SS    % added TP->SP
     
 % % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
 % %--------------------------------------------------------------------------    
-SNMDA = [1   0   1   0   0;   %  SS
+SNMDA = [1   0   0   0   0;   %  SS
          0   1   0   0   0;   %  SP
          0   1   0   0   0;   %  SI
-         1   0   0   0   0;   %  DP
+         0   0   0   0   0;   %  DP
          0   0   0   0   0;   %  DI
-         0   0   1   0   0;   %  TP % 0 in ket study
+         0   0   0   0   0;   %  TP % 0 in ket study
          0   0   0   0   1;   %  rt % 0 in ket study
          0   0   0   1   0]/8;%  rc % 0 in ket study
 
@@ -224,8 +224,7 @@ GEa = [  0     0     0     0     0     2     0     2;
          0     0     0     2     0     0     0     2;
          0     0     0     0     0     0     0     2;
          2     0     0     0     0     2     0     0];
-
-
+GEa = GEa/3;
 % added TP>SI = 2 (was 0)
 %GEa = GEa./4;
 %GEa = GEa .* ~eye(np);
@@ -279,8 +278,7 @@ GIa =  [ si    0     0     0     0     0     0     0;
          0     0     0     0     0     0     4     0;
          0     0     0     0     0     0     4     si];
 
-
-% GIa(1,:) = [2   0   16  0   0   0   0   0 ];
+     % GIa(1,:) = [2   0   16  0   0   0   0   0 ];
 % GIa(2,:) = [0   64  16  0   0   0   0   0 ]; %spsp was 16
 % GIa(3,:) = [0   0   32  0   0   0   0   0 ];
 % GIa(4,:) = [0   0   0  128  12  0   0   0 ];
@@ -371,7 +369,7 @@ end
 VL   = -70;                               % reversal  potential leak (K)
 VE   =  60;                               % reversal  potential excite (Na)
 VI   = -90;                               % reversal  potential inhib (Cl)
-VR   = -40;   %55                            % threshold potential (firing)
+VR   = -55;   %55                            % threshold potential (firing)
 VN   =  10;                               % reversal Ca(NMDA)   
 VB   = -100;                              % reversal of GABA-B
 
@@ -495,17 +493,18 @@ for i = 1:ns
         
         % endogenous latent region inputs
         %------------------------------------------------------------------
-        endo = exp(P.d(1:5)).*[1 1 1 1 1]'/32;
-        endo = 1./(1 + exp(-1.*(endo-0)));
-        
-        E(2) = E(2) + endo(2);        
-        E(4) = E(4) + endo(3);
-        I(3) = I(3) + endo(1);
-        
+%          endo  = exp(P.d(1:4)).*[1 1 1 1]'*3;
+%          endo  = 1./(1 + exp(-1.*(endo-0)));
+%                
+%             E(2) = E(2) * exp(P.d(1));        
+%             E(4) = E(4) * exp(P.d(2));
+%             I(3) = I(3) * exp(P.d(3));
+%             I(8) = I(8) * exp(P.d(4));     
+                
         
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = [8];
+        input_cell        = [8 1];
                 
         if isfield(M,'inputcell');
             input_cell = M.inputcell;
@@ -559,11 +558,12 @@ for i = 1:ns
         
         df = f(:) - x(:);
         d  = exp(P.ID).*[1 1 1 1 1 1 1 1];
-        
+        %d=[1 1 1 1 1 1 1 1];
         s = 1;
         l = 1.68;
         
-        d = [s l s l s l s s]./d;
+        d = [l l s l s s s s]./d;
+        %d = repmat(d(:),[nk 1]);
         
         f = spm_unvec( spm_vec(x) + df(:).*repmat(d(:),[nk 1]), f);
                         
@@ -642,7 +642,7 @@ Ds = ~Sp & Ss;                       % states: same source different pop.
 %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
 
 if ~isfield(P,'delays')
-    D  = d(2)*Dp + d(1)*Ds + Tc  ;
+    D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;
 else
     D = d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
 end

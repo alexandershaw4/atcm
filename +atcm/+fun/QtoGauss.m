@@ -18,7 +18,11 @@ if nargin < 2 || isempty(w)
 end
 
 if isvector(Q)
-    Q = atcm.fun.AGenQn(Q,4);
+    try
+        Q = atcm.fun.AGenQn(Q,4);
+    catch
+        Q = atcm.fun.AGenQn(Q,1);
+    end
 end
 
 G = Q*0;

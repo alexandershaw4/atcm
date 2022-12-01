@@ -1,4 +1,4 @@
-function [V,K,Ppf] = GaussAR(x,w,dt)
+function [V,K,Ppf] = GaussAR(x,w,dt,N)
 % A Gaussian component-based auto-regressive spectral model.
 %
 %     Pf = atcm.fun.GaussAR(x,w,dt)
@@ -16,7 +16,7 @@ function [V,K,Ppf] = GaussAR(x,w,dt)
 %
 % AS
 
-Ppf = pyulear(x,8,w,1/dt);
+Ppf = pyulear(x(:),8,w,1/dt);
 
 % Make sure it's a mv Gauss so that the error is smooth
 Ppm = AGenQn(Ppf);
@@ -49,6 +49,10 @@ if ng > 1
     Ppf = spm_vec( max((V'*K)) );
 else
     Ppf = V'*K;
+end
+
+if nargin > 3
+    V = V(:,1:N);
 end
 
 return;
