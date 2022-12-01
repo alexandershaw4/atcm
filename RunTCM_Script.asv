@@ -196,9 +196,9 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE = x.Ep;
     DCM.M.pE.L=-2;
     
-    % Optimise using AO.m -- a Newton scheme with add-ons and multiple
-    % objective functions built in, including free energy
+    % Optimise using AO.m
     %----------------------------------------------------------------------
+
     ppE = DCM.M.pE;
     
     % Construct an AO optimisation object
@@ -215,7 +215,7 @@ for i = i;%1:length(Data.Datasets)
     
     % Optimisation option set 1.
     M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
-    M.opts.ismimo      = 1;        % compute dfdp elementwise on vector-output function
+    M.opts.ismimo      = 0;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel  = 1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams = 0;   % hyperparameter tuning
     M.opts.fsd         = 0;         % fixed-step for derivatives
@@ -235,6 +235,12 @@ for i = i;%1:length(Data.Datasets)
     M.opts.crit            = [0 0 0 0];
     M.opts.do_gpr          = 0;
     
+    %M.opts.variance_estimation = 0;
+    M.opts.ismimo = 1;
+    %M.opts.isGaussNewton = 1;
+    %M.opts.DoMAP_Bayes = 1;
+    %M.opts.docompare=1;
+    
     M.opts.userplotfun = @aodcmplotfun;
     M.opts.isGaussNewtonReg=1;
     %M.opts.WeightByProbability=1;
@@ -244,7 +250,6 @@ for i = i;%1:length(Data.Datasets)
     % reinstate the actual priors before saving
     DCM.M.pE = ppE;
     
-    % Place posteriors in DCM for save
     DCM.Ep = spm_unvec(M.Ep,DCM.M.pE);
     DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
     DCM.Cp = makeposdef(DCM.Cp);
