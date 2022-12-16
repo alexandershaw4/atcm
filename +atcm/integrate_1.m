@@ -267,6 +267,11 @@ switch InputType
 
 end
 
+if isfield(P,'inputs')
+    mf    = exp(P.inputs(:)).*[10 50 50 30 50 20 10 10]';
+    drive = 1 * ( (sin(2*pi*mf*(pst'/1000))) )';
+end
+
 
 if ~isfield(M,'timefreq')
     M.timefreq = 0;
@@ -533,6 +538,27 @@ switch IntMethod
                     y(:,i) = v;
                 end
                 
+            elseif WithDelays == 1.5
+                
+                % *backward* euler
+                if i == 1
+                    [dxdt] = f(v,drive(i,:),P,M);    
+                    v      = v + dt*dxdt;
+                    y(:,i) = v;
+                else
+                    % Next step with input
+                    [dxdt] = f(v,drive(i,:),P,M);    
+                    
+                    %v = v + dt*dxdt;
+                    
+                    y(:,i) = y(:,i-1) + dt*dxdt;
+                    
+                    v = y(:,i);
+                    
+                end
+                
+                
+                
             elseif WithDelays == 1010
                 
                 %delays
@@ -569,23 +595,23 @@ switch IntMethod
                 % A simple second order integration routine akin to an
                 % Euler or RK routine - but with a (matrix) delay operator
                 
-                for j = 1:4;%:N
+                    % precompute Tau
+                    %del = exp(P.d(:)').*[1 1 1 1 1 1 1 1];
+                    %del = repmat(del,[1 nk]);
+                    %del = 1./del;
+                    %Tau = ( 1./(1 - (dt*del))-dt );  % <-- NOTE!
                     
-                    %v  = v + Q*f(spm_unvec(v,M.x),drive(i,:),P,M);
-                    
-                    %v0 = v0 + del'.*(Q*f(spm_unvec(v0,M.x),0.0001,P,M));                     
                     
                     % simulation integration
                     %------------------------------------------------------
-                    [dx]  = f(spm_unvec(v,M.x),drive(i,:),P,M);
+                    %[dx,dfdx]  = f(spm_unvec(v,M.x),drive(i,:),P,M);
                     
-                    %dx = Q*(dx-v);
-                    %dx = Q*(dfdx*(dx-v));
-                    %ddx = Q*abs(dx - v')*dt;
-                    
-                    %dx =  ddx*dx;
-                    
-                                                            
+                    if ismember(i,round(linspace(1,length(t),length(t)/10 + 1)))
+                        [dx,dfdx]  = f(spm_unvec(v,M.x),drive(i,:),P,M);
+                    else
+                        [dx]  = f(spm_unvec(v,M.x),drive(i,:),P,M);
+                    end
+                                                                               
                     % augment Jacobian & delay operator, take matrix exp
                     %------------------------------------------------------
                     %e.g. expm([0   0     ]) = (expm(t*dfdx) - I)*inv(dfdx)*f
@@ -605,11 +631,6 @@ switch IntMethod
                                         
                     v = v + dx;
                                  
-                    %dx = spm_dx(dfdx,dx,diag(Q));
-                    %dx = Q*dx;
-                    
-                    v = v + dx;
-                end
                 
                 y(:,i) = v;%(v0 - v);
                 y0(:,i) = v;%v0;
@@ -661,32 +682,14 @@ switch IntMethod
                 % Newton-Cotes quadrature, including Q
                 % note this is a Lagrange polynomial method
                 
-                % forced temporal filter over membrane potentials -
-                for j = 1:(N)
-                    k1 = f(v      ,drive(i,:),P,M);
-                    k2 = f(v+dt*k1,drive(i,:),P,M);
-                    k3 = f(v+dt*k2,drive(i,:),P,M);
-                    k4 = f(v+dt*k3,drive(i,:),P,M);
-                    k5 = f(v+dt*k4,drive(i,:),P,M);
-
-                    dxdt = ((2*dt)./45)*(7*k1 + 32*k2 + 12*k3 + 32*k4 + 7*k5);   
-                    
-                    %dxdt = ((2)./45)*(7*k1 + 32*k2 + 12*k3 + 32*k4 + 7*k5);   
-                    
-%                     J = full(spm_cat({0   [];
-%                         dxdt dt*(dfdx.*Q)}));
-%                     
-%                     % solve using matrix expectation
-%                     %------------------------------------------------------
-%                     step = expm(J);
-%                     v = v + step(2:end,1);
-                    
-                    %v = v + spm_dx(dfdx.*Q,dxdt,dt);
-
-                    v    = v + (Q*dxdt);
-                    
-                    %v = v + Q*(dxdt - v);
-                end
+                k1 = f(v      ,drive(i,:),P,M);
+                k2 = f(v+dt*k1,drive(i,:),P,M);
+                k3 = f(v+dt*k2,drive(i,:),P,M);
+                k4 = f(v+dt*k3,drive(i,:),P,M);
+                k5 = f(v+dt*k4,drive(i,:),P,M);
+                
+                dxdt = ((2*dt)./45)*(7*k1 + 32*k2 + 12*k3 + 32*k4 + 7*k5);
+                v    = v + (dxdt);
                 
                 y(:,i) = v;
                                                     
@@ -775,19 +778,32 @@ switch IntMethod
                     k4 = f(v+    dt*k3,drive(i)+dt  ,P,M);
              
                     dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
-                    v         = v + Q*dxdt;
-                    y(:,i)    = v - spm_vec(M.x);   
+                    v         = v + dxdt;
+                    y(:,i)    = v ;%- spm_vec(M.x);   
             end  
             
             
             % firing function at dxdt - assumes conductance model using
             % the JD Williams approximation
             %--------------------------------------------------------------
-            VR       = -40;
-            Vx       = exp(P.S)*32;
+            VR       = -55;
+            %Vx       = exp(P.S)*32;
             V        = spm_unvec(v,M.x);
-            Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);
-            S(:,:,i) = Curfire;
+            %Curfire  = spm_Ncdf_jdw(V(:,:,1),VR,Vx);
+            %S(:,:,i) = Curfire;
+            
+%             FF =  pdf(makedist('normal',VR,2),V) ./ pdf(makedist('normal',VR,2),VR);
+%             
+%             Fu = find( x(:,:,1) > -55 );
+%             FF(Fu) = 1;
+%             
+%             Fl = find( x(:,:,1) > 30 );
+%             FF(Fl) = 0;
+%             
+%             m  = FF;%.*exp(P.S);
+            
+            S=[];
+            
             
             % log whether membrane potential crossed threshold
             %--------------------------------------------------------------
@@ -1094,8 +1110,12 @@ for ins = 1:ns
             
                 % Non-smoothed fft version:
                 %--------------------------------------------------------------                
-               % Ppf = atcm.fun.Afft( pc, dw./dt, w)' ;
+                %Ppf = atcm.fun.Afft( pc, dw./dt, w)' ;
                 %[Ppf,~,MM] = atcm.fun.AfftSmooth( pc, dw./dt, w, 30) ;
+                
+               % Ppf = atcm.fun.AGenQn(abs(Ppf),4)*Ppf;
+                
+                %Ppf = pyulear(pc,12*2,w,1/dt);
                 
                 %series = real( Eigenvectors(:,burn:end) );
                 
@@ -1115,7 +1135,7 @@ for ins = 1:ns
                 
                 series = real( Eigenvectors(:,burn:end) );
                 %series = atcm.fun.AGenQn(pc,8);
-                NM     = 12;
+                NM     = 12;%rank(series);%12;
                 
                 % see https://cwrowley.princeton.edu/theses/tu.pdf, pg27
                 [Eval, Evec, Amp, Freq, GR, ME] = atcm.fun.dmd(full(series'),NM,dt);
@@ -1126,18 +1146,33 @@ for ins = 1:ns
                 for i = 1:NM
                     %Pf(i,:) = atcm.fun.AfftSmooth(projection(i,:),1./dt,w,30);
                     Pf(i,:) = atcm.fun.Afft(projection(i,:),1./dt,w);
+                    
+                    if isfield(M,'fooof') && M.fooof
+                       Pf(i,:) = atcm.fun.component_spectrum(w,Pf(i,:),12);
+                    end
+                    
                     %Pf(i,:) = atcm.fun.awinsmooth(Pf(i,:),4);
-                    %Pf(i,:) = atcm.fun.AGenQn(Pf(i,:),2)*Pf(i,:)';
+                    %Pf(i,:) = atcm.fun.AGenQn(Pf(i,:),4)*Pf(i,:)';
                     
                     %Pf(i,:) = pyulear(projection(i,:),12,w,1/dt);
                     
-                    %[Pf(i,:)] = atcm.fun.tfdecomp(projection(i,:),dt,w,8,1);
+                    %[Pf(i,:),~,mat] = atcm.fun.tfdecomp(projection(i,:),dt,w,8,1);
+                    
+                    %Pf(i,:) = max(abs(mat),[],2);
                 end
                 
-                Ppf = max(Pf);
-                Ppf = atcm.fun.awinsmooth(Ppf,8);
+                %lmf = M.y{:}\Pf';
+                %Ppf = lmf*Pf;
+
+                %
+               Ppf = mean(Pf,1);
+                %Ppf = max(Pf);
+              %  Ppf = atcm.fun.awinsmooth(Ppf,8);
                 Ppf = Ppf(:);
                 
+
+
+
 %                 % Compute modal frequencies
 %                 ModeFrequencies=(angle(Eval)/pi)*(1/(2*dt));
 %                                 
@@ -1339,7 +1374,7 @@ for ins = 1:ns
     %Pf(:,ins,ins) = aperiod(:) + Pf0(:) ;
     Pf(:,ins,ins) = Pf0(:) ;
     
-    
+    Pf = atcm.fun.AGenQn(Pf)*Pf;
         
     
     

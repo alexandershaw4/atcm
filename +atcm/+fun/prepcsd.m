@@ -338,6 +338,12 @@ for i = 1:Ne;
                         [Pf, F] = SpecFun(Ymod', 1/DCM.xY.dt, DCM.xY.Hz,DCM.options.FFTbins) ;
                     else
                         [Pf, F] = SpecFun(Ymod',  1/DCM.xY.dt, DCM.xY.Hz) ;
+                        
+                        if isfield(DCM.options,'fooof') && DCM.options.fooof
+                            if j == Nt;fprintf('Fitting FOOOF %d times\n',j);end
+                            Pf = atcm.fun.component_spectrum(F,Pf,12);
+                        end
+                        
                         if size(Pf,1) == 1;
                             Pf = Pf';
                         end

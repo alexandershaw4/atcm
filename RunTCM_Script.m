@@ -178,8 +178,8 @@ for i = i;%1:length(Data.Datasets)
     
     % only interested in real psd rn
     %----------------------------------------------------------------------
-    DCM.xY.y{1} = real(DCM.xY.y{1});
-    DCM.M.y     = DCM.xY.y;
+    %DCM.xY.y{1} = real(DCM.xY.y{1});
+    %DCM.M.y     = DCM.xY.y;
         
     load('+atcm/PriorSettings','c');
         
@@ -196,6 +196,14 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE = x.Ep;
     DCM.M.pE.L=-2;
     
+    x = load('TCM_Average_040913_2_control');
+    DCM.M.pE = x.DCM.Ep;
+    
+    DCM.M.pC.S = DCM.M.pC.S*0;
+    
+    DCM.M.x = zeros(1,8,7);
+    DCM.M.x(:,:,1) = -70;
+    
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
@@ -207,11 +215,13 @@ for i = i;%1:length(Data.Datasets)
     % Bias and feature selection - ensuring FS(y) remains smooth
     M.opts.Q  = spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1);
     Q = atcm.fun.QtoGauss(DCM.xY.y{:},2);
-    Q = 1+rescale(Q.*DCM.xY.Hz);
+    Q = 1+rescale(real(Q).*DCM.xY.Hz);
     M.opts.Q = Q;
     
     % Feature selection: FS(y)
     M.opts.FS = @(x) [real(sqrt(denan(x))); denan(std(x)./mean(x)) ];
+    
+    %M.opts.FS = @(x) [real(sqrt(denan(x))); unwrap(angle(DCM.xY.y{:}))./(2*pi*w(:)); denan(std(x)./mean(x)) ];
     
     % Optimisation option set 1.
     M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist

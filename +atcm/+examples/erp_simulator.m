@@ -3,7 +3,7 @@
 
 % function handles
 M.IS = @atcm.integrate_erp;
-M.f  = @atcm.tc_dev_dev;
+M.f  = @atcm.tc_hilge;
 
 % time, freqs etc.
 M.Hz      = 4:80;
@@ -19,6 +19,9 @@ DCM.M = M;
 
 % neural priors
 DCM = atcm.parameters(DCM,1);
+
+x=load('+atcm/Nov31')
+    DCM.M.pE = x.Ep;
 
 % simulus / input bump
 R(1) = 0.69; % input bump (stim) delay: exp(R(1))*60
