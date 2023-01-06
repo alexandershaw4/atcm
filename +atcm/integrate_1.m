@@ -1115,6 +1115,8 @@ for ins = 1:ns
                 
                % Ppf = atcm.fun.AGenQn(abs(Ppf),4)*Ppf;
                 
+               %pc = atcm.fun.bandpassfilter(pc,1/dt,[w(1) w(end)]);
+               
                 %Ppf = pyulear(pc,12*2,w,1/dt);
                 
                 %series = real( Eigenvectors(:,burn:end) );
@@ -1134,42 +1136,68 @@ for ins = 1:ns
                 %series = atcm.fun.AGenQn(pc,8);
                 
                 series = real( Eigenvectors(:,burn:end) );
-                %series = atcm.fun.AGenQn(pc,8);
-                NM     = 12;%rank(series);%12;
                 
-                % see https://cwrowley.princeton.edu/theses/tu.pdf, pg27
-                [Eval, Evec, Amp, Freq, GR, ME] = atcm.fun.dmd(full(series'),NM,dt);
-                
-                projection = Evec*series;
-                %projection = (dfdx*Evec')'*series;
-                
-                for i = 1:NM
-                    %Pf(i,:) = atcm.fun.AfftSmooth(projection(i,:),1./dt,w,30);
-                    Pf(i,:) = atcm.fun.Afft(projection(i,:),1./dt,w);
-                    
-                    if isfield(M,'fooof') && M.fooof
-                       Pf(i,:) = atcm.fun.component_spectrum(w,Pf(i,:),12);
-                    end
-                    
-                    %Pf(i,:) = atcm.fun.awinsmooth(Pf(i,:),4);
-                    %Pf(i,:) = atcm.fun.AGenQn(Pf(i,:),4)*Pf(i,:)';
-                    
-                    %Pf(i,:) = pyulear(projection(i,:),12,w,1/dt);
-                    
-                    %[Pf(i,:),~,mat] = atcm.fun.tfdecomp(projection(i,:),dt,w,8,1);
-                    
-                    %Pf(i,:) = max(abs(mat),[],2);
+                % state smooth fourier transforms 
+                for i = 1:size(series,1)
+                    Pf(i,:) = atcm.fun.tfdecomp(series(i,:),dt,w,8,1);
                 end
                 
-                %lmf = M.y{:}\Pf';
-                %Ppf = lmf*Pf;
-
-                %
-               Ppf = mean(Pf,1);
-                %Ppf = max(Pf);
-              %  Ppf = atcm.fun.awinsmooth(Ppf,8);
-                Ppf = Ppf(:);
+                % state series covariance
+                PfW = Pf - mean(Pf,2);
+                PfC = cov(PfW');
                 
+                [u,s,v] = svd(PfC);
+                
+                Pf = abs(u(:,1)')*Pf;
+                Ppf = Pf(:);
+                                
+%                 %series = atcm.fun.AGenQn(pc,8);
+%                 NM     = 2;%12;%rank(series);%12;
+%                 
+%               %  series = atcm.fun.bandpassfilter(series,1/dt,[w(1) w(end)]);
+%                 
+%                 % see https://cwrowley.princeton.edu/theses/tu.pdf, pg27
+%                 %[Eval, Evec, Amp, Freq, GR, ME] = atcm.fun.dmd(full(cov(series)),NM,dt);
+%                 [Eval, Evec, Amp, Freq, GR, ME] = atcm.fun.dmd(full((series)),NM,dt);
+%                 
+%                 %projection = Evec*series;
+%                 %projection = (dfdx*Evec')'*series;
+%                 
+%                 projection = Evec;
+%                 
+%                 %NM = 12;%rank(series);
+%                 %projection = atcm.fun.assa(sum(series,1),NM)';
+%                 
+%                 
+%                 for i = 1:NM
+%                     %Pf(i,:) = atcm.fun.AfftSmooth(projection(i,:),1./dt,w,30);
+%                     %Pf(i,:) = atcm.fun.Afft(projection(i,:),1./dt,w);
+%                     
+%                     if isfield(M,'fooof') && M.fooof
+%                        Pf(i,:) = atcm.fun.component_spectrum(w,Pf(i,:),12);
+%                     end
+%                     
+%                     %Pf(i,:) = atcm.fun.awinsmooth(Pf(i,:),4);
+%                     %Pf(i,:) = atcm.fun.AGenQn(Pf(i,:),4)*Pf(i,:)';
+%                     
+%                     %Pf(i,:) = pyulear(projection(i,:),12,w,1/dt);
+%                     
+%                     [Pf(i,:),~,mat] = atcm.fun.tfdecomp(projection(i,:),dt,w,8,1);
+%                     
+%                     %Pf(i,:) = max(abs(mat),[],2);
+%                 end
+%                 
+%                 %lmf = M.y{:}\Pf';
+%                 %Ppf = lmf*Pf;
+% 
+%                 %
+%                %Ppf = max(Pf,[],1);
+%                Ppf = mean(Pf,1);
+%               % Ppf = atcm.fun.AGenQn(Ppf,4)*Ppf';
+%                 %Ppf = max(Pf);
+%              %   Ppf = atcm.fun.awinsmooth(Ppf,8);
+%                 Ppf = Ppf(:);
+%                 
 
 
 
@@ -1243,7 +1271,7 @@ for ins = 1:ns
                 
                 %[Ppf,~,MM] = atcm.fun.AfftSmooth( ifft(Ppf,length(t)), dw./dt, w, 32) ;
                 
-                %Ppf = atcm.fun.Afft(Evec*series,dw./dt, w)' ;
+                %Ppf = atcm.fun.AfftSmooth(pc,dw./dt,w,20)' ;
                 
               % X  = spm_dctmtx(nf,9);
               % X  = exp( X(:,2:end)*P.d(1:8) );
@@ -1259,21 +1287,22 @@ for ins = 1:ns
                 %Ppf = pyulear(pc,8,w,1/dt);
                 
                 % estimate autocov
-                %Ppm  = atcm.fun.estcov(Ppf,length(Ppf)); 
-                %Ppm = Ppm + Ppm';
-                %Ppm = cov(Ppm');
-                
-                % comute covariance and smooth with Gauss kernel                
-                %Ppm = Ppm.*atcm.fun.GaussEye(nf)*Ppm';           
-                                
-                % eigenvectors are spectral modes s.t. Gaussian
-                %[V,D] = eig(Ppm);
-                %[~,order] = sort(diag(D),'descend');
-                %D = diag(D);
-                %D = D(order);
-                %V = V(:,order); 
-                
-                %Ppf = spm_vec( V(:,1)'*Ppm );
+%                 Ppm  = atcm.fun.estcov(Ppf,length(Ppf)); 
+%                 Ppm = Ppm + Ppm';
+%                 Ppm = cov(Ppm');
+%                 
+%                 % comute covariance and smooth with Gauss kernel                
+%                 Ppm = Ppm.*atcm.fun.GaussEye(nf)*Ppm';           
+%                                 
+%                 % eigenvectors are spectral modes s.t. Gaussian
+%                 [V,D] = eig(Ppm);
+%                 [~,order] = sort(diag(D),'descend');
+%                 D = diag(D);
+%                 D = D(order);
+%                 V = V(:,order); 
+%                 
+%                 Ppf = spm_vec( V(:,1)'*Ppm );
+%                 Ppf = abs(Ppf);
                 
                 %Ppf = diag(V*V');%*X;
                 %Ppf = AGenQ(Ppf)*Ppf;
@@ -1374,7 +1403,7 @@ for ins = 1:ns
     %Pf(:,ins,ins) = aperiod(:) + Pf0(:) ;
     Pf(:,ins,ins) = Pf0(:) ;
     
-    Pf = atcm.fun.AGenQn(Pf)*Pf;
+  %  Pf = atcm.fun.AGenQn(Pf)*Pf;
         
     
     

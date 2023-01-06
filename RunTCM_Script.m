@@ -194,15 +194,45 @@ for i = i;%1:length(Data.Datasets)
             
     x = load('+atcm/Nov31');
     DCM.M.pE = x.Ep;
-    DCM.M.pE.L=-2;
+    DCM.M.pE.L=-4;
     
-    x = load('TCM_Average_040913_2_control');
-    DCM.M.pE = x.DCM.Ep;
+    %load('Mod20p','pC')
+    %DCM.M.pC = pC;
     
-    DCM.M.pC.S = DCM.M.pC.S*0;
     
-    DCM.M.x = zeros(1,8,7);
-    DCM.M.x(:,:,1) = -70;
+    pC = spm_unvec( spm_vec(DCM.M.pC)*0, DCM.M.pC);
+    
+    pC.H = [0   0   0   0   0   0   0   1;
+            1   1   1   0   0   0   0   0;
+            0   1   1   0   0   0   0   0;
+            0   1   0   0   1   0   0   0;
+            0   0   0   0   0   0   0   0;
+            0   0   0   1   1   0   0   0;
+            0   0   0   0   0   0   0   0;
+            1   0   0   0   0   1   1   0]/8;
+    
+    pC.Hn = [0   0   0   0   0   0   0   1;
+             1   1   1   0   0   0   0   0;
+             0   1   1   0   0   0   0   0;
+             0   1   0   0   0   0   0   0;
+             0   0   0   0   0   0   0   0;
+             0   0   0   1   0   0   0   0;
+             0   0   0   0   0   0   0   0;
+             1   0   0   0   0   1   0   0]/8;
+    
+         
+    %pC.Gsc = [1 1 0 1 0 0 0 0]/8;
+    pC.L = 0;
+    
+    DCM.M.pC = pC;
+        
+    %x = load('TCM_Average_040913_2_control');
+    %DCM.M.pE = x.DCM.Ep;
+    
+    %DCM.M.pC.S = DCM.M.pC.S*0;
+    
+    %DCM.M.x = zeros(1,8,7);
+    %DCM.M.x(:,:,1) = -70;
     
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -213,10 +243,11 @@ for i = i;%1:length(Data.Datasets)
     M = AODCM(DCM);
     
     % Bias and feature selection - ensuring FS(y) remains smooth
-    M.opts.Q  = spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1);
-    Q = atcm.fun.QtoGauss(DCM.xY.y{:},2);
-    Q = 1+rescale(real(Q).*DCM.xY.Hz);
-    M.opts.Q = Q;
+    %M.opts.Q  = spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1);
+    %Q = atcm.fun.QtoGauss(DCM.xY.y{:},2);
+    %Q = 1+rescale(real(Q).*DCM.xY.Hz);
+    %M.opts.Q = Q;
+    M.opts.Q = eye(length(w));
     
     % Feature selection: FS(y)
     M.opts.FS = @(x) [real(sqrt(denan(x))); denan(std(x)./mean(x)) ];
@@ -228,7 +259,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.ismimo      = 1;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel  = 1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams = 0;   % hyperparameter tuning
-    M.opts.fsd         = 0;         % fixed-step for derivatives
+    M.opts.fsd         = 1;         % fixed-step for derivatives
     M.opts.corrweight  = 0;  % weight log evidence by correlation
     M.opts.inner_loop  = 2;
     
@@ -240,16 +271,30 @@ for i = i;%1:length(Data.Datasets)
     
     M.opts.hypertune       = 1;
     M.opts.memory_optimise = 1;
-    M.opts.rungekutta      = 6;
+    M.opts.rungekutta      = 8;
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
     M.opts.crit            = [0 0 0 0];
     M.opts.do_gpr          = 0;
     
     M.opts.userplotfun = @aodcmplotfun;
     M.opts.isGaussNewtonReg=1;
+    M.opts.order=1;
     %M.opts.WeightByProbability=1;
     
-    M.default_optimise([7],[44])
+    M.default_optimise([7],[12])
+    
+    % update and restart
+    M.update_parameters(M.Ep)
+    
+    M.opts.updateQ=0;
+    M.opts.memory_optimise=0;
+    M.opts.order=2;
+    M.opts.isGaussNewtonReg=0;
+    M.opts.rungekutta=0;
+    M.opts.hyperparams=0;
+    M.opts.hypertune=0;
+    
+    M.default_optimise([7],[12])
                  
     % reinstate the actual priors before saving
     DCM.M.pE = ppE;

@@ -277,7 +277,7 @@ GIa = ~~GIa*4;
 
 si = 8;
 GIa =  [ si    0     8     0     0     0     0     0;
-         0     si    4     0     0     0     0     0;
+         0     si    8     0     0     0     0     0;
          0     0     si    0     0     0     0     0;
          0     0     0     12    4     0     0     0;
          0     0     0     0     4     0     0     0;
@@ -423,12 +423,12 @@ GL   = 1 ;
         
     FF =  pdf(makedist('normal',VR,2),x(:,:,1)) ./ pdf(makedist('normal',VR,2),VR);
     
-    Fu = find( x(:,:,1) > -55 );
+    Fu = find( x(:,:,1) >= -55 );
     FF(Fu) = 1;
     
-    Fl = find( x(:,:,1) > 30 );
+    Fl = find( x(:,:,1) >= 30 );
     FF(Fl) = 0;
-    
+        
     m  = FF;%.*exp(P.S);
     
     
