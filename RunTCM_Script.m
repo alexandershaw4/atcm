@@ -131,6 +131,11 @@ for i = i;%1:length(Data.Datasets)
     %fprintf('Removing power law from data spectrum\n');
     %m = atcm.fun.c_oof(DCM.xY.Hz,DCM.xY.y{:});
     %DCM.xY.y{:} =  DCM.xY.y{:} - m;
+    
+    %m = atcm.fun.c_oof(DCM.xY.Hz,DCM.xY.y{:});
+    %Y = DCM.xY.y{:} - m;
+    %M = fit(DCM.xY.Hz.',Y,'Gauss5');
+    %DCM.xY.y{:} = M(DCM.xY.Hz);
         
     % Subfunctions and default priors
     %----------------------------------------------------------------------
@@ -154,6 +159,9 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.solvefixed=0;      % oscillations == no fixed point search
     DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
     DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
+
+    load initial_x
+    DCM.M.x = x;
     
     % Set Q - a precision operator, increasing with frequency
     %----------------------------------------------------------------------
@@ -170,70 +178,21 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.sim.dt  = 1./300;
     DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(1)-DCM.M.sim.dt)');
     DCM.M.burnin  = 0;
-    DCM.M.intmethod = 0;
     
     % Input is an ERP
     DCM.M.InputType = 2;
-    DCM.M.pE.C = log(.01);
     
-    % only interested in real psd rn
-    %----------------------------------------------------------------------
-    %DCM.xY.y{1} = real(DCM.xY.y{1});
-    %DCM.M.y     = DCM.xY.y;
-        
-    load('+atcm/PriorSettings','c');
-        
-    DCM.M.pE = c.pE;
-    DCM.M.pC = c.pC;
-    DCM.M.x  = c.x;
-    
-    DCM.M.pE.L = 0;
-    
-    DCM.M.DoHamming = 1;
-    DCM.M.pC.C=1/8;
-            
-    x = load('+atcm/Nov31');
-    DCM.M.pE = x.Ep;
-    DCM.M.pE.L=-4;
-    
-    %load('Mod20p','pC')
-    %DCM.M.pC = pC;
-    
-    
-    pC = spm_unvec( spm_vec(DCM.M.pC)*0, DCM.M.pC);
-    
-    pC.H = [0   0   0   0   0   0   0   1;
-            1   1   1   0   0   0   0   0;
-            0   1   1   0   0   0   0   0;
-            0   1   0   0   1   0   0   0;
-            0   0   0   0   0   0   0   0;
-            0   0   0   1   1   0   0   0;
-            0   0   0   0   0   0   0   0;
-            1   0   0   0   0   1   1   0]/8;
-    
-    pC.Hn = [0   0   0   0   0   0   0   1;
-             1   1   1   0   0   0   0   0;
-             0   1   1   0   0   0   0   0;
-             0   1   0   0   0   0   0   0;
-             0   0   0   0   0   0   0   0;
-             0   0   0   1   0   0   0   0;
-             0   0   0   0   0   0   0   0;
-             1   0   0   0   0   1   0   0]/8;
-    
-         
-    %pC.Gsc = [1 1 0 1 0 0 0 0]/8;
-    pC.L = 0;
-    
+    % Use a 2-point RK method for integration
+    DCM.M.intmethod = 2;
+
+    % No hamming on spectrum
+    DCM.M.DoHamming = 0;
+
+    % USE PREVIDED PRIORS!
+    load priors
+    DCM.M.pE = pE;
     DCM.M.pC = pC;
-        
-    %x = load('TCM_Average_040913_2_control');
-    %DCM.M.pE = x.DCM.Ep;
-    
-    %DCM.M.pC.S = DCM.M.pC.S*0;
-    
-    %DCM.M.x = zeros(1,8,7);
-    %DCM.M.x(:,:,1) = -70;
-    
+
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
@@ -244,10 +203,13 @@ for i = i;%1:length(Data.Datasets)
     
     % Bias and feature selection - ensuring FS(y) remains smooth
     %M.opts.Q  = spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1);
-    %Q = atcm.fun.QtoGauss(DCM.xY.y{:},2);
-    %Q = 1+rescale(real(Q).*DCM.xY.Hz);
-    %M.opts.Q = Q;
-    M.opts.Q = eye(length(w));
+    Q = atcm.fun.QtoGauss(DCM.xY.y{:},2);
+    Q = 1+rescale(real(Q).*DCM.xY.Hz);
+
+    Q = (AGenQn(rescale(atcm.fun.makef(w,median(w),2,32),.5,1),16))';
+    M.opts.Q = Q;
+    %M.opts.Q = eye(length(w));
+    %M.opts.Q = atcm.fun.AGenQn(w(:).*DCM.xY.y{:},8) ./ norm(atcm.fun.AGenQn(DCM.xY.y{:},8));
     
     % Feature selection: FS(y)
     M.opts.FS = @(x) [real(sqrt(denan(x))); denan(std(x)./mean(x)) ];
@@ -263,7 +225,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.corrweight  = 0;  % weight log evidence by correlation
     M.opts.inner_loop  = 2;
     
-    M.opts.objective           = 'gauss';%'rmse';%'rmse';%'fe';%'mvgkl';%'jsd';%'mvgkl';%'qrmse'; % objective (error) function
+    M.opts.objective           = 'gauss';'gauss';%'rmse';%'rmse';%'fe';%'mvgkl';%'jsd';%'mvgkl';%'qrmse'; % objective (error) function
     M.opts.criterion           = -inf;%-1000;%1e-3;
     M.opts.isGaussNewton       = 0;
     M.opts.factorise_gradients = 1;
@@ -271,41 +233,53 @@ for i = i;%1:length(Data.Datasets)
     
     M.opts.hypertune       = 1;
     M.opts.memory_optimise = 1;
-    M.opts.rungekutta      = 8;
+    M.opts.rungekutta      = 6;
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
     M.opts.crit            = [0 0 0 0];
     M.opts.do_gpr          = 0;
     
     M.opts.userplotfun = @aodcmplotfun;
-    M.opts.isGaussNewtonReg=1;
+    M.opts.isGaussNewtonReg=0;
     M.opts.order=1;
     %M.opts.WeightByProbability=1;
-    
+        
     M.default_optimise([7],[12])
     
-    % update and restart
-    M.update_parameters(M.Ep)
-    
-    M.opts.updateQ=0;
-    M.opts.memory_optimise=0;
-    M.opts.order=2;
-    M.opts.isGaussNewtonReg=0;
-    M.opts.rungekutta=0;
-    M.opts.hyperparams=0;
-    M.opts.hypertune=0;
-    
-    M.default_optimise([7],[12])
-                 
-    % reinstate the actual priors before saving
+    % save after first optim loop (because some fail in stage 2)
+    %----------------------------------------------------------------------
     DCM.M.pE = ppE;
-    
-    % Place posteriors in DCM for save
     DCM.Ep = spm_unvec(M.Ep,DCM.M.pE);
     DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
     DCM.Cp = makeposdef(DCM.Cp);
     DCM.F = M.F;
-    
     save(DCM.name); close; clear global;
     
-    close all; drawnow;
+    try
+        % update and restart
+        %----------------------------------------------------------------------
+        M.update_parameters(M.Ep)
+
+        M.opts.updateQ=0;
+        M.opts.memory_optimise=0;
+        M.opts.order=2;
+        M.opts.isGaussNewtonReg=0;
+        M.opts.rungekutta=0;
+        M.opts.hyperparams=0;
+        M.opts.hypertune=0;
+
+        M.default_optimise([7],[12])
+
+        % reinstate the actual priors before saving
+        DCM.M.pE = ppE;
+
+        % Place posteriors in DCM for save
+        DCM.Ep = spm_unvec(M.Ep,DCM.M.pE);
+        DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
+        DCM.Cp = makeposdef(DCM.Cp);
+        DCM.F = M.F;
+
+        save(DCM.name); close; clear global;
+
+        close all; drawnow;
+    end
 end

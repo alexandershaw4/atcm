@@ -1175,36 +1175,30 @@ for ins = 1:ns
                 % This from Jan 23
                 %----------------------------------------------------------
                 
-                series = real( Eigenvectors(1:8,burn:end) );
+                series = real( Eigenvectors(:,burn:end) );
                 
                 % state smooth fourier transforms 
                 for i = 1:size(series,1)
-                    series(i,:) = atcm.fun.bandpassfilter(series(i,:),1/dt,[w(1) w(end)]);
-                    Pf(i,:) = atcm.fun.tfdecomp(series(i,:),dt,w,8,2);
+                    Pf(i,:) = atcm.fun.tfdecomp(series(i,:),dt,w,8,1);
                 end
                 
                 % state series covariance
-                PfW = Pf - mean(Pf,2);
+                PfW = Pf ;%- mean(Pf,2);
                 PfC = cov(PfW');
                 [u,s,v] = svd(PfC);
-                Pf = abs(u(:,1)')*Pf;
+                Pf = abs(u(:,4)')*Pf;
 
-                %[u,s,v] = svd(Pf);
-                %Pf = spm_vec( u(1,:)*s*v' );
+                Pf = sum(Pf,1);
 
-                %Pf = sum(Pf,1);
-
-                %[~,b] = atcm.fun.dmd(Pf',1,1);
+                %[~,b] = atcm.fun.dmd(PfW',1,1);
                 
                 %Pf = abs(b)*Pf;
 
-                X  = spm_dctmtx(nf,4);
-                X  = exp( X(:,2:end)*P.d(1:3) );
+                %X  = spm_dctmtx(nf,9);
+                %X  = exp( X(:,2:end)*P.X(1:8) );
                 %X  = atcm.fun.HighResMeanFilt(X,1,8);
 
-                H = rescale(atcm.fun.makef(w,median(w),2,32),.5,1);
-
-                Ppf = H(:).*Pf(:).*X(:);
+                Ppf = Pf(:);%.*X(:);
                 
                 % end -----------------------------------------------------
                 

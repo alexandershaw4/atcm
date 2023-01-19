@@ -278,12 +278,12 @@ GIa = ~~GIa*4;
 
 si = 8;
 GIa =  [ si    0     8     0     0     0     0     0;
-         0     si    16    0     0     0     0     0;
-         0     0     si    0     0     0     0     0;
+         0     si    8     0     0     0     0     0;
+         0     0     si    0     8     0     0     0;
          0     0     0     12    4     0     0     0;
-         0     0     16    0     4     0     0     0;
+         0     0     8     0     4     0     0     0;
          0     0     0     0     8     4     0     0;
-         0     0     0     0     0     0     12    0;
+         0     0     0     0     0     0     12     0;
          0     0     0     0     0     0     4     si];
      
 
@@ -426,7 +426,7 @@ GL   = 1 ;
     %    x(1,RS,1) = -90;
     %end
         
-    %FF =  pdf(makedist('normal',VR,2),x(:,:,1)) ./ pdf(makedist('normal',VR,2),VR);
+   % FF =  pdf(makedist('normal',VR,2),x(:,:,1)) ./ pdf(makedist('normal',VR,2),VR);
     
     %VVR = VR*exp(P.S);
     %for i = 1:8
@@ -542,11 +542,12 @@ for i = 1:ns
 %             I(8) = I(8) * exp(P.d(4));     
                 
         %extampa = dU * [0.25 0.25 0.4 0.25 0.4 0.25 0.4 0.25];
-%         extampa = [0.25 0.25 0.4 0.25 0.4 0.25 0.4 0.25];
-% 
-%         for ie = 1:8
-%            E(ie) = E(ie) + ( extampa(ie) * exp(P.d(ie)) );
-%         end
+        extampa = [0.25 0.25 0.4 0.25 0.4 0.25 0.4 1];
+
+        for ie = 1:8
+            E(ie) = E(ie) + ( extampa(ie) * exp(P.d(ie)) );
+            ENMDA(ie) = ENMDA(ie) + ( extampa(ie) * exp(P.d(ie)) );
+        end
 
 %         if isfield(P,'inputs')
 %             
@@ -563,16 +564,16 @@ for i = 1:ns
 %         end
         
         
-        % and exogenous input(U): 
-        %------------------------------------------------------------------
-        input_cell        = [8 6];
-                
-        if isfield(M,'inputcell');
-            input_cell = M.inputcell;
-        end
-                        
-        E(input_cell)     = E(input_cell)         +dU';
-        ENMDA(input_cell) = ENMDA(input_cell)     +dU';
+%         % and exogenous input(U): 
+%         %------------------------------------------------------------------
+%         input_cell        = [8];
+%                 
+%         if isfield(M,'inputcell');
+%             input_cell = M.inputcell;
+%         end
+%                         
+%         E(input_cell)     = E(input_cell)         +dU';
+%         %ENMDA(input_cell) = ENMDA(input_cell)     +dU';
         
                        
         % Voltage equation
