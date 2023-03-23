@@ -1,4 +1,4 @@
-function [yp,Pf] = component_spectrum(w,y,n)
+function [yp,Pf,c] = component_spectrum(w,y,n)
 
 m = min(y);
 y = real(y - m);

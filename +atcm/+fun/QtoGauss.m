@@ -1,4 +1,4 @@
-function [G,b] = QtoGauss(Q,w,model)
+function [G,b,GL] = QtoGauss(Q,w,model)
 % given a vector that has converted to a smoothed symmetrical matrix,
 % perform explicit conversion to Gaussians
 %
@@ -42,9 +42,18 @@ for i = 1:length(Q)
 
 end
 
-if nargout > 1
+if nargout == 2
     % Reduce if requested
     b = atcm.fun.lsqnonneg(G,diag(Q));
+else
+    b = [];
+end
+
+if nargout == 3
+    Q  = G;
+    A  = Q .* ~eye(length(Q));
+    N  = size(A,1);
+    GL = speye(N,N) + (A - spdiags(sum(A,2),0,N,N))/4;
 end
 
 end

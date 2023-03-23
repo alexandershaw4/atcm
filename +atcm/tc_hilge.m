@@ -1,4 +1,4 @@
-function [f,J] = tc_hilge(x,u,P,M)
+function [f,J] = tc_hilge(x,u,P,M,fso)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -306,14 +306,25 @@ GIa =  [ si    0     8     0     0     0     0     0;
 
 %GIa = 6*~~GIa;
 
+GIbg = ~GIa/32;
+GEbg = ~GEa/32;
+
+%GIbg(:,[1 2 4 6 8])=0;
+%GEbg(:,[3 5 7]) = 0;
+
+GIa = GIa + ( GIbg * exp(P.TV(1)));
+GEa = GEa + ( GEbg * exp(P.TV(2)));
+
+%GEn = GEn + ( GEbg * exp(P.TV(3)));
+
 GIb = GIa;
 
-if isfield(P,'scale')
-    GEa = GEa * exp(P.scale(1));
-    GEn = GEn * exp(P.scale(2));
-    GIa = GIa * exp(P.scale(3));
-    GIb = GIb * exp(P.scale(4));
-end
+% if isfield(P,'scale')
+%     GEa = GEa * exp(P.scale(1));
+%     GEn = GEn * exp(P.scale(2));
+%     GIa = GIa * exp(P.scale(3));
+%     GIb = GIb * exp(P.scale(4));
+% end
 
 
 if IncludeMH
@@ -428,25 +439,25 @@ GL   = 1 ;
         
     %FF =  pdf(makedist('normal',VR,2),x(:,:,1)) ./ pdf(makedist('normal',VR,2),VR);
     
-    %VVR = VR*exp(P.S);
+    %VVR = VR*exp(P.S); % try 'Lognormal'
     %for i = 1:8
     %    FF(i) =  pdf(makedist('normal',VVR(i),2),x(:,i,1)) ./ pdf(makedist('normal',VVR(i),2),VVR(i));
     %end
     
     %x(1,:,1) = squeeze(x(1,:,1)) .* (1./(1 + exp( - exp(P.S(:)) )))';
         
-    RS = 30;
+    RS = 50;
+    
 
     Fu = find( x(:,:,1) >= VR );
     FF(Fu) = 1;
     
     Fl = find( x(:,:,1) >= RS );
     FF(Fl) = 0;
+
     
     m  = FF;%.*exp(P.S);
-    
-    
-    
+
     
 % extrinsic effects
 %--------------------------------------------------------------------------
@@ -499,9 +510,12 @@ for i = 1:ns
         
         % CT and TC delays on G
         %-----------------------------------------------------------------
-        CT = 8*exp(P.CT); %60;
-        TC = 3*exp(P.TC); %20;
+         CT = 8*exp(P.CT); %60;8
+         TC = 3*exp(P.TC); %20;3
                 
+        %CT = 0.06*exp(P.CT); %60;
+        %TC = 0.02*exp(P.TC); %20;
+
         tcd = zeros(8,8);
         
         tcd(1:6,[7 8]) = TC;
@@ -536,7 +550,7 @@ for i = 1:ns
 %          endo  = exp(P.d(1:4)).*[1 1 1 1]'*3;
 %          endo  = 1./(1 + exp(-1.*(endo-0)));
 %                
-%             E(2) = E(2) * exp(P.d(1));        
+%             E(2) = E(2) * exp(§(1));        
 %             E(4) = E(4) * exp(P.d(2));
 %             I(3) = I(3) * exp(P.d(3));
 %             I(8) = I(8) * exp(P.d(4));     
@@ -565,15 +579,34 @@ for i = 1:ns
         
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = [8 6];
-                
-        if isfield(M,'inputcell');
-            input_cell = M.inputcell;
-        end
-                        
-        E(input_cell)     = E(input_cell)         +dU';
-        ENMDA(input_cell) = ENMDA(input_cell)     +dU';
+        input_cell        = [8 1];
+         
+        %E(8) = E(8)*dU;
+        %I(7) = I(7)*dU;
+        %E(1) = E(1)*dU;
+        %E(7) = E(7) - I(7);
+
+        %if isfield(M,'inputcell');
+        %    input_cell = M.inputcell;
+        %end
+         
+        %I(7) = I(7) * dU;
+        %I(8) = I(8) * dU;
+        %I(1) = I(1) * dU;
+
+        %I(input_cell)     = I(input_cell) * dU;
+        E(input_cell)     = E(input_cell) + dU;
+       % ENMDA(input_cell) = ENMDA(input_cell) * dU';
         
+        %I(7) = I(7) * dU;
+        %E(7) = E(7) - I(7);
+
+        if nargin > 4 && ~isempty(fso)
+            %I(3) = I(3) + fso;
+            %E(3) = E(3) + fso;
+
+            E([2]) = E([2]) + fso;
+        end
                        
         % Voltage equation
         %==================================================================
@@ -617,19 +650,20 @@ for i = 1:ns
         % short range neurons are around 0.014m length and conduct around
         % 120 m/s so ~1.68
         
-        df = f(:) - x(:);
-        d  = exp(P.ID).*[1 1 1 1 1 1 1 1];
-        %d=[1 1 1 1 1 1 1 1];
-        s = 1;
-        l = 1.68;
-        
-        d = [l l s l s s s s]./d;
-        % exp(-P.T(:,1))*1000/2.2;
+%         df = f(:) - x(:);
+%         d  = exp(P.ID).*[1 1 1 1 1 1 1 1];
+%         %d=[1 1 1 1 1 1 1 1];
+%         s = 1;
+%         l = 1.68;
+%         
+%         d = [l l s l s s s s]./d;
+%         % exp(-P.T(:,1))*1000/2.2;
+% 
+%         %d = repmat(d(:),[nk 1]);
+%         
+% 
+%         f = spm_unvec( spm_vec(x) + df(:).*repmat(d(:),[nk 1]), f);
 
-        %d = repmat(d(:),[nk 1]);
-        
-
-        f = spm_unvec( spm_vec(x) + df(:).*repmat(d(:),[nk 1]), f);
                                 
 %         % receptor and cell specific delays
 %         df = f - x;
@@ -652,6 +686,10 @@ for i = 1:ns
 %         % SI NMDA
 %         f(:,3,4) = x(:,3,4) + df(:,3,4) * exp(P.delays(6));
         
+
+    
+    
+
 end
 
 

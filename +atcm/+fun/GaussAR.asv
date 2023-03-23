@@ -18,21 +18,18 @@ function [V,K,Ppf] = GaussAR(x,w,dt,N,skipPpf)
 
 if nargin < 5 || skipPpf == 0
     Ppf = pyulear(x(:),8,w,1/dt);
-    Ppf = Ppf(:);
 else
     Ppf = x(:);
 end
 
 % Make sure it's a mv Gauss so that the error is smooth
-warning off;
 Ppm  = AGenQn(Ppf);
 Ppm  = Ppm' ;
 bfit = Ppm\Ppf;
-Ppm  = Ppm.*bfit;
-warning on;        % suppress matrix singularity msg for linear fit
+
 
 % principal components
-[V,D] = eig(Ppm);
+[V,D] = eig(bfit);
 [~,order] = sort(diag(D),'descend');
 D = diag(D);
 D = D(order);
@@ -55,15 +52,13 @@ end
 K   = Ppm;
 
 if ng > 1
-    Ppf = abs( spm_vec( max((V'*K)) ) );
+    Ppf = spm_vec( max((V'*K)) );
 else
     Ppf = V'*K;
 end
 
 if nargin > 3
-    try
-        V = V(:,1:N);
-    end
+    V = V(:,1:N);
 end
 
 return;

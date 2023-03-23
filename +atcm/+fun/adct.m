@@ -32,7 +32,7 @@ y = idct(X);
 
 b = 0;
 c = [];
-M = dctmtx(length(y));
+%M = dctmtx(length(y));
 
 if nargin > 1 && ~isempty(target)
     % compute weights on x's DCT matrix that produce 'target' 

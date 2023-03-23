@@ -67,7 +67,7 @@ X=Big_X(:,1:end-1);
 Y=Big_X(:,2:end);
 
 %SVD on X
-[U, S, V]=svd(X,0);
+[U, S, V]=svd(X,'econ');
 
 %Before reducing rank returns the mode energies for further analysis of
 %the ROM validity
