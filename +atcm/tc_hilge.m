@@ -229,6 +229,8 @@ GEa = [  0     0     0     0     0     2     0     2;
          0     0     0     8     0     0     0     2;
          0     0     0     0     0     0     0     2;
          2     0     0     0     0     2     0     0];
+
+GEa=GEa*2;
 %GEa = GEa/3;
 
 %GEa = ~~GEa/8;
@@ -256,25 +258,25 @@ GEn = GEa;
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
 %           ss  sp  si  dp  di  tp  rt  rl
-GIa(1,:) = [12  0   2   0   0   0   0   0 ];
-GIa(2,:) = [0   64  16  0   0   0   0   0 ]; %spsp was 16
-GIa(3,:) = [0   0   32  0   0   0   0   0 ];
-GIa(4,:) = [0   0   0   8   12  0   0   0 ];
-GIa(5,:) = [0   0   4   0   16  0   0   0 ];
-GIa(6,:) = [0   0   0   0   32  8   0   0 ];
-GIa(7,:) = [0   0   0   0   0   0   32  0 ];
-GIa(8,:) = [0   0   0   0   0   0   8   64]; % tr-tr was 32
-
-GIa(1,:) = [12  0   2   0   0   0   0   0 ];
-GIa(2,:) = [0  48  16   0   0   0   0   0 ]; %spsp was 16
-GIa(3,:) = [0   0  32   0   0   0   0   0 ];
-GIa(4,:) = [0   0   0   8   12  0   0   0 ];
-GIa(5,:) = [0   0   4   0   16  0   0   0 ];
-GIa(6,:) = [0   0   0   0   32  8   0   0 ];
-GIa(7,:) = [0   0   0   0   0   0   32  0 ];
-GIa(8,:) = [0   0   0   0   0   0   8   8]; % tr-tr was 32
-
-GIa = ~~GIa*4;
+% GIa(1,:) = [12  0   2   0   0   0   0   0 ];
+% GIa(2,:) = [0   64  16  0   0   0   0   0 ]; %spsp was 16
+% GIa(3,:) = [0   0   32  0   0   0   0   0 ];
+% GIa(4,:) = [0   0   0   8   12  0   0   0 ];
+% GIa(5,:) = [0   0   4   0   16  0   0   0 ];
+% GIa(6,:) = [0   0   0   0   32  8   0   0 ];
+% GIa(7,:) = [0   0   0   0   0   0   32  0 ];
+% GIa(8,:) = [0   0   0   0   0   0   8   64]; % tr-tr was 32
+% 
+% GIa(1,:) = [12  0   2   0   0   0   0   0 ];
+% GIa(2,:) = [0  48  16   0   0   0   0   0 ]; %spsp was 16
+% GIa(3,:) = [0   0  32   0   0   0   0   0 ];
+% GIa(4,:) = [0   0   0   8   12  0   0   0 ];
+% GIa(5,:) = [0   0   4   0   16  0   0   0 ];
+% GIa(6,:) = [0   0   0   0   32  8   0   0 ];
+% GIa(7,:) = [0   0   0   0   0   0   32  0 ];
+% GIa(8,:) = [0   0   0   0   0   0   8   8]; % tr-tr was 32
+% 
+% GIa = ~~GIa*4;
 
 si = 8;
 GIa =  [ si    0     8     0     0     0     0     0;
@@ -285,7 +287,7 @@ GIa =  [ si    0     8     0     0     0     0     0;
          0     0     0     0     8     4     0     0;
          0     0     0     0     0     0     12    0;
          0     0     0     0     0     0     4     si];
-     
+     GIa=GIa*2;
 
      % GIa(1,:) = [2   0   16  0   0   0   0   0 ];
 % GIa(2,:) = [0   64  16  0   0   0   0   0 ]; %spsp was 16
@@ -312,19 +314,18 @@ GEbg = ~GEa/32;
 %GIbg(:,[1 2 4 6 8])=0;
 %GEbg(:,[3 5 7]) = 0;
 
-GIa = GIa + ( GIbg * exp(P.TV(1)));
-GEa = GEa + ( GEbg * exp(P.TV(2)));
+GIa = GIa/2 + ( GIbg * exp(P.TV(1)));
+GEa = GEa/2 + ( GEbg * exp(P.TV(2)));
 
-%GEn = GEn + ( GEbg * exp(P.TV(3)));
 
 GIb = GIa;
 
-% if isfield(P,'scale')
-%     GEa = GEa * exp(P.scale(1));
-%     GEn = GEn * exp(P.scale(2));
-%     GIa = GIa * exp(P.scale(3));
-%     GIb = GIb * exp(P.scale(4));
-% end
+if isfield(P,'scale')
+    GEa = GEa * exp(P.scale(1));
+    GEn = GEn * exp(P.scale(2));
+    GIa = GIa * exp(P.scale(3));
+    GIb = GIb * exp(P.scale(4));
+end
 
 
 if IncludeMH
@@ -395,7 +396,7 @@ VB   = -100;                              % reversal of GABA-B
 
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
-CV   = exp(P.CV).*      [128 128 128/2 128 64  128  64  64*2]/1000;  
+CV   = exp(P.CV).*      [128*3 128 128/2 128 64  128  64  64*2]/1000;  
 
 % leak conductance - fixed
 %--------------------------------------------------------------------------
@@ -446,7 +447,7 @@ GL   = 1 ;
     
     %x(1,:,1) = squeeze(x(1,:,1)) .* (1./(1 + exp( - exp(P.S(:)) )))';
         
-    RS = 50;
+    RS = 30;
     
 
     Fu = find( x(:,:,1) >= VR );
@@ -510,8 +511,8 @@ for i = 1:ns
         
         % CT and TC delays on G
         %-----------------------------------------------------------------
-         CT = 8*exp(P.CT); %60;8
-         TC = 3*exp(P.TC); %20;3
+         CT = 8*exp(P.CT); %60;
+         TC = 3*exp(P.TC); %20;
                 
         %CT = 0.06*exp(P.CT); %60;
         %TC = 0.02*exp(P.TC); %20;
@@ -579,8 +580,22 @@ for i = 1:ns
         
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = [8 1];
+        input_cell        = [8 ];
+
+        E(1:8) = E(1:8) + ( ([1 1 1 1 1 1 1 1])'.*exp(P.d));
+        %ENMDA(1:8) = ENMDA(1:8) + ( (1e-1*[1 1 1 1 1 1 1 1])'.*exp(P.d));
          
+        %E([1 2 4 6 8]) = E([1 2 4 6 8]) + ([1 1 1 1 1])'.*exp(P.d(1:5));
+
+        %I([3 5 7]) = I([3 5 7]) + [1 1 1]'.*exp(P.d(6:8));
+
+
+        %ENMDA([3 5]) = ENMDA([3 5]) + (1e-1*[2 1])'.*exp(P.d(5:6));
+
+        %E = E + exp(P.gaba(1));
+        %ENMDA = ENMDA + exp(P.gaba(2));
+
+
         %E(8) = E(8)*dU;
         %I(7) = I(7)*dU;
         %E(1) = E(1)*dU;
@@ -601,12 +616,12 @@ for i = 1:ns
         %I(7) = I(7) * dU;
         %E(7) = E(7) - I(7);
 
-        if nargin > 4 && ~isempty(fso)
-            %I(3) = I(3) + fso;
-            %E(3) = E(3) + fso;
-
-            E([2]) = E([2]) + fso;
-        end
+%         if nargin > 4 && ~isempty(fso)
+%             I(3) = I(3) + fso;
+%             E(3) = E(3) + fso;
+% 
+%            % I(2) = I(2) + fso;
+%         end
                        
         % Voltage equation
         %==================================================================
@@ -643,6 +658,7 @@ for i = 1:ns
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
         end
                 
+        %f(i,:,7) = FF;
         
         % Conductance Delays: f = state update, x = state previous
         % population delays

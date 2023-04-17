@@ -2,7 +2,8 @@ function [G,b,GL] = QtoGauss(Q,w,model)
 % given a vector that has converted to a smoothed symmetrical matrix,
 % perform explicit conversion to Gaussians
 %
-% e.g. x = [-10:1:10];           % a vector of data
+% e.g. 
+%      x = [-10:1:10];           % a vector of data
 %      Q = atcm.fun.AGenQn(x,4); % convert to smoothed matrix
 %      Q = .5*(Q+Q');            % ensure symmetric
 %      G = atcm.fun.QtoGauss(Q); % convert to Gaussian series

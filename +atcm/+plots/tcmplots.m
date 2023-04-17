@@ -31,5 +31,5 @@ grid on;
 set(findall(gcf,'-property','FontSize'),'FontSize',20)
 
 if flagremoveDCM
-    clear DCM;
+    clear DCM flagremoveDCM;
 end

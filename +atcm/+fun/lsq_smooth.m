@@ -11,6 +11,7 @@ function [y,model] = lsq_smooth(x)
 
 x = x(:);
 g = AGenQn(x,6);
+%g = atcm.fun.QtoGauss(x,2);
 b = atcm.fun.lsqnonneg(real(g),real(x));
 y = g*b;
 
