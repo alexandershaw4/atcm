@@ -976,7 +976,7 @@ for ins = 1:ns
             elseif UseSmooth == 1
                 
                 % Compute TF matrix
-                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,8,2);
+                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,12,2);
 
                 Ppf = Ppf(:);
 

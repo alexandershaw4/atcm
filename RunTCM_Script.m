@@ -201,7 +201,7 @@ for i = i;%1:length(Data.Datasets)
 
     DCM.M.pE.dd = ones(8,1)*0;
     DCM.M.pC.dd = ones(8,1)/8;
-    DCM.M.pE.L = -3;
+    DCM.M.pE.L = -5;
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
