@@ -184,26 +184,15 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE = x.pE;
     DCM.M.pC = x.pC;
 
-    DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
-    DCM.M.pE.ID = zeros(1,8);
-    DCM.M.pC.ID = ones(1,8)/8;
-    DCM.M.pC.Gsc = ones(1,8)/8;
-    DCM.M.pC.R = [1 1]/8;
-    DCM.M.pE.L=-2.5;
-
-    %DCM.M.pC.S = ones(1,8)/8;
-    %DCM.M.pC.J(1:8)=1/8;
-    DCM.M.pC.d = DCM.M.pC.d*0;
-
     % flat priors
     DCM.M.pE = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
     DCM.M.pE.J = DCM.M.pE.J-1000;
     DCM.M.pE.J(2)=log(1.1);
-    DCM.M.pE.L=-3;
+    DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
 
     DCM.M.pE.dd = ones(8,1)*0;
     DCM.M.pC.dd = ones(8,1)/8;
-    DCM.M.pE.L = -5;
+    DCM.M.pE.L = -6.7;
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
