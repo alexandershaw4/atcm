@@ -184,15 +184,28 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE = x.pE;
     DCM.M.pC = x.pC;
 
+    %DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
+    %DCM.M.pE.ID = zeros(1,8);
+    DCM.M.pC.ID = ones(1,8)/8;
+    DCM.M.pC.Gsc = ones(1,8)/8;
+    DCM.M.pC.R = [1 1]/8;
+    DCM.M.pC.a = DCM.M.pC.a*0;
+    %DCM.M.pE.L=-2.5;
+
+    %DCM.M.pC.S = ones(1,8)/8;
+    %DCM.M.pC.J(1:8)=1/8;
+    %DCM.M.pC.d = DCM.M.pC.d*0;
+
     % flat priors
     DCM.M.pE = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
     DCM.M.pE.J = DCM.M.pE.J-1000;
     DCM.M.pE.J(2)=log(1.1);
     DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
 
-    DCM.M.pE.dd = ones(8,1)*0;
-    DCM.M.pC.dd = ones(8,1)/8;
-    DCM.M.pE.L = -6.7;
+    %DCM.M.pE.dd = ones(8,1)*0;
+    DCM.M.pC.d = ones(8,1)/8;
+    DCM.M.pE.L = -5;
+    DCM.M.pC.J(1:8) = 1/8;
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -206,12 +219,12 @@ for i = i;%1:length(Data.Datasets)
     M.opts.Q = full(DCM.xY.Q);
     
     % Feature selection: FS(y)
-    %M.opts.RFS = @(x) [real(sqrt(denan(x))); denan(std(x)./mean(x)) ];
+    %M.opts.FS = @(x) [real(sqrt(denan(x))); spm_vec(atcm.fun.maxpointsinds(x,length(x))./length(x))];
         
     % Optimisation option set 1.
     M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
     M.opts.ismimo      = 1;        % compute dfdp elementwise on vector-output function
-    M.opts.doparallel  = 0;    % use parfor loops when poss, incl for df/dx
+    M.opts.doparallel  = 1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams = 1;   % hyperparameter tuning
     M.opts.fsd         = 1;         % fixed-step for derivatives
     M.opts.corrweight  = 0;  % weight log evidence by correlation
@@ -237,7 +250,7 @@ for i = i;%1:length(Data.Datasets)
     %M.opts.orthogradient=1;
     M.opts.orthogradient=1;
         
-    M.default_optimise([9],[18])
+    M.default_optimise([9],[28])
     
     M.update_parameters(M.Ep);
 

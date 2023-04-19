@@ -689,7 +689,7 @@ switch IntMethod
 
                         % State Delays - interpolated
                         %--------------------------------------------------
-                        d = 100*[.006 .002 .001 .004 .001 .008 .001 .001].*exp(P.ID);
+                        d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
                         d = repmat(d,[1 nk]);
                         L = (d);
                         
@@ -702,6 +702,7 @@ switch IntMethod
                               end
                           end
                         end
+                        
 
                         % Full update
                         %--------------------------------------------------
@@ -717,7 +718,10 @@ switch IntMethod
                         dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
                         v         = v + dxdt;
                         y(:,i)    = v ;
+                        
                     end
+
+
             end  
             
             
@@ -776,6 +780,10 @@ series.States_both = y;
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
 [y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+
+%[y0] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive*0);
+
+%y = exp(P.Ly)*(y - y0);
 
 end
 
@@ -976,9 +984,9 @@ for ins = 1:ns
             elseif UseSmooth == 1
                 
                 % Compute TF matrix
-                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,12,2);
+                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,8,2);
 
-                Ppf = Ppf(:);
+                Ppf = abs(Ppf(:));
 
             elseif UseSmooth == 0 % (else use non smooth)
                 
@@ -1087,12 +1095,20 @@ for ins = 1:ns
     Pf0 = Pf(:,ins,ins);
     
     % DCT transform
-    F = atcm.fun.afftmtx(nf,9);
-    F = F(:,2:end);
+    %F = atcm.fun.afftmtx(nf,9);
+    %F = F(:,2:end);
+    %sn = exp(F*P.dd);
+    
 
-    Pf0 = abs(F*exp(P.dd)).*Pf0;
+    
+    
+    %Pf0 = Pf0(:).*sn(:);
 
-    Pf(:,ins,ins) = Pf0(:) ;
+    %gu = 8*exp(P.a(3)) * rescale(hamming(nf),.5, 1);
+
+    %Pf0 = abs(F*exp(P.dd)).*Pf0;
+
+    Pf(:,ins,ins) = Pf0(:);
     
     % Electrode gain 
     %----------------------------------------------------------------------
@@ -1526,3 +1542,49 @@ end
                 %Ppf = diag(V*V');%*X;
                 %Ppf = AGenQ(Ppf)*Ppf;
                 
+
+                %                     % no input
+%                     if i > 1
+%                         % 4-th order Runge-Kutta method.
+%                         %--------------------------------------------------
+%                         drive(i)=0;
+% 
+%                         k1 = f(v0          ,drive(i),P,M);
+%                         k2 = f(v0+0.5*dt*k1,drive(i)+dt/2,P,M);
+%                         k3 = f(v0+0.5*dt*k2,drive(i)+dt/2,P,M);
+%                         [k4] = f(v0+    dt*(k3),drive(i),P,M);
+%                         
+%                         dxdt = (dt/6)*(k1 + 2*k2 + 2*k3 + k4);
+%                         v0         = v0 + dxdt;
+% 
+%                         % State Delays - interpolated
+%                         %--------------------------------------------------
+%                         d = 100*[.006 .002 .001 .004 .001 .008 .001 .001].*exp(P.ID);
+%                         d = repmat(d,[1 nk]);
+%                         L = (d);
+%                         
+%                         for j = 1:length(L)
+%                           ti = real(L(j))/dt;
+%                           if i > 1 && any(ti)
+%                               pt = t(i) - ti;
+%                               if pt > 0
+%                                 v0(j) = interp1(t(1:i), [y0(j,1:i-1) v0(j)]', pt);
+%                               end
+%                           end
+%                         end
+% 
+%                         % Full update
+%                         %--------------------------------------------------
+%                         y0(:,i) =   v0;
+% 
+%                     else
+%                         % 4-th order Runge-Kutta method.
+%                         [k1,J] = f(v0          ,drive(i),P,M);
+%                         k2 = f(v0+0.5*dt*k1,drive(i),P,M);
+%                         k3 = f(v0-0.5*dt*k2,drive(i),P,M);
+%                         k4 = f(v0+    dt*k3,drive(i),P,M);
+% 
+%                         dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
+%                         v0         = v0 + dxdt;
+%                         y0(:,i)    = v0 ;
+%                     end

@@ -10,7 +10,7 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 % Usage is designed to be plug-n-play with the way that SPM's Dynamic Causal 
 % Modelling (DCM) is structured:
 %
-% [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = integrate_1(P,M,U)
+% [y,w,s,g,t,pst,layers,noise,firing,QD,Spike] = atcm.integrate_1(P,M,U)
 %
 % Use as a replacement for spm_csd_mtf.m, for calculating the voltage time-series
 % and spectral response from a neural mass, using numerical methods.
@@ -21,12 +21,10 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 % This routine is more basic than the deault DCM transfer functions because, 
 % rather than taking an fft of the system's kernels (eigenvectors of the 
 % Jacobian), it uses the  approach of integrating ( dx/dt ) using a Euler 
-% or Runge-Kutta scheme over ~3s to first generate a states time series 
+% or Runge-Kutta scheme to first generate a states time series 
 % (voltages, currents). Finally, weighting & an fft of  the resultant 
-% timeseries provide the spectral response.
-% This is nice because one can access both the continuous and discrete 
-% time responses of the system. Channel noise (exponetial decay functions)
-% are computed and returned.
+% timeseries provide the spectral response. This is nice because one can access 
+% % both the continuous and discrete time responses of the system. 
 %
 % Set DCM.M.IS = @atcm.integrate_1 to use this function with DCM as a 
 % replacement for spm_csd_mtf. 
@@ -40,7 +38,6 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 %          layers = structure with layer specific spectral outputs
 %          noise  = structure with (freq space) parameterised noise components 
 %          firing = firing rate from each integration step
-%
 %
 % Definitions, methods and options:
 %--------------------------------------------------------------------------
@@ -98,13 +95,12 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 %  for j = 1:length(L)
 %      ti = real(L(j))/dt;
 %      if pt > 0
-%          v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', t(i) - ti;);
+%         v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', t(i) - ti;);
 %      end
 %  end
 %
-% Also required: SPM12 w/ DCM,  
-%
-% Dr Alexander Shaw | 2020 | alexandershaw4[@]gmail.com
+% Also required: SPM12 w/ DCM, plus aoptim/AO.m for param optimimsation.
+% Dr Alexander D Shaw | 2020 | alexandershaw4[@]gmail.com
 
 
 % w, initial states, dt | fs is specified & generate sampletimes & inputs
@@ -318,14 +314,12 @@ end
 
 function [y,w,s,g,t,layers,noise,firing,QD,spike,condel,series] = ...
                             dodxdt(t,f,v,P,M,dt,w,drive,Kx,U,method,solvefp,ci,fso)
-% Numerical integration, signal weighting and FFT of timeseries with
-% spline interpolation and smoothing
-
+% Numerical integration, signal weighting and FFT of timeseries
 
 % Choose either the DCM kernels scheme, or another dx = f(x) update scheme
 %--------------------------------------------------------------------------
 if isempty(method)
-    method = 2;
+    method = 45; % default to the delayed RK45
 end
 
 warning off;
@@ -340,13 +334,6 @@ end
 % Prerequisits for integration with delay operators
 %--------------------------------------------------------------------------
 [fx, dfdx] = f(M.x,0,P,M);
-% J  = dfdx;
-% I  = eye(length(J));
-% U  = (expm(dt*J.*D) - I)*inv(J);
-%                    
-% 
-% Q = D*dt;
-% 
 condel = 1;
 QD     = 1;
 
@@ -434,7 +421,7 @@ switch IntMethod
         
         % compute (states) Jacobian, evaluated at xbar
         dfdx    = spm_diff(M.f,M.x,M.u,P,M,1);
-        %dfdx    = dfdx./norm(full(dfdx));
+        dfdx    = dfdx./norm(full(dfdx));
                             
         % compute df/du (inputs)
         for i = 1:length(drive)
@@ -453,24 +440,7 @@ switch IntMethod
         [Tu,Du]   = eig(full(real((dfdu))));
         iTu      = pinv(Tu);
         du       = diag(Du);
-                
-        %in_proj = dfdut*diag(drive);
-        
-%         A = dfdx;
-%         B = dfdu;
-%         I = eye(length(dfdx));
-%         C = exp(P.J);
-%         
-%         H = C*inv(I - A)*B; % Numerical Laplace
-%         
-%         for Sk = 1:size(H,1)
-%             Pf(i,:) = 1./(1j*2*pi*w - H(Sk));
-%         end
-%         
-        %for i = 1:length(t)
-        %    y(:,i) = 
-        
-        
+                        
         % integrate: x(t) = T*exp(D*t)*iT*x0 
         for i = 1:length(t)
             % We still want to drive this (linear) system - i.e.
@@ -703,25 +673,9 @@ switch IntMethod
                 end
                 y(:,i)   = (del.*Q)*v;    
             
-            elseif WithDelays == 101
-                
-                ti = tspan(i); % Current time point
-                yprev = y(i-1,:); % State variables at previous time point
-                ydelays = zeros(1,d); % Initialize vector of delayed state variables
-                for j = 1:d % Iterate over delay parameters
-                    if ti >= delays(j) % If delay time has elapsed
-                        ydelays(j) = interp1(tspan, y(:,j), ti-delays(j)); % Interpolate delayed state variable
-                    end
-                end
-                dydt = f(ti, yprev, ydelays); % Evaluate the ODEs
-                y(i,:) = yprev + (ti-tspan(i-1))*dydt; % Update state variables
-
-
-
-
             elseif WithDelays == 45 % RK45 with delayed states
                     
-                    % With delays 
+                    % RK45 with delays
                     if i > 1
                         % 4-th order Runge-Kutta method.
                         %--------------------------------------------------
@@ -744,10 +698,13 @@ switch IntMethod
                           if i > 1 && any(ti)
                               pt = t(i) - ti;
                               if pt > 0
-                                v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
+                                dv(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
                               end
                           end
                         end
+                        
+                        iv = v(:) - dv(:);
+                        v  = dv(:)
 
                         % Full update
                         %--------------------------------------------------
@@ -762,18 +719,19 @@ switch IntMethod
 
                         dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
                         v         = v + dxdt;
-                        y(:,i) = v ;
+                        y(:,i)    = v ;
+                        
                     end
+
+
             end  
             
             
-            % firing function at dxdt - assumes conductance model using
-            % the JD Williams approximation
+            % firing function at dxdt - the sigmoid
             %--------------------------------------------------------------
-            VR       = -55;
-            V        = spm_unvec(v,M.x);            
-            S=[];
-            
+            VR  = -52;
+            V   = spm_unvec(v,M.x);            
+            S   = [];
             
             % log whether membrane potential crossed threshold
             %--------------------------------------------------------------
@@ -781,7 +739,7 @@ switch IntMethod
                 fired     = find(squeeze(V(:,:,1)) >= VR);
                 firings   = [firings; [i+0*fired',fired'] ];
             catch
-                % doesn't always work for multi-node models
+                % doesn't work for multi-node models
                 fired=[];
                 firings=[];
             end
@@ -824,6 +782,10 @@ series.States_both = y;
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
 [y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+
+%[y0] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive*0);
+
+%y = exp(P.Ly)*(y - y0);
 
 end
 
@@ -1001,7 +963,7 @@ for ins = 1:ns
 
             % Select sliding-window smoothed fft or whole chunk fft
             %--------------------------------------------------------------
-            UseSmooth = 0;
+            UseSmooth = 1;
             
             if isfield(M,'UseSmooth') && ~isempty(M.UseSmooth)
                 UseSmooth = M.UseSmooth;
@@ -1026,7 +988,7 @@ for ins = 1:ns
                 % Compute TF matrix
                 [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,8,2);
 
-                Ppf = Ppf(:);
+                Ppf = abs(Ppf(:));
 
             elseif UseSmooth == 0 % (else use non smooth)
                 
@@ -1135,12 +1097,20 @@ for ins = 1:ns
     Pf0 = Pf(:,ins,ins);
     
     % DCT transform
-    F = atcm.fun.afftmtx(nf,9);
-    F = F(:,2:end);
+    %F = atcm.fun.afftmtx(nf,9);
+    %F = F(:,2:end);
+    %sn = exp(F*P.dd);
+    
 
-    Pf0 = abs(F*exp(P.dd)).*Pf0;
+    
+    
+    %Pf0 = Pf0(:).*sn(:);
 
-    Pf(:,ins,ins) = Pf0(:) ;
+    %gu = 8*exp(P.a(3)) * rescale(hamming(nf),.5, 1);
+
+    %Pf0 = abs(F*exp(P.dd)).*Pf0;
+
+    Pf(:,ins,ins) = Pf0(:);
     
     % Electrode gain 
     %----------------------------------------------------------------------
@@ -1574,3 +1544,49 @@ end
                 %Ppf = diag(V*V');%*X;
                 %Ppf = AGenQ(Ppf)*Ppf;
                 
+
+                %                     % no input
+%                     if i > 1
+%                         % 4-th order Runge-Kutta method.
+%                         %--------------------------------------------------
+%                         drive(i)=0;
+% 
+%                         k1 = f(v0          ,drive(i),P,M);
+%                         k2 = f(v0+0.5*dt*k1,drive(i)+dt/2,P,M);
+%                         k3 = f(v0+0.5*dt*k2,drive(i)+dt/2,P,M);
+%                         [k4] = f(v0+    dt*(k3),drive(i),P,M);
+%                         
+%                         dxdt = (dt/6)*(k1 + 2*k2 + 2*k3 + k4);
+%                         v0         = v0 + dxdt;
+% 
+%                         % State Delays - interpolated
+%                         %--------------------------------------------------
+%                         d = 100*[.006 .002 .001 .004 .001 .008 .001 .001].*exp(P.ID);
+%                         d = repmat(d,[1 nk]);
+%                         L = (d);
+%                         
+%                         for j = 1:length(L)
+%                           ti = real(L(j))/dt;
+%                           if i > 1 && any(ti)
+%                               pt = t(i) - ti;
+%                               if pt > 0
+%                                 v0(j) = interp1(t(1:i), [y0(j,1:i-1) v0(j)]', pt);
+%                               end
+%                           end
+%                         end
+% 
+%                         % Full update
+%                         %--------------------------------------------------
+%                         y0(:,i) =   v0;
+% 
+%                     else
+%                         % 4-th order Runge-Kutta method.
+%                         [k1,J] = f(v0          ,drive(i),P,M);
+%                         k2 = f(v0+0.5*dt*k1,drive(i),P,M);
+%                         k3 = f(v0-0.5*dt*k2,drive(i),P,M);
+%                         k4 = f(v0+    dt*k3,drive(i),P,M);
+% 
+%                         dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
+%                         v0         = v0 + dxdt;
+%                         y0(:,i)    = v0 ;
+%                     end
