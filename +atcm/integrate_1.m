@@ -693,6 +693,7 @@ switch IntMethod
                         d = repmat(d,[1 nk]);
                         L = (d);
                         
+
                         for j = 1:length(L)
                           ti = real(L(j))/dt;
                           if i > 1 && any(ti)
@@ -702,7 +703,6 @@ switch IntMethod
                               end
                           end
                         end
-                        
 
                         % Full update
                         %--------------------------------------------------
@@ -985,8 +985,12 @@ for ins = 1:ns
                 
                 % Compute TF matrix
                 [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,8,2);
+                
+                %PfM = atcm.fun.assafft(pc,dt,w,4);
 
-                Ppf = abs(Ppf(:));
+                %Ppf = sum(PfM,2);
+    
+                %Ppf = abs(Ppf(:));
 
             elseif UseSmooth == 0 % (else use non smooth)
                 
@@ -1044,6 +1048,8 @@ for ins = 1:ns
         
         Pf = full(Pf)';
         J  = full(exp(P.J));
+
+        %J = ones(size(J));
         
         if DoHamming
             H  = .5+hamming(nf,'periodic');
@@ -1094,19 +1100,23 @@ for ins = 1:ns
             
     Pf0 = Pf(:,ins,ins);
     
+    Pf0 = gaufun.GaussPCA(Pf0,12);
+
     % DCT transform
     %F = atcm.fun.afftmtx(nf,9);
     %F = F(:,2:end);
     %sn = exp(F*P.dd);
     
-
+    %S  = squeeze( layers.iweighted(inx,:,:) );
+    %J  = full(exp(P.J));
     
+    %Pf0 = J(Ji)'*S;
     
     %Pf0 = Pf0(:).*sn(:);
 
     %gu = 8*exp(P.a(3)) * rescale(hamming(nf),.5, 1);
 
-    %Pf0 = abs(F*exp(P.dd)).*Pf0;
+    %Pf0 = sn(:).*Pf0(:);
 
     Pf(:,ins,ins) = Pf0(:);
     

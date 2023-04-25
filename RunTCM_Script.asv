@@ -93,7 +93,7 @@ for i = i;%1:length(Data.Datasets)
     fprintf('Running Dataset %d / %d\n',i,length(Data.Datasets));
     
     % Frequency range of interest
-    fq = [3 100];
+    fq = [1 90];
     
     % Prepare Data
     %----------------------------------------------------------------------
@@ -116,12 +116,18 @@ for i = i;%1:length(Data.Datasets)
     
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 2;
-    DCM.options.BeRobust      = 0;
+    DCM.options.BeRobust      = 1;
     DCM.options.FrequencyStep = 1;
     
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
+
+    % also without the robust fitting to get the residual
+    DCMo = DCM;
+    DCMo.options.BeRobust=0;
+    DCMo = atcm.fun.prepcsd(DCMo);
+    r = DCMo.xY.y{1} - DCM.xY.y{1};
     
     % Do a FOOOF and remove power law
     %fprintf('Removing power law from data spectrum\n');
@@ -162,7 +168,7 @@ for i = i;%1:length(Data.Datasets)
     
     % simulation / integration parameters
     %----------------------------------------------------------------------
-    DCM.M.sim.dt  = 1./600;
+    DCM.M.sim.dt  = 1./300;
     DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
     DCM.M.burnin  = 640;
     
@@ -190,27 +196,36 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pC.a = DCM.M.pC.a*0;
     %DCM.M.pE.L=-2.5;
 
-    %DCM.M.pC.S = ones(1,8)/8;
+    DCM.M.pC.S = ones(1,8)/8;
     %DCM.M.pC.J(1:8)=1/8;
-    %DCM.M.pC.d = DCM.M.pC.d*0;
+    DCM.M.pC.d = ones(8,1)/8;
+
+    %for ip = 1:8
+    %    DCM.M.pC.H(ip,ip)=1/8;
+    %end
 
     % flat priors
     DCM.M.pE = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
     DCM.M.pE.J = DCM.M.pE.J-1000;
     DCM.M.pE.J(2)=log(1.1);
-    DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
+    %DCM.M.pE.J([1 2 4]) = log([.6 .8 .6]);
+    %DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
 
     %DCM.M.pE.dd = ones(8,1)*0;
-    DCM.M.pC.d = ones(8,1)/8;
-    DCM.M.pE.L = -12;
-    
-    DCM.M.pE.dd = zeros(8,1);
-    DCM.M.pC.dd = ones(8,1)/8;
+    DCM.M.pE.L = -6;
+    %DCM.M.pC.J(1:8) = 1/8;
+    %DCM.M.pE.dd = zeros(8,1);
+    %DCM.M.pC.dd = ones(8,1)/8;
+    %DCM.M.pC.CV = ones(1,8)/8;
+    %DCM.M.pC.J=DCM.M.pC.J*0;
+
+    DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,-70);
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
     ppE = DCM.M.pE;
+    w=DCM.xY.Hz;
     
     % Construct an AO optimisation object
     M = AODCM(DCM);
@@ -218,7 +233,7 @@ for i = i;%1:length(Data.Datasets)
     % Bias and feature selection - ensuring FS(y) remains smooth
     %Q = (AGenQn(rescale(atcm.fun.makef(w,median(w),2,32),.5,1),16))';
     %Q = AGenQn(hY,8);
-    M.opts.Q = full(DCM.xY.Q);
+    M.opts.Q = eye(length(w));%full(DCM.xY.Q);
     
     % Feature selection: FS(y)
     %M.opts.RFS = @(x) [real(sqrt(denan(x))); denan(std(x)./mean(x)) ];
@@ -234,7 +249,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.corrweight  = 0;  % weight log evidence by correlation
     M.opts.inner_loop  = 1;
     
-    M.opts.objective           = 'gauss';%'rmse';%'rmse';%'fe';%'mvgkl';%'jsd';%'mvgkl';%'qrmse'; % objective (error) function
+    M.opts.objective           = 'gaussfe';%'rmse';%'rmse';%'fe';%'mvgkl';%'jsd';%'mvgkl';%'qrmse'; % objective (error) function
     M.opts.criterion           = -inf;%-1000;%1e-3;
     M.opts.isGaussNewton       = 0;
     M.opts.factorise_gradients = 0;
