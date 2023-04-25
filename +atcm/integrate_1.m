@@ -481,11 +481,32 @@ switch IntMethod
             elseif WithDelays == 2
                 
                 % TWO-point RK method
-                k1  = f(v,drive(i,:),P,M,fso(i));  
-                k2  = f(v+dt*k1,drive(i,:),P,M,fso(i));
+                k1  = f(v,drive(i,:),P,M);  
+                k2  = f(v+dt*k1,drive(i,:),P,M);
                 phi = 0.5*k1 + 0.5*k2;
                 
                 v = v + dt*phi;
+
+
+                % State Delays - interpolated
+                %--------------------------------------------------
+                d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
+                d = repmat(d,[1 nk]);
+                L = (d);
+
+
+                for j = 1:length(L)
+                    ti = real(L(j))/dt;
+                    if i > 1 && any(ti)
+                        pt = t(i) - ti;
+                        if pt > 0
+                            v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
+                        end
+                    end
+                end
+
+
+
                 y(:,i) = v;
                 
                 
@@ -1100,7 +1121,9 @@ for ins = 1:ns
             
     Pf0 = Pf(:,ins,ins);
     
+    % smoothing
     Pf0 = gaufun.GaussPCA(Pf0,12);
+
 
     % DCT transform
     %F = atcm.fun.afftmtx(nf,9);

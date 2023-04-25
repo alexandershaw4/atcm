@@ -10,7 +10,7 @@ function Y = assafft(x,dt,w,N)
 %X = atcm.fun.assa(x,N);
 X = x;
 
-Pf = atcm.fun.tfdecomp(X,dt,w,8,1);
+Pf = atcm.fun.tfdecomp(X,dt,w,8,2);
 
     %Y(:,i) = atcm.fun.gaufun.SearchGaussPCA(abs(Pf),8);
     
