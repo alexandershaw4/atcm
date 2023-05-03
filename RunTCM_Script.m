@@ -168,7 +168,7 @@ for i = i;%1:length(Data.Datasets)
     
     % simulation / integration parameters
     %----------------------------------------------------------------------
-    DCM.M.sim.dt  = 1./300;
+    DCM.M.sim.dt  = 1./600;
     DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
     DCM.M.burnin  = 640;
     
@@ -208,19 +208,45 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
     DCM.M.pE.J = DCM.M.pE.J-1000;
     %DCM.M.pE.J(2)=log(1.1);
-    DCM.M.pE.J([1 2 3 4 5]) = log([.6 .8 .4 .6 .4]);
+    %DCM.M.pE.J([1 2 3 4 5]) = log([.6 .8 .4 .6 .4]);
+    DCM.M.pE.J([2 4])=log([.8 .6]);
+
+    %DCM.M.pC.TV=DCM.M.pC.TV*0;
     
+    %DCM.M.pC.pr(1:4)=1/8;
+
     %DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
 
     %DCM.M.pE.dd = ones(8,1)*0;
-    DCM.M.pE.L = -6;
+    DCM.M.pE.L = -4;
     %DCM.M.pC.J(1:8) = 1/8;
     %DCM.M.pE.dd = zeros(8,1);
     %DCM.M.pC.dd = ones(8,1)/8;
     %DCM.M.pC.CV = ones(1,8)/8;
     %DCM.M.pC.J=DCM.M.pC.J*0;
 
-    DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,-70);
+    %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,-70);
+
+    %DCM.M.pC.pr(1:5)=1/8;
+
+    load("newpriors.mat")
+    DCM.M.pE = Ep;
+    DCM.M.pC = pC;
+
+    DCM.M.pC.S = DCM.M.pC.S*0;
+    DCM.M.pC.pr(1)=1/8;
+    DCM.M.pC.d = DCM.M.pC.d*0; 
+    DCM.M.pC.T(:,2)=1/8;
+
+    % generate a confounds Q matrix
+    w  = DCM.xY.Hz;
+    X0 = spm_dctmtx(length(w),8);
+    Q  = speye(length(w)) - X0*X0';
+    Q = Q .* atcm.fun.AGenQn(DCM.xY.y{:},8);
+    Q = abs(Q) + AGenQn(diag(Q),8);
+    %Q = atcm.fun.gausvdpca(Q,20);
+    %Q = Q .* atcm.fun.AGenQn(DCM.xY.y{:},8);;
+
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -235,10 +261,15 @@ for i = i;%1:length(Data.Datasets)
     %Q = (AGenQn(rescale(atcm.fun.makef(w,median(w),2,32),.5,1),16))';
     %Q = AGenQn(hY,8);
     %M.opts.Q = eye(length(w));%full(DCM.xY.Q);
-    M.opts.Q = full(DCM.xY.Q);
+    M.opts.Q = Q;%eye(length(w));%full(DCM.xY.Q); %gaufun.GaussPCA(M.opts.Q,18)
+
 
     % Feature selection: FS(y)
     %M.opts.RFS = @(x) [real(sqrt(denan(x))); denan(std(x)./mean(x)) ];
+    %M.opts.FS = @(x) sqrt(x(:));
+    % for power spectra, this adds effect of optimising smoothness /
+    % bandwidth of peaks
+    %M.opts.FS = @(x) [x(:); std(diff(x))/abs(mean(diff(x)))];
 
     %M.opts.FS = @(x) [real(sqrt(denan(x))); spm_vec(atcm.fun.maxpointsinds(x,length(x))./length(x))];
         
@@ -258,7 +289,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.normalise_gradients = 0;
     
     M.opts.hypertune       = 0; % no
-    M.opts.memory_optimise = 1;
+    M.opts.memory_optimise = 0;
     M.opts.rungekutta      = 6;
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
     M.opts.crit            = [0 0 0 0];

@@ -725,6 +725,10 @@ switch IntMethod
                           end
                         end
 
+                        tc = [1 0 0 0 0 1 0 0]*3*exp(P.pr(1));
+                        ct = [0 0 0 0 0 0 1 1]*8*exp(P.pr(2));
+
+
 
                         % Full update
                         %--------------------------------------------------
@@ -1008,7 +1012,7 @@ for ins = 1:ns
             elseif UseSmooth == 1
                 
                 % Compute TF matrix
-                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,6,2);
+                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,8,2);
                 %Ppf = atcm.fun.Afft(pc,1/dt,w);
 
                 %Ppf = pyulear(pc,24,w,1/dt);
@@ -1141,20 +1145,6 @@ for ins = 1:ns
 
     % Rank-8 projection
     [Pf0,b,uQ] = atcm.fun.gausvdpca(Pf0,4,20);
-
-    %sh = atcm.fun.hnoisebasis(length(w),exp(P.a(1:2)));
-
-    %Pf0 = Pf0(:).*sh(:);
-
-    % use the dcm mtf
-    % Sp  =  atcm.fun.AGenQn(Ppf,8);
-    % [v,s] = eig(full(Sp),'nobalance');
-    % s=diag(s);
-    % s = 1j*imag(s) + real(s) - exp(real(s));
-    % iv = pinv(v);
-    % % v(:,1)*iv(1,:)*(1./(1j*2*pi*w(:) - s(1)))
-    % for i = 1:8; q(:,i) = v(:,i)*iv(i,:)*(1./(1j*2*pi*w(:) - s(i))); end
-    % Pp0 = sum(abs(q),2);
 
     %b(b<0)=0;
 
