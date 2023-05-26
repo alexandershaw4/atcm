@@ -163,7 +163,7 @@ switch InputType
         mf    = 10*exp(P.R(2));                      % frequency
         drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
                      %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
-                  
+                  drive=drive';
         % NS=0.05*(max(drive)-min(drive)) + rand(size(drive));
         %drive = drive(:).*NS(:);            
 
@@ -173,15 +173,26 @@ switch InputType
         delay  = 60 * exp(P.R(1));             % bump
         scale1 = 8  * exp(P.R(2));
         drive  = atcm.fun.makef(pst,delay,scale1,16*exp(P.R(3)));
+        drive=drive';
         
     case 3
         % NOISE
         %------------------------------------------------------------------
         %rng default;
-        mu    = exp(P.R(1));              % mean amplitude
-        hfn   = randn(length(pst),1);% + (sqrt(-1)*randn(length(pst),1)*1/32);
-        drive = hfn*mu;   % amplitude (constant) over time
-        drive = .025*drive(1:length(pst));
+        %mu = exp(P.R(1));              % mean amplitude
+        %st = exp(P.R(2));
+        %hfn   = randn(length(pst),1);% + (sqrt(-1)*randn(length(pst),1)*1/32);
+        %drive = hfn*mu;   % amplitude (constant) over time
+        %drive = .025*drive(1:length(pst));
+
+        %nn = perlin_noise(ones(8,length(pst)));
+
+        %drive = rescale(sum(nn,1),mu-st,mu+st);
+
+        a = 1 * exp(P.R(1));
+        b = 4 * exp(P.R(2));
+        drive =  a + (b-a).*rand(1,length(pst));
+
         
     case 4
         % TWO oscillatory inputs...
@@ -236,6 +247,23 @@ switch InputType
         intcpt = atcm.fun.findthenearest(drive(:,1),sust);
         drive(intcpt:end,1) = sust;%*wave(intcpt:end);
 
+    case 7
+
+        drive = zeros(56,length(pst));
+        If = [10 55 80 40 50 20 10 10];
+        for i = 1:8
+            drive(i,:) = exp(P.R(i)) * ( (sin(2*pi*(If(i))*(pst/1000))) );
+        end
+
+        % break phase locking between layers
+        d = [1 2 2 3 3 4 0 0];
+
+        for i = 1:8
+            ni = round((d(i)/200)/dt);
+            drive(i,:) = [zeros(1,ni), drive(i,1:end-ni)];
+        end
+
+        drive = sum(drive,1);
 end
 
 if isfield(M,'input')
@@ -698,12 +726,13 @@ switch IntMethod
                     
                     % RK45 with delays
                     if i > 1
+                        
                         % 4-th order Runge-Kutta method.
                         %--------------------------------------------------
-                        k1 = f(v          ,drive(i),P,M);
-                        k2 = f(v+0.5*dt*k1,drive(i)+dt/2,P,M);
-                        k3 = f(v+0.5*dt*k2,drive(i)+dt/2,P,M);
-                        k4 = f(v+    dt*(k3),drive(i),P,M);
+                        k1 = f(v          ,drive(:,i),P,M);
+                        k2 = f(v+0.5*dt*k1,drive(:,i),P,M);
+                        k3 = f(v+0.5*dt*k2,drive(:,i),P,M);
+                        k4 = f(v+    dt*k3,drive(:,i),P,M);
                         
                         dxdt = (dt/6)*(k1 + 2*k2 + 2*k3 + k4);
                         v    = v + dxdt;
@@ -714,6 +743,13 @@ switch IntMethod
                         d = repmat(d,[1 nk]);
                         %d(9:end)=0;
                         L = (d);
+
+                        L(9:16)  = L(9:16)  * exp(P.pr(2));
+                        L(17:24) = L(17:24) * exp(P.pr(3));
+                        L(25:32) = L(25:32) * exp(P.pr(4));
+                        L(33:40) = L(33:40) * exp(P.pr(5));
+                        L(41:48) = L(41:48) * exp(P.pr(6));
+                        L(49:56) = L(49:56) * exp(P.pr(7));
                         
                         for j = 1:length(L)
                           ti = real(L(j))/dt;
@@ -724,28 +760,27 @@ switch IntMethod
                               end
                           end
                         end
+                        
+                       % v = dt*f(v+full(J*dt)*v,drive(:,i),P,M);
 
 
                         % Full update
                         %--------------------------------------------------
-                        y(:,i) =   v;
+                        y(:,i) =   (v);
 
                     else
                         % 4-th order Runge-Kutta method.
-                        [k1,J] = f(v          ,drive(i),P,M);
-                        k2 = f(v+0.5*dt*k1,drive(i),P,M);
-                        k3 = f(v-0.5*dt*k2,drive(i),P,M);
-                        k4 = f(v+    dt*k3,drive(i),P,M);
+                        [k1,J] = f(v      ,drive(:,i),P,M);
+                        k2 = f(v+0.5*dt*k1,drive(:,i),P,M);
+                        k3 = f(v-0.5*dt*k2,drive(:,i),P,M);
+                        k4 = f(v+    dt*k3,drive(:,i),P,M);
 
                         dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
                         v         = v + dxdt;
                         y(:,i)    = v ;
                         
                     end
-
-
             end  
-            
             
             % firing function at dxdt - the sigmoid
             %--------------------------------------------------------------
@@ -803,7 +838,7 @@ series.States_both = y;
 
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
-[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive,d);
 
 %[y0] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive*0);
 
@@ -811,7 +846,7 @@ series.States_both = y;
 
 end
 
-function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,type,fso,drive)
+function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,type,fso,drive,d)
 % Main spectral response function with lots of options.
 
 % Spectral Response Options
@@ -842,7 +877,8 @@ for i = 1:size(P.a,2)
 end
 
 % Spectrum of channel noise (non-specific)
-Gn = exp(P.b(1,i) ).*w.^(-exp(P.b(2,1))); 
+%Gn = exp(P.b(1,i) ).*w.^(-exp(P.b(2,1))); 
+Gn = 1;
 
 % Spectrum of channel noise (specific)
 for i = 1:size(P.c,2) 
@@ -1005,13 +1041,43 @@ for ins = 1:ns
                 Nc  = 6;
                 Ppf = atcm.fun.makef(w,F(I(1:Nc)),A(I(1:Nc)),ones(1,Nc)*2);
                 
+            elseif UseSmooth == 4
+                    
+                [Ppf,hx,yda] = atcm.fun.tfdecomp(ts(burn:end),dt,w,10,2);
+                Ppf = abs(Ppf(:));
+                
+                if ij > 1
+                    continue;
+                end
+
+
+
             elseif UseSmooth == 1
                 
                 % Compute TF matrix
-                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,6,2);
-                %Ppf = atcm.fun.Afft(pc,1/dt,w);
+               %
+                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,4,1);
 
-                %Ppf = pyulear(pc,24,w,1/dt);
+                %Ppf = atcm.fun.Afft(pc,1/dt,w)';
+
+                %Qx = VtoGauss(Ppf,1);
+                %Qe = VtoGauss(Ppf,10)   ;
+                %Ppf = interp1([0 1 10]',[Ppf Qx*Ppf Qe*Ppf]',exp(P.a(ij)));
+
+                Q = VtoGauss(Ppf,2);
+                Q = Q./norm(Q);
+                Ppf = Q*Ppf;
+                
+
+               % Ppf = atcm.fun.moving_average(Ppf,3);
+
+               % Ppf = atcm.fun.Afft(pc,1/dt,w);
+               %Ppf = atcm.fun.AfftSmooth(pc,1/dt,w,36);
+               % Ppf = atcm.fun.moving_average(Ppf,4);
+
+                %pc = atcm.fun.bandpassfilter(pc,1/dt,[4 100]);
+
+                %Ppf = pyulear(pc,4,w,1/dt);
 
                 %[u,s,v] = svd(yda);
                 %Qu = yda*v(:,1:14);
@@ -1020,9 +1086,10 @@ for ins = 1:ns
 
                 %Ppf = gaulm(Ppf);
 
-                %Ppf = atcm.fun.gausvdpca(Ppf);
 
-                %Ppf = gaufun.GaussPCA(Ppf,12);
+                %Ppf = atcm.fun.gausvdpca(Ppf(:),6,20);
+
+                %Ppf = gaufun.GaussPCA(Ppf,4);
                 %PfM = atcm.fun.assafft(pc,dt,w,8);
                 %Ppf = sum(PfM,2);
     
@@ -1091,12 +1158,19 @@ for ins = 1:ns
             H  = .5+hamming(nf,'periodic');
             Pf = Pf(:).*H(:);
         end
+        
+        if UseSmooth == 4 
+            layers.unweighted(ins,1,:) = Pf;
+            layers.weighted  (ins,1,:) = Pf;
+            layers.iweighted (ins,1,:) = Pf;
+        else
 
-        % store the weighted and unweighted population outputs
-        %------------------------------------------------------------------
-        layers.unweighted(ins,ij,:) = ( Pf             )     ;% * exp(real(P.L(ins)));
-        layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
-        layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
+            % store the weighted and unweighted population outputs
+            %------------------------------------------------------------------
+            layers.unweighted(ins,ij,:) = ( Pf             )     ;% * exp(real(P.L(ins)));
+            layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
+            layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
+        end
         
     end   % end of state contribution(s) to region loop
 end   % end of loop of regions
@@ -1113,7 +1187,7 @@ for inx = 1:ns
                 Pf(:,inx,iny) = max(layers.iweighted(inx,:,:),2) .* conj( ...
                     sum(layers.iweighted(iny,:,:),2) );
             else
-                if length(Ji) > 1
+                if length(Ji) > 1 && UseSmooth~=4 
                     Pf(:,inx,iny) = sum(abs(squeeze(layers.iweighted(ins,:,:))),1);%sum(layers.iweighted(inx,:,:),2);
                 else
                     Pf(:,inx,iny)=sum(layers.iweighted(inx,:,:),2);
@@ -1139,8 +1213,90 @@ for ins = 1:ns
     % smoothing
     %Pf0 = gaufun.SearchGaussPCA(Pf0,12);
 
-    % Rank-8 projection
-    [Pf0,b,uQ] = atcm.fun.gausvdpca(Pf0,4,20);
+    %N = 8;
+
+    % Rank-N projection s.t. GP assumptions
+    %[Pf0,b,uQ] = atcm.fun.gausvdpca(Pf0,N,20);
+
+    %Q = atcm.fun.QtoGauss(Pf0,20);
+    %Q = VtoGauss(Pf0);
+
+    %Pf0 = Q*Pf0;
+
+%     b   = lsqminnorm(Q,M.y{:},0,'nowarn');
+%     b(b<=0)=0;
+%     b   = b./norm(b);
+%     nb  = length(find(b));
+%     f   = @(sigma) atcm.fun.makef(w,w(~~(b))-1,diag(Q(~~b,~~b)),sigma);%.*b(~~(b))
+%     Pf0 = f(ones(nb,1));
+
+
+    
+
+
+    %sh = atcm.fun.hnoisebasis(length(w),exp(P.a(1:2)));
+    %X  = spm_dctmtx(nf,5);
+    %Mu = exp(X(:,2:end)*P.a(1:4)');
+
+
+    %Pf0 = Pf0 + Mu;
+    
+    nd = size(P.d,1);
+    X  = spm_dctmtx(nf,nd + 1);
+    Mu = exp(X(:,2:end)*P.d);
+    Pf0 = Pf0(:).*Mu(:);
+
+%     for i = 1:N
+%         uQ(i,:) = scasmooth(uQ(i,:),exp(P.pr(i)+1));
+%     end
+% 
+%     Pf0 = abs(sum(uQ,1));
+
+    %Pf0 = scasmooth(Pf0,exp(P.pr(4)));
+
+   % Pf0 = atcm.fun.moving_average(Pf0,3);
+
+%     uQ = b.*uQ;
+% 
+%     % Smoothed version of each component
+%     for i = 1:N
+%        SQ(i,:) = atcm.fun.moving_average(uQ(i,:),20);
+%     end        
+%     
+%     % Find (non-neg lsq) fit to data - NOT changing amplitudes (~~)
+%     bq  = atcm.fun.lsqnonneg([uQ;SQ]',M.y{:});
+%     Pf0 = bq'*[uQ;SQ];
+
+  %   SQ = atcm.fun.moving_average(Pf0,20);
+
+ %    bq = atcm.fun.lsqnonneg([Pf0,SQ],M.y{:});
+
+%     Pf0 = bq'*[Pf0,SQ]';
+
+    %bq  = atcm.fun.lsqnonneg([uQ]',M.y{:});
+    %Pf0 = ~~bq'*[uQ];
+
+%     % linear model smoothing
+%     Pf1 = atcm.fun.moving_average(Pf0,8);
+% 
+%     for i = 1:length(Pf0)
+%         K(i,:) = linspace(Pf0(i),Pf1(i),20);
+%     end
+% 
+%     for i = 1:90; I = atcm.fun.findthenearest(M.y{:}(i),K(i,:));II(i) = I(1);end
+% 
+%     for i = 1:90; Y(i) = K(i,II(i));end
+% 
+%     Pf0 = Y(:);
+
+
+    % fit components to data
+    %bb = atcm.fun.lsqnonneg(uQ',M.y{:});
+    %Pf0 = bb'*uQ;
+
+    %Pf0 = gaufun.SearchGaussPCA(Pf0,12*2);
+
+    %Pf0 = atcm.fun.gaufitvec(w,Pf0);
 
     %sh = atcm.fun.hnoisebasis(length(w),exp(P.a(1:2)));
 
@@ -1176,7 +1332,7 @@ for ins = 1:ns
 % 
 %     warning on;
 
-    %Pf0 = atcm.fun.moving_average(Pf0,3);
+    %Pf0 = atcm.fun.moving_average(Pf0,2);
 
     
 

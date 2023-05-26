@@ -1,5 +1,12 @@
 function [y,b,uQ] = gausvdpca(x,N,q)
 
+if ~any(x)
+    y  = x;
+    b  = 0;
+    uQ = 0;
+    return;
+end
+
 if nargin < 3 || isempty(q)
     q = 20;
 end
@@ -19,11 +26,13 @@ end
 warning off;
 
 Q       = atcm.fun.AGenQn(x,q);
+%Q       = (Q + Q')/2;
+%Q       = atcm.fun.HighResMeanFilt(Q,1,2);
 [u,s,v] = svd(Q);
 uQ      = u(:,1:N)'*Q;
-b       = uQ'\x;
-%b(b<0) = 0;
-y     = uQ'*b;
+
+b       = lsqminnorm(uQ',x,0,'nowarn');
+y       = uQ'*b;
 
 warning on;
 

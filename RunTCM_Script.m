@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'aTCM_';      % outputted DCM prefix
+Data.Prefix       = 'aaTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -183,51 +183,51 @@ for i = i;%1:length(Data.Datasets)
     % No hamming on spectrum
     DCM.M.DoHamming = 0;
 
-    % USE PROVIDED PRIORS!
-    x = load('+atcm/TCM_Priors_Latest.mat','pE','pC');
-    DCM.M.pE = x.pE;
-    DCM.M.pC = x.pC;
-
-    %DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
-    %DCM.M.pE.ID = zeros(1,8);
-    DCM.M.pC.ID = ones(1,8)/8;
-    DCM.M.pC.Gsc = ones(1,8)/8;
-    DCM.M.pC.R = [1 1]/8;
-    DCM.M.pC.a = DCM.M.pC.a*0;
-    %DCM.M.pE.L=-2.5;
-
-    DCM.M.pC.S = ones(1,8)/8;
-    %DCM.M.pC.J(1:8)=1/8;
-    DCM.M.pC.d = ones(8,1)/8;
-
-    for ip = 1:5
-        DCM.M.pC.H(ip,ip)=1/8;
-    end
-
-    % flat priors
-    DCM.M.pE = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
-    DCM.M.pE.J = DCM.M.pE.J-1000;
-    %DCM.M.pE.J(2)=log(1.1);
-    %DCM.M.pE.J([1 2 3 4 5]) = log([.6 .8 .4 .6 .4]);
-    DCM.M.pE.J([2 4])=log([.8 .6]);
-
-    %DCM.M.pC.TV=DCM.M.pC.TV*0;
-    
-    %DCM.M.pC.pr(1:4)=1/8;
-
-    %DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
-
-    %DCM.M.pE.dd = ones(8,1)*0;
-    DCM.M.pE.L = -4;
-    %DCM.M.pC.J(1:8) = 1/8;
-    %DCM.M.pE.dd = zeros(8,1);
-    %DCM.M.pC.dd = ones(8,1)/8;
-    %DCM.M.pC.CV = ones(1,8)/8;
-    %DCM.M.pC.J=DCM.M.pC.J*0;
-
-    %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,-70);
-
-    %DCM.M.pC.pr(1:5)=1/8;
+%     % USE PROVIDED PRIORS!
+%     x = load('+atcm/TCM_Priors_Latest.mat','pE','pC');
+%     DCM.M.pE = x.pE;
+%     DCM.M.pC = x.pC;
+% 
+%     %DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
+%     %DCM.M.pE.ID = zeros(1,8);
+%     DCM.M.pC.ID = ones(1,8)/8;
+%     DCM.M.pC.Gsc = ones(1,8)/8;
+%     DCM.M.pC.R = [1 1]/8;
+%     DCM.M.pC.a = DCM.M.pC.a*0;
+%     %DCM.M.pE.L=-2.5;
+% 
+%     DCM.M.pC.S = ones(1,8)/8;
+%     %DCM.M.pC.J(1:8)=1/8;
+%     DCM.M.pC.d = ones(8,1)/8;
+% 
+%     for ip = 1:5
+%         DCM.M.pC.H(ip,ip)=1/8;
+%     end
+% 
+%     % flat priors
+%     DCM.M.pE = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
+%     DCM.M.pE.J = DCM.M.pE.J-1000;
+%     %DCM.M.pE.J(2)=log(1.1);
+%     %DCM.M.pE.J([1 2 3 4 5]) = log([.6 .8 .4 .6 .4]);
+%     DCM.M.pE.J([2 4])=log([.8 .6]);
+% 
+%     %DCM.M.pC.TV=DCM.M.pC.TV*0;
+%     
+%     %DCM.M.pC.pr(1:4)=1/8;
+% 
+%     %DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
+% 
+%     %DCM.M.pE.dd = ones(8,1)*0;
+%     DCM.M.pE.L = -4;
+%     %DCM.M.pC.J(1:8) = 1/8;
+%     %DCM.M.pE.dd = zeros(8,1);
+%     %DCM.M.pC.dd = ones(8,1)/8;
+%     %DCM.M.pC.CV = ones(1,8)/8;
+%     %DCM.M.pC.J=DCM.M.pC.J*0;
+% 
+%     %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,-70);
+% 
+%     %DCM.M.pC.pr(1:5)=1/8;
 
     load("newpriors.mat")
     DCM.M.pE = Ep;
@@ -236,7 +236,40 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pC.S = DCM.M.pC.S*0;
     DCM.M.pC.pr(1)=1/8;
     DCM.M.pC.d = DCM.M.pC.d*0; 
-    DCM.M.pC.T(:,2)=1/8;
+    
+    DCM.M.pC.TV(1:2)=0;
+
+    DCM.M.pC.S  = ones(1,8)/8;
+    %DCM.M.pC.CV = ones(1,8)/8;
+
+    DCM.M.pE.T = [0 0 0 0 0 0];
+    DCM.M.pC.T = [1 1 1 1 1 1]/8;
+
+    DCM.M.pE.Mh = zeros(1,8);
+    DCM.M.pC.Mh = [0 0 0 0 0 1 0 1]*0;%/8;
+
+    DCM.M.pE.Hh = zeros(1,8);
+    DCM.M.pC.Hh = [0 0 0 0 0 1 0 1]*0;%/8;
+
+    DCM.M.pC.pr(1:7)=1/8;
+
+    % remove old params
+    rm = {'h' 'm' 'gaba' 'psmooth'};
+
+    for i = 1:length(rm)
+        try DCM.M.pE = rmfield(DCM.M.pE,rm{i});end
+        try DCM.M.pC = rmfield(DCM.M.pC,rm{i});end
+    end
+    
+    %DCM.M.pE.J(1) = log(.8);
+    %DCM.M.pE.J(8) = log(.8);
+
+    %DCM.M.pE.a = [0 0 0 0];
+    %DCM.M.pC.a = [1 1 1 1]./8;
+
+    DCM.M.pE.L = -5;
+    DCM.M.pC.d = DCM.M.pC.d+1/8;
+
 
     % generate a confounds Q matrix
     w  = DCM.xY.Hz;
@@ -247,6 +280,10 @@ for i = i;%1:length(Data.Datasets)
     %Q = atcm.fun.gausvdpca(Q,20);
     %Q = Q .* atcm.fun.AGenQn(DCM.xY.y{:},8);;
 
+    %V = ~~spm_vec(DCM.M.pC);
+    %DCM.M.pC = spm_unvec(V*1e-3,DCM.M.pC);
+
+    %DCM.M.pE = spm_unvec( real(spm_vec(DCM.M.pE)), DCM.M.pE);
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -265,6 +302,7 @@ for i = i;%1:length(Data.Datasets)
 
 
     % Feature selection: FS(y)
+    %M.opts.FS = @(x) sqrt(x);
     %M.opts.RFS = @(x) [real(sqrt(denan(x))); denan(std(x)./mean(x)) ];
     %M.opts.FS = @(x) sqrt(x(:));
     % for power spectra, this adds effect of optimising smoothness /
@@ -275,10 +313,11 @@ for i = i;%1:length(Data.Datasets)
         
     % Optimisation option set 1.
     M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.WeightByProbability=0;
     M.opts.ismimo      = 1;        % compute dfdp elementwise on vector-output function
     M.opts.doparallel  = 1;    % use parfor loops when poss, incl for df/dx
     M.opts.hyperparams = 1;   % hyperparameter tuning
-    M.opts.fsd         = 1;         % fixed-step for derivatives
+    M.opts.fsd         = 0;         % fixed-step for derivatives
     M.opts.corrweight  = 0;  % weight log evidence by correlation
     M.opts.inner_loop  = 1;
     
@@ -288,7 +327,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.factorise_gradients = 0;
     M.opts.normalise_gradients = 0;
     
-    M.opts.hypertune       = 0; % no
+    M.opts.hypertune       = 1; % no
     M.opts.memory_optimise = 0;
     M.opts.rungekutta      = 6;
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
@@ -302,7 +341,7 @@ for i = i;%1:length(Data.Datasets)
     %M.opts.orthogradient=1;
     M.opts.orthogradient=1;
         
-    M.default_optimise([9],[28])
+    M.default_optimise([9],[18])
     
     M.update_parameters(M.Ep);
 

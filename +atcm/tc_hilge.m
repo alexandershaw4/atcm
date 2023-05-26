@@ -72,10 +72,10 @@ function [f,J] = tc_hilge(x,u,P,M,fso)
 %--------------------------------------------------------------------------
 IncludeMH = 1;
 
-if isfield(P,'inputs') && length(u) == 1
-    u = repmat(u,[8 1]);
-else u = u(:);
-end
+% if isfield(P,'inputs') && length(u) == 1
+%     u = repmat(u,[8 1]);
+% else u = u(:);
+% end
  
 % get dimensions and configure state variables
 %--------------------------------------------------------------------------
@@ -203,11 +203,14 @@ GEa = [  0     0     0     0     0     2     0     2;
          0     2     0     0     0     0     0     0;
          0     2     0     0     0     0     0     0;
          0     0     0     2     0     0     0     0;
-         0     0     0     8     0     0     0     2;
+         0     0     0     8     0     0     0     0;
          0     0     0     0     0     0     0     2;
          2     0     0     0     0     2     0     0];
 
-GEa=GEa*2;
+GEa = GEa*2;
+
+%GEa = GEa/8;
+
 
 GEn = GEa;
 %GEn = GEn + eye(8)/8;
@@ -229,6 +232,7 @@ GIa =  [ si    0     8     0     0     0     0     0;
      
 GIa=GIa*2;
 
+GIa = GIa/8;
 
 % GIbg = ~GIa/32;
 % GEbg = ~GEa/32;
@@ -254,22 +258,27 @@ if IncludeMH
     
     % M- & H- channel conductances (np x np) {L6 & Thal Relay cells only}
     %----------------------------------------------------------------------
+    % https://www.sciencedirect.com/science/article/pii/S0006349599769250
     VM   = -70;                            % reversal potential m-channels          
     VH   = -30;                            % reversal potential h-channels 
 
-    GIm  = sparse([6 8],[6 8],4,8,8);
-    %GIm  = eye(8)*4;
-    Mh   = diag(exp(P.Mh));
+%     GIm  = sparse([6 8],[6 8],4,8,8);
+%     %GIm  = eye(8)*4;
+%     Mh   = diag(exp(P.Mh));
+% 
+%     GIh      = full(sparse([6 8],[6 8],4   ,8,8)); % 1/4
+%     Hh       = exp(P.Hh);
+%     GIh(6,6) = GIh(6,6)*Hh(1);
+%     GIh(8,8) = GIh(8,8)*Hh(2);
 
-    GIh      = full(sparse([6 8],[6 8],4   ,8,8)); % 1/4
-    Hh       = exp(P.Hh);
-    GIh(6,6) = GIh(6,6)*Hh(1);
-    GIh(8,8) = GIh(8,8)*Hh(2);
 
-    KM    = (exp(-P.m)*1000/160) ;               % m-current opening + CV
-    KH    = (exp(-P.h)*1000/100) ;               % h-current opening + CV
+    GIm = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Mh(:)'));
+    GIh = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Hh(:)'));
+
+    KM    = (exp(-P.T(:,5))*1000/160) ;               % m-current opening + CV
+    KH    = (exp(-P.T(:,6))*1000/100) ;               % h-current opening + CV
     h     = 1 - spm_Ncdf_jdw(x(:,:,1),-100,300); % mean firing for h-currents
-    %h      =  1./(1 + exp(-(x(:,:,1)-(-100))));
+    %h      = 1./(1+exp((x(:,:,1)+81)/7));
 end
 
 % Channel rate constants [decay times]
@@ -378,7 +387,6 @@ GL   = 1 ;
         
     RS = 30 ;
     
-
     Fu = find( x(:,:,1) >= VR );
     FF(Fu) = 1;
     
@@ -410,10 +418,10 @@ BE     = exp(P.E)*0.8;
 
 % input(s)
 %--------------------------------------------------------------------------
-if isfield(M,'u')
-      U =   u;%(:); % endogenous input
-else; U = C*u;%(:); % exogenous input
-end
+% if isfield(M,'u')
+%       U =   u;%(:); % endogenous input
+% else; U = C*u;%(:); % exogenous input
+% end
 
 % flow over every (ns x np) subpopulation
 %==========================================================================
@@ -428,11 +436,11 @@ for i = 1:ns
             
         % input scaling: 
         %------------------------------------------------------------------
-        if any(full(U(:))) ;
-            dU = u(1)*C(i,1);
-        else
-            dU = 0;
-        end
+        %if any(full(U(:))) ;
+            dU = u(:)*C(i,1);
+        %else
+        %    dU = 0;
+        %end
                 
         Gsc = ~eye(8);
         Gsc = Gsc +  (diag(exp(P.Gsc)));
@@ -466,80 +474,32 @@ for i = 1:ns
             
             % intrinsic coupling - non-parameterised: intrinsic dynamics
             %--------------------------------------------------------------
-            Im     = (Mh(:,:).*GIm)*m(i,:)'; % M currents
-            Ih     =           GIh *h(i,:)'; % H currents
+            Im     = GIm*m(i,:)'; % M currents
+            Ih     = GIh*h(i,:)'; % H currents
         end
         
         % extrinsic coupling (excitatory only) and background activity
         %------------------------------------------------------------------
         E     = (E     +  BE  + SA   *a (i,:)')*2;
         ENMDA = (ENMDA +  BE  + SNMDA*an(i,:)')*2;
-        
-        % endogenous latent region inputs
-        %------------------------------------------------------------------
-%          endo  = exp(P.d(1:4)).*[1 1 1 1]'*3;
-%          endo  = 1./(1 + exp(-1.*(endo-0)));
-%                
-%             E(2) = E(2) * exp(§(1));        
-%             E(4) = E(4) * exp(P.d(2));
-%             I(3) = I(3) * exp(P.d(3));
-%             I(8) = I(8) * exp(P.d(4));     
                 
-        %extampa = dU * [0.25 0.25 0.4 0.25 0.4 0.25 0.4 0.25];
-%         extampa = [0.25 0.25 0.4 0.25 0.4 0.25 0.4 0.25];
-% 
-%         for ie = 1:8
-%            E(ie) = E(ie) + ( extampa(ie) * exp(P.d(ie)) );
-%         end
-
-%         if isfield(P,'inputs')
-%             
-%             % add parameterised temporal inputs to each unit
-%             E(1) = E(1) + C(i,1)*u(1,:)*m(:,1);
-%             E(2) = E(2) + C(i,1)*u(2,:)*m(:,2);
-%             E(3) = E(3) + C(i,1)*u(3,:)*m(:,3);
-%             E(4) = E(4) + C(i,1)*u(4,:)*m(:,4);
-%             E(5) = E(5) + C(i,1)*u(5,:)*m(:,5);
-%             E(6) = E(6) + C(i,1)*u(6,:)*(m(:,6) + h(6));
-%             E(7) = E(7) + C(i,1)*u(7,:)*m(:,7);
-%             E(8) = E(8) + C(i,1)*u(8,:)*(m(:,8) + h(8));            
-%             
-%         end
-        
         
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        input_cell        = [8 ];
+        %if length(u) == 1
+            input_cell        = [8 ];
+            E(input_cell)     = E(input_cell) + dU;
+         %   ENMDA(input_cell)     = ENMDA(input_cell) + dU*10;
+        %elseif length(u) == 56
+            %E(1:8) = E(1:8) + u(1:8)*10*C(1);
+            %ENMDA(1:8) = ENMDA(1:8) + u(1:8)*10*C(1);
 
-       % E(1:8) = E(1:8) + ( ([1 1 1 1 1 1 1 1])'.*exp(P.d));
-        %ENMDA(1:8) = ENMDA(1:8) + ( (1e-1*[1 1 1 1 1 1 1 1])'.*exp(P.d));
-         
-        %E([1 2 4 6 8]) = E([1 2 4 6 8]) + ([1 1 1 1 1])'.*exp(P.d(1:5));
+        %    E([1 2 4 6 8]) = E([1 2 4 6 8]) + (u([1 2 4 6 8])*10*C(1));
+        %    ENMDA([1 2 4 6 8]) = ENMDA([1 2 4 6 8]) + (u([1 2 4 6 8])*10*C(2));
+        %    I([3 5 7]) = I([3 5 7]) + (u([3 5 7])*10*C(3)); 
+            
 
-        %I([3 5 7]) = I([3 5 7]) + [1 1 1]'.*exp(P.d(6:8));
-
-
-        %ENMDA([3 5]) = ENMDA([3 5]) + (1e-1*[2 1])'.*exp(P.d(5:6));
-
-        %E = E + exp(P.gaba(1));
-        %ENMDA = ENMDA + exp(P.gaba(2));
-
-
-        %E(8) = E(8)*dU;
-        %I(7) = I(7)*dU;
-        %E(1) = E(1)*dU;
-        %E(7) = E(7) - I(7);
-
-        %if isfield(M,'inputcell');
-        %    input_cell = M.inputcell;
         %end
-         
-        %I(7) = I(7) * dU;
-        %I(8) = I(8) * dU;
-        %I(1) = I(1) * dU;
-
-        %I(input_cell)     = I(input_cell) * dU;
-        E(input_cell)     = E(input_cell) + dU;
        % ENMDA(input_cell) = ENMDA(input_cell) * dU';
         
         %I(7) = I(7) * dU;
