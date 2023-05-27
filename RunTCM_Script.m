@@ -283,8 +283,6 @@ for i = i;%1:length(Data.Datasets)
     %V = ~~spm_vec(DCM.M.pC);
     %DCM.M.pC = spm_unvec(V*1e-3,DCM.M.pC);
 
-    DCM.M.pE = spm_unvec( log(abs(exp(spm_vec(DCM.M.pE)))), DCM.M.pE);
-
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
