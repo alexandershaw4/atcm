@@ -600,7 +600,7 @@ end
 
 % vectorise equations of motion
 %==========================================================================
-f = spm_vec(f);
+f = spm_vec((f));
 pE = P;
  
 [J,Q,D]=deal([]);

@@ -1064,7 +1064,7 @@ for ins = 1:ns
                 %Qe = VtoGauss(Ppf,10)   ;
                 %Ppf = interp1([0 1 10]',[Ppf Qx*Ppf Qe*Ppf]',exp(P.a(ij)));
 
-                Q = VtoGauss(Ppf,2);
+                Q = atcm.fun.VtoGauss(Ppf,2);
                 Q = Q./norm(Q);
                 Ppf = Q*Ppf;
                 

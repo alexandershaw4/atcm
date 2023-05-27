@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'aaTCM_';      % outputted DCM prefix
+Data.Prefix       = 'RealaaTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -283,7 +283,7 @@ for i = i;%1:length(Data.Datasets)
     %V = ~~spm_vec(DCM.M.pC);
     %DCM.M.pC = spm_unvec(V*1e-3,DCM.M.pC);
 
-    %DCM.M.pE = spm_unvec( real(spm_vec(DCM.M.pE)), DCM.M.pE);
+    DCM.M.pE = spm_unvec( log(abs(exp(spm_vec(DCM.M.pE)))), DCM.M.pE);
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
