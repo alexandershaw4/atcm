@@ -232,7 +232,7 @@ GIa =  [ si    0     8     0     0     0     0     0;
      
 GIa=GIa*2;
 
-GIa = GIa/8;
+%GIa = GIa/8;
 
 % GIbg = ~GIa/32;
 % GEbg = ~GEa/32;
@@ -448,20 +448,20 @@ for i = 1:ns
         
         % CT and TC delays on G
         %-----------------------------------------------------------------
-         CT = 8*exp(P.CT); %60;
-         TC = 3*exp(P.TC); %20;
-                
-        %CT = 0.06*exp(P.CT); %60;
-        %TC = 0.02*exp(P.TC); %20;
-
-        tcd = zeros(8,8);
-        
-        tcd(1:6,[7 8]) = TC;
-        tcd([7 8],1:6) = CT;
-                
-        % apply operator to G and GN
-        G  = (1./(1+tcd)).*G;
-        Gn = (1./(1+tcd)).*Gn;
+        %  CT = 8*exp(P.CT); %60;
+        %  TC = 3*exp(P.TC); %20;
+        % 
+        % %CT = 0.06*exp(P.CT); %60;
+        % %TC = 0.02*exp(P.TC); %20;
+        % 
+        % tcd = zeros(8,8);
+        % 
+        % tcd(1:6,[7 8]) = TC;
+        % tcd([7 8],1:6) = CT;
+        % 
+        % % apply operator to G and GN
+        % G  = (1./(1+tcd)).*G;
+        % Gn = (1./(1+tcd)).*Gn;
                 
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------

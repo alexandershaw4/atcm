@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'RealaaTCM_';      % outputted DCM prefix
+Data.Prefix       = 'broadTCM38newton_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -283,6 +283,29 @@ for i = i;%1:length(Data.Datasets)
     %V = ~~spm_vec(DCM.M.pC);
     %DCM.M.pC = spm_unvec(V*1e-3,DCM.M.pC);
 
+    
+    % July 2023: try turning everything off except intrinsics and delays:
+    pE = DCM.M.pE;
+    pC = DCM.M.pC;
+
+    DCM.M.pE   = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
+    DCM.M.pE.J = pE.J;
+    DCM.M.pE.J(1)=log(.4);
+    DCM.M.pE.L = -4;
+    %DCM.M.pE.J(1) = log(.4);
+
+    DCM.M.pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
+    DCM.M.pC.H  = pC.H;
+    DCM.M.pC.Hn = pC.Hn;
+    DCM.M.pC.ID = ones(1,8)/32;
+    DCM.M.pC.L = 1/8;
+    
+    DCM.M.pC.H(6,6) = 1/8;
+    DCM.M.pC.CT = 1/8;
+    DCM.M.pC.TC = 1/8;
+
+    DCM.M.window = 10;
+
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
@@ -293,51 +316,43 @@ for i = i;%1:length(Data.Datasets)
     M = AODCM(DCM);
     
     % Bias and feature selection - ensuring FS(y) remains smooth
-    %Q = (AGenQn(rescale(atcm.fun.makef(w,median(w),2,32),.5,1),16))';
-    %Q = AGenQn(hY,8);
-    %M.opts.Q = eye(length(w));%full(DCM.xY.Q);
-    M.opts.Q = Q;%eye(length(w));%full(DCM.xY.Q); %gaufun.GaussPCA(M.opts.Q,18)
-
-
-    % Feature selection: FS(y)
-    %M.opts.FS = @(x) sqrt(x);
-    %M.opts.RFS = @(x) [real(sqrt(denan(x))); denan(std(x)./mean(x)) ];
-    %M.opts.FS = @(x) sqrt(x(:));
-    % for power spectra, this adds effect of optimising smoothness /
-    % bandwidth of peaks
-    %M.opts.FS = @(x) [x(:); std(diff(x))/abs(mean(diff(x)))];
-
-    %M.opts.FS = @(x) [real(sqrt(denan(x))); spm_vec(atcm.fun.maxpointsinds(x,length(x))./length(x))];
-        
+    M.opts.Q = Q;
+    
     % Optimisation option set 1.
-    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
-    M.opts.WeightByProbability=0;
-    M.opts.ismimo      = 1;        % compute dfdp elementwise on vector-output function
-    M.opts.doparallel  = 1;    % use parfor loops when poss, incl for df/dx
-    M.opts.hyperparams = 1;   % hyperparameter tuning
-    M.opts.fsd         = 0;         % fixed-step for derivatives
-    M.opts.corrweight  = 0;  % weight log evidence by correlation
+    M.opts.EnforcePriorProb    = 0; 
+    M.opts.WeightByProbability = 0;
+
+
+    M.opts.ismimo      = 1;     
+    M.opts.doparallel  = 1;    
+    
+    M.opts.hyperparams = 1;  
+    M.opts.hypertune   = 1; 
+    M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
     
-    M.opts.objective           = 'gauss';%'rmse';%'rmse';%'fe';%'mvgkl';%'jsd';%'mvgkl';%'qrmse'; % objective (error) function
-    M.opts.criterion           = -inf;%-1000;%1e-3;
-    M.opts.isGaussNewton       = 0;
+    M.opts.objective   = 'gauss';
+    M.opts.criterion   = -inf;
+    
     M.opts.factorise_gradients = 0;
     M.opts.normalise_gradients = 0;
     
-    M.opts.hypertune       = 1; % no
-    M.opts.memory_optimise = 0;
+    M.opts.memory_optimise = 1;
     M.opts.rungekutta      = 6;
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
     M.opts.crit            = [0 0 0 0];
-    M.opts.do_gpr          = 0;
     
     M.opts.userplotfun = @aodcmplotfun;
-    M.opts.isGaussNewtonReg=0;        % no
-    M.opts.order=1;
-
-    %M.opts.orthogradient=1;
-    M.opts.orthogradient=1;
+    
+    M.opts.isNewton      = 1;
+    M.opts.isQuasiNewton = 0;
+    M.opts.isNewtonReg   = 0;      
+    M.opts.isGaussNewton = 0;
+    M.opts.isTrust       = 0;
+    
+    % order of dfdx: grads or curv & whether to orthogoanlise
+    M.opts.order         = 1;
+    M.opts.orthogradient = 1;
         
     M.default_optimise([9],[18])
     

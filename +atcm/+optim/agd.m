@@ -30,6 +30,13 @@ for i = 1:n
         return;
     end
 
+    % if n == 1, optimise alpha
+    if i == 1
+        fa = @(a) f(x + (a)*-g(:));
+        ga = dfdx(fa,a);
+        a  = e./ga;
+    end
+
     % step and evaluate
     x  = x + (a)*-g(:);
     e  = f(x);

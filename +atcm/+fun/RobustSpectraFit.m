@@ -1,6 +1,6 @@
 function [mnewspectra,Freqs,uncorrected,modelm,newspectra,FitPar ]=RobustSpectraFit(Freqs,singlespectra,PostSmooth)
 f0=findthenearest(1,Freqs);
-f1=findthenearest(95,Freqs);
+f1=findthenearest(max(Freqs),Freqs);
 
 if Freqs(f0)==0,
     f0=f0+1;

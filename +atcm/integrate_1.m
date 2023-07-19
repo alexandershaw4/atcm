@@ -152,9 +152,9 @@ switch InputType
         %------------------------------------------------------------------
         mu    = exp(P.R(1));              % mean amplitude
         drive = ones(length(pst),1)*mu;   % amplitude (constant) over time
-         NS=0.05*(max(drive)-min(drive)) + rand(size(drive));
+      %   NS=0.05*(max(drive)-min(drive)) + rand(size(drive));
 
-        drive = drive(:).*NS(:); 
+        drive = drive(:)';%.*NS(:); 
     case 1
         
         % For oscillatory inputs...
@@ -296,7 +296,7 @@ f    = spm_funcheck(M.f);
 % solve for a fixed point, or not
 if solvefp; 
     %x    = atcm.fun.solvefixedpoint(P,M);
-    x = atcm.fun.solvefixedpoint(P,M,[],-70);
+        x = atcm.fun.solvefixedpoint(P,M,[],-50);
 else ;      x    = x;
 end
 
@@ -338,6 +338,7 @@ other.condel=condel;
 other.series = series;
 other.dt = dt;
 other.Fs = Fs;
+
 end
 
 function [y,w,s,g,t,layers,noise,firing,QD,spike,condel,series] = ...
@@ -744,13 +745,30 @@ switch IntMethod
                         %d(9:end)=0;
                         L = (d);
 
+                        % receptor delay dynamics (set pr[]=0 to switch off)
                         L(9:16)  = L(9:16)  * exp(P.pr(2));
                         L(17:24) = L(17:24) * exp(P.pr(3));
                         L(25:32) = L(25:32) * exp(P.pr(4));
                         L(33:40) = L(33:40) * exp(P.pr(5));
                         L(41:48) = L(41:48) * exp(P.pr(6));
                         L(49:56) = L(49:56) * exp(P.pr(7));
+
+                        % thalamo-cortical delay effects
+                        ct = 8*exp(P.CT); %60;
+                        tc = 3*exp(P.TC); %20;
+
+                        TCDM = [0  0  0  0  0  0  tc tc;
+                                0  0  0  0  0  0  tc tc;
+                                0  0  0  0  0  0  tc tc;
+                                0  0  0  0  0  0  tc tc;
+                                0  0  0  0  0  0  tc tc;
+                                0  0  0  0  0  0  tc tc;
+                                ct ct ct ct ct ct 0  0;
+                                ct ct ct ct ct ct 0  0];
+                        TCDM = repmat(TCDM,[nk nk]);
+                        v    = v + ((TCDM.*max(dfdx,1e-6))*v);
                         
+                        % linear interpolation of states at delay t
                         for j = 1:length(L)
                           ti = real(L(j))/dt;
                           if i > 1 && any(ti)
@@ -768,6 +786,73 @@ switch IntMethod
                         %--------------------------------------------------
                         y(:,i) =   (v);
 
+                        else
+                        % 4-th order Runge-Kutta method.
+                        [k1,J] = f(v      ,drive(:,i),P,M);
+                        k2 = f(v+0.5*dt*k1,drive(:,i),P,M);
+                        k3 = f(v-0.5*dt*k2,drive(:,i),P,M);
+                        k4 = f(v+    dt*k3,drive(:,i),P,M);
+
+                        dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
+                        v         = v + dxdt;
+                        y(:,i)    = v ;
+
+                        dfdx = full(abs(J));
+                        dfdx = dfdx ./ norm(dfdx);
+                        
+                    end
+                
+                    elseif WithDelays == 46 % RK45 with delayed states
+                    
+                    % RK45 with delays
+                    if i > 1
+                        
+                        % 4-th order Runge-Kutta method.
+                        %--------------------------------------------------
+                        k1 = f(v          ,drive(:,i),P,M);
+                        k2 = f(v+0.5*dt*k1,drive(:,i),P,M);
+                        k3 = f(v+0.5*dt*k2,drive(:,i),P,M);
+                        k4 = f(v+    dt*k3,drive(:,i),P,M);
+                        
+                        dxdt = (dt/6)*(k1 + 2*k2 + 2*k3 + k4);
+                        %v    = v + dxdt;
+
+                        % State Delays - interpolated
+                        %--------------------------------------------------
+                        d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
+                        d = repmat(d,[1 nk]);
+                        %d(9:end)=0;
+                        L = (d);
+
+                        L(9:16)  = L(9:16)  * exp(P.pr(2));
+                        L(17:24) = L(17:24) * exp(P.pr(3));
+                        L(25:32) = L(25:32) * exp(P.pr(4));
+                        L(33:40) = L(33:40) * exp(P.pr(5));
+                        L(41:48) = L(41:48) * exp(P.pr(6));
+                        L(49:56) = L(49:56) * exp(P.pr(7));
+                        
+                        vd = v;
+                        for j = 1:length(L)
+                          ti = real(L(j))/dt;
+                          if i > 1 && any(ti)
+                              pt = t(i) - ti;
+                              if pt > 0
+                                vd(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
+                              end
+                          end
+                        end
+                        
+                        
+                        v =  v + dxdt + dt * f(vd,drive(:,i),P,M);
+
+
+                        % v = dt*f(v+full(J*dt)*v,drive(:,i),P,M);
+
+
+                        % Full update
+                        %--------------------------------------------------
+                        y(:,i) =   (v); 
+                        
                     else
                         % 4-th order Runge-Kutta method.
                         [k1,J] = f(v      ,drive(:,i),P,M);
@@ -1053,46 +1138,21 @@ for ins = 1:ns
 
 
             elseif UseSmooth == 1
+
+                if isfield(M,'window')
+                    win = M.window;
+                else
+                    win = 10;
+                end
                 
-                % Compute TF matrix
-               %
-                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,4,1);
-
-                %Ppf = atcm.fun.Afft(pc,1/dt,w)';
-
-                %Qx = VtoGauss(Ppf,1);
-                %Qe = VtoGauss(Ppf,10)   ;
-                %Ppf = interp1([0 1 10]',[Ppf Qx*Ppf Qe*Ppf]',exp(P.a(ij)));
-
-                Q = atcm.fun.VtoGauss(Ppf,2);
-                Q = Q./norm(Q);
-                Ppf = Q*Ppf;
+                % Obtain the power spectrum by hilbert envelope TF decomp
+                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,win,4);
                 
-
-               % Ppf = atcm.fun.moving_average(Ppf,3);
-
-               % Ppf = atcm.fun.Afft(pc,1/dt,w);
-               %Ppf = atcm.fun.AfftSmooth(pc,1/dt,w,36);
-               % Ppf = atcm.fun.moving_average(Ppf,4);
-
-                %pc = atcm.fun.bandpassfilter(pc,1/dt,[4 100]);
-
-                %Ppf = pyulear(pc,4,w,1/dt);
-
-                %[u,s,v] = svd(yda);
-                %Qu = yda*v(:,1:14);
-                %b = Qu\Ppf;
-                %Ppf = Qu*b;
-
-                %Ppf = gaulm(Ppf);
-
-
-                %Ppf = atcm.fun.gausvdpca(Ppf(:),6,20);
-
-                %Ppf = gaufun.GaussPCA(Ppf,4);
-                %PfM = atcm.fun.assafft(pc,dt,w,8);
-                %Ppf = sum(PfM,2);
-    
+                %Ppf = pyulear(pc,8,w,1/dt);
+                
+                % Convert to (~Gaussian) features matrix wtd by Hz
+                Ppf = atcm.fun.approxlinfitgaussian(real(Ppf));
+        
                 Ppf = abs(Ppf(:));
 
             elseif UseSmooth == 0 % (else use non smooth)
@@ -1209,131 +1269,6 @@ end
 for ins = 1:ns
             
     Pf0 = Pf(:,ins,ins);
-    
-    % smoothing
-    %Pf0 = gaufun.SearchGaussPCA(Pf0,12);
-
-    %N = 8;
-
-    % Rank-N projection s.t. GP assumptions
-    %[Pf0,b,uQ] = atcm.fun.gausvdpca(Pf0,N,20);
-
-    %Q = atcm.fun.QtoGauss(Pf0,20);
-    %Q = VtoGauss(Pf0);
-
-    %Pf0 = Q*Pf0;
-
-%     b   = lsqminnorm(Q,M.y{:},0,'nowarn');
-%     b(b<=0)=0;
-%     b   = b./norm(b);
-%     nb  = length(find(b));
-%     f   = @(sigma) atcm.fun.makef(w,w(~~(b))-1,diag(Q(~~b,~~b)),sigma);%.*b(~~(b))
-%     Pf0 = f(ones(nb,1));
-
-
-    
-
-
-    %sh = atcm.fun.hnoisebasis(length(w),exp(P.a(1:2)));
-    %X  = spm_dctmtx(nf,5);
-    %Mu = exp(X(:,2:end)*P.a(1:4)');
-
-
-    %Pf0 = Pf0 + Mu;
-    
-    nd = size(P.d,1);
-    X  = spm_dctmtx(nf,nd + 1);
-    Mu = exp(X(:,2:end)*P.d);
-    Pf0 = Pf0(:).*Mu(:);
-
-%     for i = 1:N
-%         uQ(i,:) = scasmooth(uQ(i,:),exp(P.pr(i)+1));
-%     end
-% 
-%     Pf0 = abs(sum(uQ,1));
-
-    %Pf0 = scasmooth(Pf0,exp(P.pr(4)));
-
-   % Pf0 = atcm.fun.moving_average(Pf0,3);
-
-%     uQ = b.*uQ;
-% 
-%     % Smoothed version of each component
-%     for i = 1:N
-%        SQ(i,:) = atcm.fun.moving_average(uQ(i,:),20);
-%     end        
-%     
-%     % Find (non-neg lsq) fit to data - NOT changing amplitudes (~~)
-%     bq  = atcm.fun.lsqnonneg([uQ;SQ]',M.y{:});
-%     Pf0 = bq'*[uQ;SQ];
-
-  %   SQ = atcm.fun.moving_average(Pf0,20);
-
- %    bq = atcm.fun.lsqnonneg([Pf0,SQ],M.y{:});
-
-%     Pf0 = bq'*[Pf0,SQ]';
-
-    %bq  = atcm.fun.lsqnonneg([uQ]',M.y{:});
-    %Pf0 = ~~bq'*[uQ];
-
-%     % linear model smoothing
-%     Pf1 = atcm.fun.moving_average(Pf0,8);
-% 
-%     for i = 1:length(Pf0)
-%         K(i,:) = linspace(Pf0(i),Pf1(i),20);
-%     end
-% 
-%     for i = 1:90; I = atcm.fun.findthenearest(M.y{:}(i),K(i,:));II(i) = I(1);end
-% 
-%     for i = 1:90; Y(i) = K(i,II(i));end
-% 
-%     Pf0 = Y(:);
-
-
-    % fit components to data
-    %bb = atcm.fun.lsqnonneg(uQ',M.y{:});
-    %Pf0 = bb'*uQ;
-
-    %Pf0 = gaufun.SearchGaussPCA(Pf0,12*2);
-
-    %Pf0 = atcm.fun.gaufitvec(w,Pf0);
-
-    %sh = atcm.fun.hnoisebasis(length(w),exp(P.a(1:2)));
-
-    %Pf0 = Pf0(:).*sh(:);
-
-    % use the dcm mtf
-    % Sp  =  atcm.fun.AGenQn(Ppf,8);
-    % [v,s] = eig(full(Sp),'nobalance');
-    % s=diag(s);
-    % s = 1j*imag(s) + real(s) - exp(real(s));
-    % iv = pinv(v);
-    % % v(:,1)*iv(1,:)*(1./(1j*2*pi*w(:) - s(1)))
-    % for i = 1:8; q(:,i) = v(:,i)*iv(i,:)*(1./(1j*2*pi*w(:) - s(i))); end
-    % Pp0 = sum(abs(q),2);
-
-    %b(b<0)=0;
-
-    %Pf0 = abs(uQ'*b);
-    % fit reduced rank project to data
-    %bb = (uQ.*b)'\M.y;
-
-    %Pf0 = bb'*(uQ.*b);
-
-    % linear fit to gp model
-%     warning off;
-% 
-%     Q       = atcm.fun.AGenQn(Pf0,20);
-%     [u,s,v] = svd(Q);
-%     uQ      = u(:,1:8)'*Q;
-%     b       = uQ'\Pf0;
-%     %b(b<0) = 0;
-%     Pf0     = uQ'*b;
-% 
-%     warning on;
-
-    %Pf0 = atcm.fun.moving_average(Pf0,2);
-
     
 
     Pf(:,ins,ins) = Pf0(:);

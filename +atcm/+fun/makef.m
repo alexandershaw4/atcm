@@ -1,4 +1,4 @@
-function X = makef(w,Fq,Amp,Wid,model)
+function [X,Xk] = makef(w,Fq,Amp,Wid,model)
 % Generate a Gaussian/Cauchy/Lapalce/Gamma distribution / mixture, e.g.
 %   
 %   atcm.fun.makef(w,Fq,Amp,Wid,model)
@@ -29,7 +29,7 @@ if length(Fq) > 1
         catch
             X0 =      atcm.fun.makef(w,Fq(i),Amp(i),Wid(i),model);
         end
-        %X0(i,:) = afit.makef(w,Fq(i),Amp(i),Wid(i));
+        Xk(i,:) = atcm.fun.makef(w,Fq(i),Amp(i),Wid(i));
 
     end
     %X0 = max(X0); 
