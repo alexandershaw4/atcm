@@ -29,7 +29,9 @@ if length(Fq) > 1
         catch
             X0 =      atcm.fun.makef(w,Fq(i),Amp(i),Wid(i),model);
         end
-        Xk(i,:) = atcm.fun.makef(w,Fq(i),Amp(i),Wid(i));
+        try
+            Xk(i,:) = atcm.fun.makef(w,Fq(i),Amp(i),Wid(i));
+        end
 
     end
     %X0 = max(X0); 
@@ -65,6 +67,7 @@ switch model
 end
 w   = w + mw;
 
+Xk = X;
 end
 
 

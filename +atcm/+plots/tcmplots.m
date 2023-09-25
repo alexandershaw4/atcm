@@ -17,11 +17,12 @@ title(sprintf('Data & Model - Fit\n(r^2 = %d%%)',r2));
 xlabel('Frequency (Hz)');ylabel('PSD');
 grid on;
 
-
+try
 subplot(222); plot(w,squeeze(l{1}.iweighted(1,:,:)),'linewidth',2);
 title('Principal (contributing) cells spectra');
 xlabel('Frequency (Hz)');ylabel('PSD');
 grid on;
+end
 
 subplot(2,2,[3 4]); plot(pst,squeeze(s{1}(1,:,1,:)),'linewidth',2);
 title('Membrane potential time series');

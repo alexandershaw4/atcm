@@ -74,6 +74,10 @@ for i = 1:128
     % solve under locally linear assumptions
     %--------------------------------------------------------------
     [f,dfdx] = feval(M.f,M.x,M.u,P,M);
+    J=dfdx;
+
+    %dfdx = jaco(@(x) M.f(spm_unvec(x,M.x),M.u,P,M),M.x(:),ones(size(M.x(:)))*exp(-8),0,1);
+    %dfdx = denan(dfdx);
     
 %     if mfm
 %         mf = spm_unvec(f,M.x);

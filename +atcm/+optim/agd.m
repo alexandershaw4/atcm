@@ -31,15 +31,32 @@ for i = 1:n
     end
 
     % if n == 1, optimise alpha
+    %if i == 1
+    %    fa = @(a) f(x + (a)*-g(:));
+    %    ga = dfdx(fa,a);
+    %    a  = e./ga;
+    %end
+
     if i == 1
-        fa = @(a) f(x + (a)*-g(:));
-        ga = dfdx(fa,a);
-        a  = e./ga;
+        a = 1/8;
     end
 
+    H = g(:)*g(:)';
+
+    g = g./norm(g);
+    H = H./norm(H);
+    H = makeposdef(H);
+
     % step and evaluate
-    x  = x + (a)*-g(:);
-    e  = f(x);
+    x  = x - a*(H\g');
+    
+    de = f(x);
+
+    if de > e
+        a = a ./ 2;
+    end
+
+    e = de;
 
     fprintf('It: %d | f = %d\n',i,e);
     alle = [alle e];

@@ -1,4 +1,4 @@
-function [f,J] = tc_hilge(x,u,P,M,fso)
+function [f,J,D] = tc_hilge2(x,u,P,M,fso)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -74,11 +74,6 @@ IncludeMH = 1;
 
 
 inputu = u;
-
-% if isfield(P,'inputs') && length(u) == 1
-%     u = repmat(u,[8 1]);
-% else u = u(:);
-% end
  
 % get dimensions and configure state variables
 %--------------------------------------------------------------------------
@@ -199,8 +194,6 @@ GIa = zeros(8,8);
 
 % Excitatory (np x np): AMPA & NMDA
 %--------------------------------------------------------------------------
-
-
 GEa = [  0     0     0     0     0     2     0     2;
          4     4     0     0     0     0     0     0;
          0     2     0     0     0     0     0     0;
@@ -210,23 +203,8 @@ GEa = [  0     0     0     0     0     2     0     2;
          0     0     0     0     0     0     0     2;
          2     0     0     0     0     2     0     0];
 
-% GEa = [  0     0     0     0     0     4     0     2;
-%          4     4     0     0     0     4     0     0;
-%          0     2     0     0     0     0     0     0;
-%          0     2     0     0     0     2     0     0;
-%          0     0     0     2     0     0     0     0;
-%          2     2     0     0     0     0     0     0;
-%          0     0     0     0     0     0     0     2;
-%          2     0     0     4     0     2     0     0];
-
-GEa = GEa*2;
-
-%GEa = GEa/8;
-
-
+GEa = (~~GEa)*2;
 GEn = GEa;
-%GEn = GEn + eye(8)/8;
-
 
 
 % Inhibitory connections (np x np): GABA-A & GABA-B
@@ -242,18 +220,16 @@ GIa =  [ si    0     8     0     0     0     0     0;
          0     0     0     0     0     0     12    0;
          0     0     0     0     0     0     4     si];
      
-GIa=GIa*2;
+GIa = (~~GIa)*10;
 
-%GIa = GIa/8;
-
-% GIbg = ~GIa/32;
-% GEbg = ~GEa/32;
-% 
-% %GIbg(:,[1 2 4 6 8])=0;
-% %GEbg(:,[3 5 7]) = 0;
-% 
-% GIa = GIa/2 + ( GIbg * exp(P.TV(1)));
-% GEa = GEa/2 + ( GEbg * exp(P.TV(2)));
+GIa =[8     0     10    0     0     0     0     0;
+      0     8     10    0     0     0     0     0;
+      0     0     10    0     0     0     0     0;
+      0     0     0     8     10    0     0     0;
+      0     0     0     0     10    0     0     0;
+      0     0     0     0     10    8     0     0;
+      0     0     0     0     0     0     8     0;
+      0     0     0     0     0     0     8     8];
 
 
 GIb = GIa;
@@ -273,16 +249,6 @@ if IncludeMH
     % https://www.sciencedirect.com/science/article/pii/S0006349599769250
     VM   = -70;                            % reversal potential m-channels          
     VH   = -30;                            % reversal potential h-channels 
-
-%     GIm  = sparse([6 8],[6 8],4,8,8);
-%     %GIm  = eye(8)*4;
-%     Mh   = diag(exp(P.Mh));
-% 
-%     GIh      = full(sparse([6 8],[6 8],4   ,8,8)); % 1/4
-%     Hh       = exp(P.Hh);
-%     GIh(6,6) = GIh(6,6)*Hh(1);
-%     GIh(8,8) = GIh(8,8)*Hh(2);
-
 
     GIm = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Mh(:)'));
     GIh = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Hh(:)'));
@@ -312,15 +278,6 @@ KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
 % now using faster AMPA and GABA-A dynamics based on this book:
 % https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
 
-%KE  = exp(-P.T(:,1))*1000/3;            % excitatory rate constants (AMPA)
-%KN  = exp(-P.T(:,3))*1000/150;          % excitatory rate constants (NMDA)
-%KI  = exp(-P.T(:,2))*1000/6;           % inhibitory rate constants (GABAa)
-
-%KE = KE * exp( P.TT(1) );
-%KI = KI * exp( P.TT(2) );
-%KN = KN * exp( P.TT(3) );
-%KB = KB * exp( P.TT(4) );
-
 
 % Trial effects on time constants: AMPA & NMDA only
 if isfield(P,'T1')
@@ -331,18 +288,18 @@ end
 % Voltages [reversal potentials] (mV)
 %--------------------------------------------------------------------------
 VL   = -70;                               % reversal  potential leak (K)
-VE   =  60;                               % reversal  potential excite (Na)
-VI   = -90;                               % reversal  potential inhib (Cl)
-VR   = -52;   %55                            % threshold potential (firing)
-VN   =  10;                               % reversal Ca(NMDA)   
-VB   = -100;                              % reversal of GABA-B
+VE   =  60 ;                               % reversal  potential excite (Na)
+VI   = -90 * exp(P.pr(1));;                               % reversal  potential inhib (Cl)
+VR   = -52 * exp(P.pr(2));;   %55                            % threshold potential (firing)
+VN   =  10 * exp(P.pr(3));;                               % reversal Ca(NMDA)   
+VB   = -100 * exp(P.pr(4));;                              % reversal of GABA-B
 
 %VE = VE * exp(P.pr(1));
 %VI = VI * exp(P.pr(2));
 %VN = VN * exp(P.pr(3));
 %VB = VB * exp(P.pr(4));
 
-VR = VR * exp(P.pr(1));
+%VR = VR * exp(P.pr(1));
 
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
@@ -357,56 +314,19 @@ GL   = 1 ;
 
 % neural-mass approximation to covariance of states: trial specific
 %----------------------------------------------------------------------
-%Vx   = exp(P.S)*32; % 32
-%    {ss    sp    ii    dp    di    tp    rt    rl}
-%Vx = [Vx(1) Vx(1) Vx(2) Vx(1) Vx(2) Vx(1) Vx(3) Vx(3)];
+        
+FF = 1./(1 + exp(-exp(P.S).*(x(:,:,1)-VR)));
 
-    %-Approximate integral
-    %--------------------------------------------------------------------------
-    %x0    = (x(:,:,1) - VR)./sqrt(abs(Vx));
-    %F    = sqrt(1 - exp(-(2/pi)*x0.^2))/2;
-    %i    = x0 < 0;
-    %F(i) = -F(i);
-    %m    = F + 1/2;
-    
-    %SPf = 1./(1 + exp(-exp(P.SP).*(x(:,2,1)-VR)));
-    %m(2)  = SPf';
-        
-    FF = 1./(1 + exp(-exp(P.S).*(x(:,:,1)-VR)));
-    
-    % probability of firing: 
-    % [-70 : -55] mV == LHS of Gaussian co VR
-    % [-55 : +30] mV == 1
-    % [ >= 30 ]   mV == 0
-        
-    % do this to map the probability of firing over V:
-    % figure,plot(-70:1:70,pdf(makedist('normal',VR,2),(-70:1:70)) ./ pdf(makedist('normal',VR,2),VR))
-    
-     % reset to refractory
-    %RS = find( x(:,:,1) >= 30 );
-    %if any(RS)
-    %    x(1,RS,1) = -90;
-    %end
-        
-    %FF =  pdf(makedist('normal',VR,2),x(:,:,1)) ./ pdf(makedist('normal',VR,2),VR);
-    
-    %VVR = VR*exp(P.S); % try 'Lognormal'
-    %for i = 1:8
-    %    FF(i) =  pdf(makedist('normal',VVR(i),2),x(:,i,1)) ./ pdf(makedist('normal',VVR(i),2),VVR(i));
-    %end
-    
-    %x(1,:,1) = squeeze(x(1,:,1)) .* (1./(1 + exp( - exp(P.S(:)) )))';
-        
-    RS = 30 ;
-    
-    Fu = find( x(:,:,1) >= VR );
-    FF(Fu) = 1;
-    
-    Fl = find( x(:,:,1) >= RS );
-    FF(Fl) = 0;
+RS = 30 ;
 
-    
-    m  = FF;%.*exp(P.S);
+Fu = find( x(:,:,1) >= VR );
+FF(Fu) = 1;
+
+Fl = find( x(:,:,1) >= RS );
+FF(Fl) = 0;
+
+
+m  = FF;%.*exp(P.S);
 
     
 % extrinsic effects
@@ -428,13 +348,6 @@ an(:,5) = AN{5}*m(:,8);                     % relay NMDA
 %==========================================================================
 BE     = exp(P.E)*0.8;
 
-% input(s)
-%--------------------------------------------------------------------------
-% if isfield(M,'u')
-%       U =   u;%(:); % endogenous input
-% else; U = C*u;%(:); % exogenous input
-% end
-
 % flow over every (ns x np) subpopulation
 %==========================================================================
 f     = x;
@@ -442,38 +355,14 @@ f     = x;
 % Thalamo-cortical flow [eq. motion] over modes, populations, states...
 %--------------------------------------------------------------------------
 for i = 1:ns
-   
-        % allow switching of thalamus on/off
-        %HasThal = M.HasThal(i);
-            
+               
         % input scaling: 
         %------------------------------------------------------------------
-        %if any(full(U(:))) ;
-            dU = u(:)*C(i,1);
-        %else
-        %    dU = 0;
-        %end
+        dU = u(:)*C(i,1);
                 
         Gsc = ~eye(8);
         Gsc = Gsc +  (diag(exp(P.Gsc)));
-                
-        % CT and TC delays on G
-        %-----------------------------------------------------------------
-         CT = 8*exp(P.CT); %60;
-         TC = 3*exp(P.TC); %20;
-
-        %CT = 0.06*exp(P.CT); %60;
-        %TC = 0.02*exp(P.TC); %20;
-
-        tcd = zeros(8,8);
-
-        tcd(1:6,[7 8]) = TC;
-        tcd([7 8],1:6) = CT;
-
-        % apply operator to G and GN
-        G  = (1./(1+tcd)).*G;
-        Gn = (1./(1+tcd)).*Gn;
-                
+                                
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------
         E      = ( (G(:,:,i).*GEa).*Gsc )*m(i,:)'; % AMPA currents
@@ -497,51 +386,22 @@ for i = 1:ns
         
         % and exogenous input(U): 
         %------------------------------------------------------------------
-        %if length(u) == 1
-            
-        %input_cell        = [8];
-        %E(input_cell)     = E(input_cell) + dU;
-
         % flag for the oscillation injection desribed here: 
         % https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5310631/
         
         if length(u) > 1
-            E(8) = E(8) + dU(1);
-            E(6) = E(6) + dU(2);
+            E(8) = E(8) + dU(2);
+            E(2) = E(2) + dU(1);
         else
-            input_cell        = [8 1];
-            E(input_cell)     = E(input_cell) + dU;
+            input_cell        = [8];
+            E(input_cell)     = E(input_cell) + dU;            
         end
-       
-        %E(2) = E(2) + exp(P.a(1)) * m(2);
-        %I(3) = I(3) + exp(P.a(2)) * m(3);
-        %E(4) = E(4) + exp(P.a(3)) * m(4);
-        %E(1) = E(1) + exp(P.a(4)) * m(1);
 
-
-         %   ENMDA(input_cell)     = ENMDA(input_cell) + dU*10;
-        %elseif length(u) == 56
-            %E(1:8) = E(1:8) + u(1:8)*10*C(1);
-            %ENMDA(1:8) = ENMDA(1:8) + u(1:8)*10*C(1);
-
-        %    E([1 2 4 6 8]) = E([1 2 4 6 8]) + (u([1 2 4 6 8])*10*C(1));
-        %    ENMDA([1 2 4 6 8]) = ENMDA([1 2 4 6 8]) + (u([1 2 4 6 8])*10*C(2));
-        %    I([3 5 7]) = I([3 5 7]) + (u([3 5 7])*10*C(3)); 
-            
-
-        %end
-       % ENMDA(input_cell) = ENMDA(input_cell) * dU';
-        
-        %I(7) = I(7) * dU;
-        %E(7) = E(7) - I(7);
-
-%         if nargin > 4 && ~isempty(fso)
-%             I(3) = I(3) + fso;
-%             E(3) = E(3) + fso;
-% 
-%            % I(2) = I(2) + fso;
-%         end
-                       
+        if isfield(P,'thi');
+            E(8) = E(8) + exp(P.thi);
+            ENMDA(8) = ENMDA(8) + exp(P.thi);
+        end
+                              
         % Voltage equation
         %==================================================================
         if ~IncludeMH
@@ -577,53 +437,6 @@ for i = 1:ns
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
         end
                 
-        %f(i,:,7) = FF;
-        
-        % Conductance Delays: f = state update, x = state previous
-        % population delays
-        %------------------------------------------------------------------
-        % short range neurons are around 0.014m length and conduct around
-        % 120 m/s so ~1.68
-        
-%         df = f(:) - x(:);
-%         d  = exp(P.ID).*[1 1 1 1 1 1 1 1];
-%         %d=[1 1 1 1 1 1 1 1];
-%         s = 1;
-%         l = 1.68;
-%         
-%         d = [l l s l s s s s]./d;
-%         % exp(-P.T(:,1))*1000/2.2;
-% 
-%         %d = repmat(d(:),[nk 1]);
-%         
-% 
-%         f = spm_unvec( spm_vec(x) + df(:).*repmat(d(:),[nk 1]), f);
-
-                                
-%         % receptor and cell specific delays
-%         df = f - x;
-%         
-%         % SP AMPA
-%         f(:,2,2) = x(:,2,2) + df(:,2,2) * exp(P.delays(1));
-%         
-%         % SP NMDA
-%         f(:,2,4) = x(:,2,4) + df(:,2,4) * exp(P.delays(2));
-%         
-%         % SP GABA
-%         f(:,2,3) = x(:,2,3) + df(:,2,3) * exp(P.delays(3));
-%         
-%         % SI GABA
-%         f(:,3,3) = x(:,3,3) + df(:,3,3) * exp(P.delays(4));
-%         
-%         % DP AMPA
-%         f(:,4,2) = x(:,4,2) + df(:,4,2) * exp(P.delays(5));
-%         
-%         % SI NMDA
-%         f(:,3,4) = x(:,3,4) + df(:,3,4) * exp(P.delays(6));
-        
-
-    
-    
 
 end
 
@@ -677,21 +490,19 @@ TC = 3; %20;
 %TC = 20;
 
 Tc              = zeros(np,np);
-Tc([7 8],[1:6]) = CT  * exp(P.D0(1)); % L6->thal
-Tc([1:6],[7 8]) = TC  * exp(P.D0(2)); % thal->ss
-%Tc = Tc.*~~(GEa | GIa);
+Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal
+Tc([1:6],[7 8]) = TC  * exp(P.TC); % thal->ss
+
 Tc = -Tc / 1000;
 Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
 
 
-% ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
-% ID = [1 1 1 1 1 1 1 20];
-% ID = -ID.*exp(P.ID)/1000;
-% 
-% ID = repmat(ID,[1 nk]);
-% 
-% 
-% Tc = Tc + diag(ID);
+%kd = exp(P.a(1)) * 8;
+ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
+%ID = [1 1 1 1 1 1 1 1];
+ID = -ID.*exp(P.ID)/1000; 
+ID = repmat(ID,[1 nk]);
+
 
 
 % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
@@ -700,16 +511,18 @@ Dp = ~Ss;                            % states: different sources
 Ds = ~Sp & Ss;                       % states: same source different pop.
 %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
 
-if ~isfield(P,'delays')
-    D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;
-else
-    D = d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
-end
+D = d(1)*Ds + Tc + diag(ID) ;
+
+%if ~isfield(P,'delays')
+ %   D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;
+%else
+ %   D = d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
+%end
 
 %D = d(2)*Dp + Tc; %%%%%!!!!!!
 
 % Implement: dx(t)/dt = f(x(t - d)) = inv(1 - D.*dfdx)*f(x(t))
 %                     = Q*f = Q*J*x(t)
 %--------------------------------------------------------------------------
-Q  = spm_inv(speye(length(J)) - D.*J);
+%Q  = spm_inv(speye(length(J)) - D.*J);
 %Q  = spm_inv(D.*J);

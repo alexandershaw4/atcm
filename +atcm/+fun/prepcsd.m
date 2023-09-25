@@ -338,6 +338,12 @@ for i = 1:Ne;
                         [Pf, F] = SpecFun(Ymod', 1/DCM.xY.dt, DCM.xY.Hz,DCM.options.FFTbins) ;
                     else
                         [Pf, F] = SpecFun(Ymod',  1/DCM.xY.dt, DCM.xY.Hz) ;
+
+                        %[Pf,F] = atcm.fun.fftgc(Ymod',DCM.xY.dt,DCM.xY.Hz,10);
+
+                        %F = DCM.xY.Hz;
+                        %Pf = atcm.fun.tfdecomp(Ymod,DCM.xY.dt,F,2,3,@max);
+                        %Pf = atcm.fun.approxlinfitgaussian(Pf,[],[],4);
                         
                         if isfield(DCM.options,'fooof') && DCM.options.fooof
                             if j == Nt;fprintf('Fitting FOOOF %d times\n',j);end
@@ -395,11 +401,14 @@ for i = 1:Ne;
     if (UseWelch==1010)
         if isfield(DCM.options,'BeRobust') && DCM.options.BeRobust
             fprintf('Robust fitting\n');
-            [mnewspectra,fq,~,~,~,FitPar ]=atcm.fun.RobustSpectraFit(F,Pfull,2);
+            [mnewspectra,fq,unc,~,~,FitPar ]=atcm.fun.RobustSpectraFit(F,Pfull,2);
             mnewspectra=exp(mnewspectra);
             mnewspectra=mnewspectra-min(mnewspectra);
             Pfull = mnewspectra;
+
             %Pfull = spm_robust_average(Pfull);
+
+            DCM.xY.trial_spectra = unc;
             
             if DOBASE
                 Pfullbase = squeeze(spm_robust_average(Pfullbase));

@@ -1,4 +1,4 @@
-function [comps,I,Q,ve] = approxlinfitgaussian(x,thresh,method)
+function [comps,I,Q,ve] = approxlinfitgaussian(x,thresh,method,rankg)
 % Approximate Linearised Gaussian Fitting to x
 %
 % usage: [comps,I,Q,ve] = atcm.fun.approxlinfitgaussian(x,thresh)
@@ -46,6 +46,19 @@ if nargin < 3 || isempty(method)
     method = 'none';
 end
 
+% iterative: refit to n-th residuals
+if nargin > 3 && ~isempty(rankg)
+    xx = x;
+    for i = 1:rankg
+        [dx(i,:),I{i},Q{i}] = atcm.fun.approxlinfitgaussian(xx,thresh,method);
+        xx = xx(:) - dx(i,:)';
+    end
+    comps = sum(dx,1);
+    return;
+end
+
+
+% algorithm
 x  = real(x);
 [Q,~,~,W]  = atcm.fun.VtoGauss(x);
 
@@ -55,15 +68,23 @@ for i = 1:length(Q)
 end
 
 
-
 switch method
     case 'none';
         
         x   = real(x(:));
         [Q,~,~,W]  = atcm.fun.VtoGauss(x);
         pk  = atcm.fun.indicesofpeaks(real(x));
-        x   = max(Q(pk,:));
+        if length(pk) > 1
+            x   = max(Q(pk,:));
+        else
+            x = Q(pk,:);
+        end
+        
         w   = 1:length(x);
+
+        if length(W) ~= length(pk)
+            W = repmat(W(1),1,length(w));
+        end
 
         % now we have mean, height and width for each gaussian - 
         [comps,Q] = atcm.fun.makef(w,w(pk)-1,x(pk),W(pk)/2);

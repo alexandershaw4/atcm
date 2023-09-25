@@ -6,7 +6,7 @@ function [V,I] = maxpoints(x,n,varargin)
 %
 %
 
-if nargin < 3
+if nargin < 3 || isempty(varargin{1})
     f = @max;
 else
     f = eval(['@' lower(varargin{1})]);

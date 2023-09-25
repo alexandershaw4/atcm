@@ -31,13 +31,13 @@ function RunTCM_Script(i)
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'MeanSZDatasets.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'AllSZNoMerge.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'broadTCM38newton_';      % outputted DCM prefix
+Data.Prefix       = 'TCMx_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -84,7 +84,7 @@ for i = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tc_hilge;               % model function handle
+    DCM.M.f  = @atcm.tc_hilge2;               % model function handle
     DCM.M.IS = @atcm.integrate_1;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
@@ -107,7 +107,8 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.DoData = 1;                         %... leave on [custom]
     %DCM.options.baseTdcm   = [-200 0];             %... baseline times [new!]
     DCM.options.Fltdcm = fq;                    %... bp filter [new!]
-    
+    DCM.options.UseButterband = fq;
+
     DCM.options.analysis      = 'CSD';              %... analyse type
     DCM.xY.modality           = 'LFP';              %... ECD or LFP data? [LFP]
     DCM.options.spatial       = 'LFP';              %... spatial model [LFP]
@@ -115,8 +116,8 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.Nmodes        = length(DCM.M.U);    %... number of modes
     
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 2;
-    DCM.options.BeRobust      = 1;
+    DCM.options.FFTSmooth     = 1;
+    DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;
     
     DCM.xY.name = DCM.Sname;
@@ -124,28 +125,16 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.DATA = 1 ;
 
     % also without the robust fitting to get the residual
-    DCMo = DCM;
-    DCMo.options.BeRobust=0;
-    DCMo = atcm.fun.prepcsd(DCMo);
-    r = DCMo.xY.y{1} - DCM.xY.y{1};
-    
-    % Do a FOOOF and remove power law
-    %fprintf('Removing power law from data spectrum\n');
-    %m = atcm.fun.c_oof(DCM.xY.Hz,DCM.xY.y{:});
-    %DCM.xY.y{:} =  DCM.xY.y{:} - m;
-    
-    %m = atcm.fun.c_oof(DCM.xY.Hz,DCM.xY.y{:});
-    %Y = DCM.xY.y{:} - m;
-    %M = fit(DCM.xY.Hz.',Y,'Gauss5');
-    %DCM.xY.y{:} = M(DCM.xY.Hz);
+    %DCMo = DCM;
+    %DCMo.options.BeRobust=0;
+    %DCMo = atcm.fun.prepcsd(DCMo);
+    %r = DCMo.xY.y{1} - DCM.xY.y{1};
         
     % Subfunctions and default priors
     %----------------------------------------------------------------------
     DCM = atcm.parameters(DCM,Ns);
     
     DCM.xY.y{:} = abs(DCM.xY.y{:});
-    DCM.M.y  = DCM.xY.y;
-    DCM.M.Hz = DCM.xY.Hz;
     
     % If using DCM inversion, select whether to block graph or not
     DCM.M.nograph = 0;
@@ -162,85 +151,28 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.solvefixed=0;      % oscillations == no fixed point search
     DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
     DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
-    
-    % Set Q - a precision operator, increasing with frequency
-    %----------------------------------------------------------------------
-    
+        
     % simulation / integration parameters
     %----------------------------------------------------------------------
     DCM.M.sim.dt  = 1./600;
     DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
     DCM.M.burnin  = 640;
     
-    % Input is an ERP
+    % Input is an oscillation
     DCM.M.InputType = 1;
 
-    DCM.M.UseSmooth=1;
-    
     % Use a 2-point RK method for integration
     DCM.M.intmethod = 45;
 
     % No hamming on spectrum
     DCM.M.DoHamming = 0;
 
-%     % USE PROVIDED PRIORS!
-%     x = load('+atcm/TCM_Priors_Latest.mat','pE','pC');
-%     DCM.M.pE = x.pE;
-%     DCM.M.pC = x.pC;
-% 
-%     %DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
-%     %DCM.M.pE.ID = zeros(1,8);
-%     DCM.M.pC.ID = ones(1,8)/8;
-%     DCM.M.pC.Gsc = ones(1,8)/8;
-%     DCM.M.pC.R = [1 1]/8;
-%     DCM.M.pC.a = DCM.M.pC.a*0;
-%     %DCM.M.pE.L=-2.5;
-% 
-%     DCM.M.pC.S = ones(1,8)/8;
-%     %DCM.M.pC.J(1:8)=1/8;
-%     DCM.M.pC.d = ones(8,1)/8;
-% 
-%     for ip = 1:5
-%         DCM.M.pC.H(ip,ip)=1/8;
-%     end
-% 
-%     % flat priors
-%     DCM.M.pE = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
-%     DCM.M.pE.J = DCM.M.pE.J-1000;
-%     %DCM.M.pE.J(2)=log(1.1);
-%     %DCM.M.pE.J([1 2 3 4 5]) = log([.6 .8 .4 .6 .4]);
-%     DCM.M.pE.J([2 4])=log([.8 .6]);
-% 
-%     %DCM.M.pC.TV=DCM.M.pC.TV*0;
-%     
-%     %DCM.M.pC.pr(1:4)=1/8;
-% 
-%     %DCM.M.pE.J([1 2 3 4 5 6 7 8]) = log([.6 .8 .4 .6 .4 .6 .2 .2]);
-% 
-%     %DCM.M.pE.dd = ones(8,1)*0;
-%     DCM.M.pE.L = -4;
-%     %DCM.M.pC.J(1:8) = 1/8;
-%     %DCM.M.pE.dd = zeros(8,1);
-%     %DCM.M.pC.dd = ones(8,1)/8;
-%     %DCM.M.pC.CV = ones(1,8)/8;
-%     %DCM.M.pC.J=DCM.M.pC.J*0;
-% 
-%     %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,-70);
-% 
-%     %DCM.M.pC.pr(1:5)=1/8;
-
     load("newpriors.mat")
     DCM.M.pE = Ep;
     DCM.M.pC = pC;
 
-    DCM.M.pC.S = DCM.M.pC.S*0;
-    DCM.M.pC.pr(1)=1/8;
-    DCM.M.pC.d = DCM.M.pC.d*0; 
-    
-    DCM.M.pC.TV(1:2)=0;
 
     DCM.M.pC.S  = ones(1,8)/8;
-    %DCM.M.pC.CV = ones(1,8)/8;
 
     DCM.M.pE.T = [0 0 0 0 0 0];
     DCM.M.pC.T = [1 1 1 1 1 1]/8;
@@ -251,8 +183,6 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE.Hh = zeros(1,8);
     DCM.M.pC.Hh = [0 0 0 0 0 1 0 1]*0;%/8;
 
-    DCM.M.pC.pr(1:7)=1/8;
-
     % remove old params
     rm = {'h' 'm' 'gaba' 'psmooth'};
 
@@ -261,67 +191,63 @@ for i = i;%1:length(Data.Datasets)
         try DCM.M.pC = rmfield(DCM.M.pC,rm{i});end
     end
     
-    %DCM.M.pE.J(1) = log(.8);
-    %DCM.M.pE.J(8) = log(.8);
-
-    %DCM.M.pE.a = [0 0 0 0];
-    %DCM.M.pC.a = [1 1 1 1]./8;
-
-    DCM.M.pE.L = -5;
-    DCM.M.pC.d = DCM.M.pC.d+1/8;
-
-
     % generate a confounds Q matrix
+    Y = DCM.xY.y{:};
     w  = DCM.xY.Hz;
-    X0 = spm_dctmtx(length(w),8);
-    Q  = speye(length(w)) - X0*X0';
+
+    Q = spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1)';    
     Q = Q .* atcm.fun.AGenQn(DCM.xY.y{:},8);
     Q = abs(Q) + AGenQn(diag(Q),8);
-    %Q = atcm.fun.gausvdpca(Q,20);
-    %Q = Q .* atcm.fun.AGenQn(DCM.xY.y{:},8);;
-
-    %V = ~~spm_vec(DCM.M.pC);
-    %DCM.M.pC = spm_unvec(V*1e-3,DCM.M.pC);
-
     
     % July 2023: try turning everything off except intrinsics and delays:
     pE = DCM.M.pE;
     pC = DCM.M.pC;
 
     DCM.M.pE   = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
-    DCM.M.pE.J = pE.J;
-    DCM.M.pE.J(1)=log(.4);
-    DCM.M.pE.L = -4;
-    %DCM.M.pE.J(1) = log(.4);
+    DCM.M.pE.J = pE.J;  
+    DCM.M.pE.L = -2;
 
     DCM.M.pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
     DCM.M.pC.H  = pC.H;
     DCM.M.pC.Hn = pC.Hn;
-    DCM.M.pC.ID = ones(1,8)/32;
+    DCM.M.pC.ID = ones(1,8)*0;%./32;%/16;
     DCM.M.pC.L = 1/8;
     
     DCM.M.pC.H(6,6) = 1/8;
     DCM.M.pC.CT = 1/8;
-    DCM.M.pC.TC = 1/8;
+    DCM.M.pC.TC = 1/8;    
 
-    DCM.M.window = 10;
+    load('new_priors_6923','pE')
+    DCM.M.pE   = pE;
+    DCM.M.pE.L = -2;
 
+    DCM.M.pC.S = DCM.M.pC.S + 1/8;
+    DCM.M.pC.ID = ones(1,8)/32;
+    
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
+    w   = DCM.xY.Hz;
+    Y   = DCM.xY.y{:};
+
+    DCM.M.y  = DCM.xY.y;
+    DCM.M.Hz = DCM.xY.Hz;
+
+    DCM.M.InputType=9;
+    DCM.M.pC.d(1:6)=1/8;
+    DCM.M.pE.J(1) = log(.4);
     ppE = DCM.M.pE;
-    w=DCM.xY.Hz;
-    
+    DCM.M.solvefixed=0;
+    %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
+            
     % Construct an AO optimisation object
     M = AODCM(DCM);
-    
-    % Bias and feature selection - ensuring FS(y) remains smooth
-    M.opts.Q = Q;
+
+    M.opts.Q = Q;%diag(w);
     
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
     M.opts.WeightByProbability = 0;
-
 
     M.opts.ismimo      = 1;     
     M.opts.doparallel  = 1;    
@@ -331,20 +257,21 @@ for i = i;%1:length(Data.Datasets)
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
     
-    M.opts.objective   = 'gauss';
+    M.opts.objective   = 'gauss';%'qrmse_g';%'gauss';
     M.opts.criterion   = -inf;
     
     M.opts.factorise_gradients = 0;
     M.opts.normalise_gradients = 0;
     
-    M.opts.memory_optimise = 1;
+    M.opts.memory_optimise = 0;
     M.opts.rungekutta      = 6;
+    M.opts.bayesoptls      = 0;
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
     M.opts.crit            = [0 0 0 0];
     
     M.opts.userplotfun = @aodcmplotfun;
     
-    M.opts.isNewton      = 1;
+    M.opts.isNewton      = 0;
     M.opts.isQuasiNewton = 0;
     M.opts.isNewtonReg   = 0;      
     M.opts.isGaussNewton = 0;
@@ -353,21 +280,23 @@ for i = i;%1:length(Data.Datasets)
     % order of dfdx: grads or curv & whether to orthogoanlise
     M.opts.order         = 1;
     M.opts.orthogradient = 1;
+    M.opts.gradtol       = 1e-8;
         
     M.default_optimise([9],[18])
     
     M.update_parameters(M.Ep);
 
-    M.default_optimise([9],[8])
+    M.default_optimise([9],[18])
 
-    % save after first optim loop (because some fail in stage 2)
+    % save in DCM structures after optim 
     %----------------------------------------------------------------------
     DCM.M.pE = ppE;
     DCM.Ep = spm_unvec(M.Ep,DCM.M.pE);
     DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
     DCM.Cp = makeposdef(DCM.Cp);
     DCM.F = M.F;
-    save(DCM.name); close; clear global;
+    save(DCM.name); close all; clear global;
     
 end
+
 end

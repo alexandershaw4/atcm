@@ -152,7 +152,6 @@ switch InputType
         %------------------------------------------------------------------
         mu    = exp(P.R(1));              % mean amplitude
         drive = ones(length(pst),1)*mu;   % amplitude (constant) over time
-      %   NS=0.05*(max(drive)-min(drive)) + rand(size(drive));
 
         drive = drive(:)';%.*NS(:); 
     case 1
@@ -164,36 +163,18 @@ switch InputType
         drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
                      %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
                   drive=drive';
-        % NS=0.05*(max(drive)-min(drive)) + rand(size(drive));
-        %drive = drive(:).*NS(:);            
-
     case 2
         % For ERP inputs...
         %------------------------------------------------------------------
-        delay  = 60 * exp(P.R(1));             % bump
+        delay  = 6 * exp(P.R(1));             % bump
         scale1 = 8  * exp(P.R(2));
-        drive  = atcm.fun.makef(pst,delay,scale1,16*exp(P.R(3)));
+        drive  = atcm.fun.makef(pst,delay,scale1,16);
         drive=drive';
         
     case 3
-        % NOISE
-        %------------------------------------------------------------------
-        %rng default;
-        %mu = exp(P.R(1));              % mean amplitude
-        %st = exp(P.R(2));
-        %hfn   = randn(length(pst),1);% + (sqrt(-1)*randn(length(pst),1)*1/32);
-        %drive = hfn*mu;   % amplitude (constant) over time
-        %drive = .025*drive(1:length(pst));
-
-        %nn = perlin_noise(ones(8,length(pst)));
-
-        %drive = rescale(sum(nn,1),mu-st,mu+st);
-
         a = 1 * exp(P.R(1));
         b = 4 * exp(P.R(2));
-        drive =  a + (b-a).*rand(1,length(pst));
-
-        
+        drive =  a + (b-a).*rand(1,length(pst));        
     case 4
         % TWO oscillatory inputs...
         %------------------------------------------------------------------
@@ -257,13 +238,42 @@ switch InputType
 
         % break phase locking between layers
         d = [1 2 2 3 3 4 0 0];
-
         for i = 1:8
             ni = round((d(i)/200)/dt);
             drive(i,:) = [zeros(1,ni), drive(i,1:end-ni)];
         end
 
         drive = sum(drive,1);
+    
+    case 8
+         W = atcm.fun.hnoisebasis(length(w),exp(P.R(1:2)));
+         [spec] = atcm.fun.asinespectrum(w,pst);
+         drive = (W')*shiftphase(spec,6);
+    case 9
+
+        x0 = pst;
+        w0  = exp(P.d(1));
+        a0 = exp(P.d(2));
+        a1 = exp(P.d(3));
+        b1 = exp(P.d(4));
+        a2 = exp(P.d(5));
+        b2 = exp(P.d(6));
+
+        drive =  a0 + a1*cos(x0*w0) + b1*sin(x0*w0) + ...
+               a2*cos(2*x0*w0) + b2*sin(2*x0*w0);
+
+        drive = drive';
+
+        %  ERP input to thal...
+        %------------------------------------------------------------------
+        %drive(2,:) = exp(P.R(1));
+
+        %delay  = 6 * exp(P.R(1));             % bump
+        %scale1 = 8  * exp(P.R(2));
+        %drive2  = atcm.fun.makef(pst,delay,scale1,16);
+        %drive2  = drive2';
+        %drive = [drive; drive2];
+
 end
 
 if isfield(M,'input')
@@ -271,19 +281,7 @@ if isfield(M,'input')
     drive = M.input(1:dl);
 end
 
-% fso: fast spiking input to superficial interneuons?
-%--------------------------------------------------------------------------
-% fso(:,1) = 0.5*exp(P.a(1)) * ( (sin(2*pi*(exp(P.a(2)*100)*(pst/1000)) ) ));
-% fso(:,2) = 1.0*exp(P.a(3)) * ( (sin(2*pi*(exp(P.a(4)*1)*(pst/1000)) ) ));
-% 
-% fso = prod(fso,2)*10;
 fso=[];
-
-% if isfield(P,'inputs')
-%     mf    = exp(P.inputs(:)).*[10 50 50 30 50 20 10 10]';
-%     drive = 1 * ( (sin(2*pi*mf*(pst'/1000))) )';
-% end
-
 
 if ~isfield(M,'timefreq')
     M.timefreq = 0;
@@ -296,7 +294,7 @@ f    = spm_funcheck(M.f);
 % solve for a fixed point, or not
 if solvefp; 
     %x    = atcm.fun.solvefixedpoint(P,M);
-        x = atcm.fun.solvefixedpoint(P,M,[],-50);
+        x = atcm.fun.solvefixedpoint(P,M,[],-70);
 else ;      x    = x;
 end
 
@@ -322,14 +320,13 @@ for  c = 1:size(U.X,1)
         
     % integration, spectral response, firing etc. (subfunctions)
     %----------------------------------------------------------------------
-    [y{c},w,s{c},g{c},t{c},layers{c},noise{c},firing{c},QD{c},Spike{c},condel{c},series{c}] = ...
+    [y{c},w,s{c},g{c},t{c},layers{c},firing{c},QD{c},Spike{c},condel{c},series{c}] = ...
         dodxdt(pst,f,v,Q,M,dt,w,drive,Kx,U,method,solvefp,c,fso);
 
 end
 
 % outputs
 %--------------------------------------------------------------------------
-other.noise = noise;
 other.firing = firing;
 other.QD = QD;
 other.Spike = Spike;
@@ -341,7 +338,7 @@ other.Fs = Fs;
 
 end
 
-function [y,w,s,g,t,layers,noise,firing,QD,spike,condel,series] = ...
+function [y,w,s,g,t,layers,firing,QD,spike,condel,series] = ...
                             dodxdt(t,f,v,P,M,dt,w,drive,Kx,U,method,solvefp,ci,fso)
 % Numerical integration, signal weighting and FFT of timeseries
 
@@ -389,17 +386,29 @@ if WithDelays == 21
     x0        = spm_vec(M.x);
 end
 
-% Precompute (positive, definite) state-state delay matrix
-d = [1 1 1 1 1 1 1/8 1/8].*exp(P.ID);
-%d = [.001 .001 .001 .001 .001 .001 0.08 0.08].*exp(P.ID);
-d = repmat(d,[1 nk]);
-L = (d);%.*makeposdef(Kk));%*(1./dt);
-
 
 % Frequency steps: dw
 dw = 1./(w(2)-w(1));
 
+% setup a baseline jacobian using finite differecnes
+fun = @(v) f(spm_unvec(v,M.x),drive(1),P,M);
+Jf = jaco(fun,v,ones(size(v))/128,0,2);
+
+
 switch IntMethod
+
+    case 'amtf'
+
+        y = exp(DCM.M.pE.J)'*amtf(P,M,U);
+
+
+
+    case 'spm';
+                x
+        P.J=P.J';
+        M.dt = dt;
+            [~,y] = spm_int_L(P,M,drive);
+            S=[];
 
     case 'kernels'
         
@@ -410,14 +419,20 @@ switch IntMethod
         S = [];
         
     case 'ode45'
+
+        [~,~,D] = f(v,drive(1),P,M);
+        Q = eye(length(D)) - (D);
+
         % matlab build in ode solver
-        ode = @(t,v,P,M,f) spm_vec( f(spm_unvec(v,M.x),t,P,M) );
+        %ode = @(t,v,P,M,f) spm_vec( Q*f(spm_unvec(v,M.x),t,P,M) );
         %ode = @(t,v,P,M,f) spm_vec( Q*f(spm_unvec(v,M.x),drive(1),P,M) );
         
+        ode = @(t,v) spm_vec( Q*f(spm_unvec(v,M.x),t,P,M) );
+
         opts = odeset;
-        opts.MaxStep = 1/300;
+        %opts.MaxStep = 1/600;
         
-        [~,y]   = ode113(ode,t/1000,spm_vec(v),drive,P,M,f);
+        [~,y]   = ode113(ode,t/1000,spm_vec(v));%,drive(1),P,M,f);
                 
         y = y';
         S = [];
@@ -453,38 +468,32 @@ switch IntMethod
         dfdx    = dfdx./norm(full(dfdx));
                             
         % compute df/du (inputs)
-        for i = 1:length(drive)
-            dfdu(:,i)    = spm_diff(M.f,M.x,drive(i),P,M,2);  
-        end
+        %for i = 1;%:length(drive)
+            dfdu    = spm_diff(M.f,M.x,drive(1)*dt,P,M,2);  
+        %end
         %dfdut = dfdu;
-        dfdu  = sqrt(dfdu*dfdu');
-        dfdu  = dfdu./norm(full(dfdu));
+        %dfdu  = sqrt(dfdu*dfdu');
+        %dfdu  = dfdu./norm(full(dfdu));
         
         % eigenvectors and values - dfdx
         [T,D]   = eig(full(real((dfdx))));
         iT      = pinv(T);
         d       = diag(D);
         
-        % eigenvectors and values - dfdu
-        [Tu,Du]   = eig(full(real((dfdu))));
-        iTu      = pinv(Tu);
-        du       = diag(Du);
+        dgdv  = T;
+        dvdu  = pinv(T).*dfdu;
                         
         % integrate: x(t) = T*exp(D*t)*iT*x0 
-        for i = 1:length(t)
-            % We still want to drive this (linear) system - i.e.
-            % x(t) = T*exp(D+(dfdu*input)*t)*iT*x0
-            
-            %Lf = T*exp(D*t(i)/1000)*iT*x0;
-            %If = Tu*exp(Du*t(i)/1000)*iTu*x0;
-            
-            %y(:,i) = Lf + If;
-            
+        for i = 1:length(t)            
             Tx = t(i)/1000;
             Ax = (T*diag(exp(d*Tx))*iT*xbar) ;
             
-            %Bu = (Tu*diag(exp(du*Tx))*iTu*xbar);
-            y(:,i) = (Ax);% + Bu);
+            if i == 1
+                v0 = dt*Ax;
+            end
+
+            v0 = v0 + dt*Ax;
+            y(:,i) = v0;%(Ax);% + Bu);
             
         end
         S=[];
@@ -512,17 +521,14 @@ switch IntMethod
                 % TWO-point RK method
                 k1  = f(v,drive(i,:),P,M);  
                 k2  = f(v+dt*k1,drive(i,:),P,M);
-                phi = 0.5*k1 + 0.5*k2;
-                
+                phi = 0.5*k1 + 0.5*k2;              
                 v = v + dt*phi;
-
 
                 % State Delays - interpolated
                 %--------------------------------------------------
                 d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
                 d = repmat(d,[1 nk]);
                 L = (d);
-
 
                 for j = 1:length(L)
                     ti = real(L(j))/dt;
@@ -533,8 +539,6 @@ switch IntMethod
                         end
                     end
                 end
-
-
 
                 y(:,i) = v;
                 
@@ -561,8 +565,7 @@ switch IntMethod
                     v = y(:,i);
                     
                 end
-                
-                
+                               
             elseif WithDelays == 1010
                 
                 %delays
@@ -570,7 +573,6 @@ switch IntMethod
                 del = repmat(del,[1 nk]);
                 del = 1./del;
                 Tau = ( 1./(1 - (dt*del))-dt );  % <-- NOTE!
-
                 dxdt = f(v,drive(i,:),P,M);
 
                 % delay state update
@@ -581,8 +583,7 @@ switch IntMethod
                 
             elseif WithDelays == 10
                 
-                ff = @(x) f(x,drive(i),P,M);
-                
+                ff = @(x) f(x,drive(i),P,M);  
                 j = jaco(ff,spm_unvec(v,M.x),ones(size(v))*exp(-8));
                 
                 warning off;
@@ -728,143 +729,56 @@ switch IntMethod
                     % RK45 with delays
                     if i > 1
                         
+                        % Matrix delays and rate (integration) constants
+                        %--------------------------------------------------
+                        Q   = eye(length(D)) - (D);
+                        ddt = dt;
+
+                        % state-dependent parameters (and plasticity)
+                        %--------------------------------------------------
+                        if isfield(P,'p') 
+
+                            % moment
+                            dQ = exp(P.p(1)) * sum(exp(P.J).*(v-v0));
+                            R  = spm_unvec(Qi + dt*dQ,P);
+
+                            % record so we can recover parameter timeseries
+                            series.param(i,:) = spm_vec(R);
+                        else
+                            R = P;
+                        end
+
+                        % exogenous state inputs through AMPA+NMDA receptors
+                        v = v + Q(:,[9:16 25:32])*ones(16,1)*drive(i);
+                        
                         % 4-th order Runge-Kutta method.
                         %--------------------------------------------------
-                        k1 = f(v          ,drive(:,i),P,M);
-                        k2 = f(v+0.5*dt*k1,drive(:,i),P,M);
-                        k3 = f(v+0.5*dt*k2,drive(:,i),P,M);
-                        k4 = f(v+    dt*k3,drive(:,i),P,M);
+                        k1 = Q*f(v             ,0*drive(:,i),R,M);
+                        k2 = Q*f(v+0.5.*ddt.*k1,0*drive(:,i),R,M);
+                        k3 = Q*f(v+0.5.*ddt.*k2,0*drive(:,i),R,M);
+                        k4 = Q*f(v+     ddt.*k3,0*drive(:,i),R,M);
                         
-                        dxdt = (dt/6)*(k1 + 2*k2 + 2*k3 + k4);
+                        dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
                         v    = v + dxdt;
-
-                        % State Delays - interpolated
-                        %--------------------------------------------------
-                        d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
-                        d = repmat(d,[1 nk]);
-                        %d(9:end)=0;
-                        L = (d);
-
-                        % receptor delay dynamics (set pr[]=0 to switch off)
-                        L(9:16)  = L(9:16)  * exp(P.pr(2));
-                        L(17:24) = L(17:24) * exp(P.pr(3));
-                        L(25:32) = L(25:32) * exp(P.pr(4));
-                        L(33:40) = L(33:40) * exp(P.pr(5));
-                        L(41:48) = L(41:48) * exp(P.pr(6));
-                        L(49:56) = L(49:56) * exp(P.pr(7));
-
-                        % thalamo-cortical delay effects
-                        ct = 8*exp(P.CT); %60;
-                        tc = 3*exp(P.TC); %20;
-
-                        TCDM = [0  0  0  0  0  0  tc tc;
-                                0  0  0  0  0  0  tc tc;
-                                0  0  0  0  0  0  tc tc;
-                                0  0  0  0  0  0  tc tc;
-                                0  0  0  0  0  0  tc tc;
-                                0  0  0  0  0  0  tc tc;
-                                ct ct ct ct ct ct 0  0;
-                                ct ct ct ct ct ct 0  0];
-                        TCDM = repmat(TCDM,[nk nk]);
-                        v    = v + ((TCDM.*max(dfdx,1e-6))*v);
-                        
-                        % linear interpolation of states at delay t
-                        for j = 1:length(L)
-                          ti = real(L(j))/dt;
-                          if i > 1 && any(ti)
-                              pt = t(i) - ti;
-                              if pt > 0
-                                v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
-                              end
-                          end
-                        end
-                        
-                       % v = dt*f(v+full(J*dt)*v,drive(:,i),P,M);
-
-
+                  
                         % Full update
                         %--------------------------------------------------
                         y(:,i) =   (v);
 
-                        else
+                     else
                         % 4-th order Runge-Kutta method.
-                        [k1,J] = f(v      ,drive(:,i),P,M);
-                        k2 = f(v+0.5*dt*k1,drive(:,i),P,M);
-                        k3 = f(v-0.5*dt*k2,drive(:,i),P,M);
-                        k4 = f(v+    dt*k3,drive(:,i),P,M);
+                        [k1,J,D] = f(v    ,0*drive(:,i),P,M);
+                        k2 = f(v+0.5*dt*k1,0*drive(:,i),P,M);
+                        k3 = f(v-0.5*dt*k2,0*drive(:,i),P,M);
+                        k4 = f(v+    dt*k3,0*drive(:,i),P,M);
 
                         dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
                         v         = v + dxdt;
                         y(:,i)    = v ;
-
-                        dfdx = full(abs(J));
-                        dfdx = dfdx ./ norm(dfdx);
+                        Qi        = spm_vec(P);
                         
                     end
                 
-                    elseif WithDelays == 46 % RK45 with delayed states
-                    
-                    % RK45 with delays
-                    if i > 1
-                        
-                        % 4-th order Runge-Kutta method.
-                        %--------------------------------------------------
-                        k1 = f(v          ,drive(:,i),P,M);
-                        k2 = f(v+0.5*dt*k1,drive(:,i),P,M);
-                        k3 = f(v+0.5*dt*k2,drive(:,i),P,M);
-                        k4 = f(v+    dt*k3,drive(:,i),P,M);
-                        
-                        dxdt = (dt/6)*(k1 + 2*k2 + 2*k3 + k4);
-                        %v    = v + dxdt;
-
-                        % State Delays - interpolated
-                        %--------------------------------------------------
-                        d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
-                        d = repmat(d,[1 nk]);
-                        %d(9:end)=0;
-                        L = (d);
-
-                        L(9:16)  = L(9:16)  * exp(P.pr(2));
-                        L(17:24) = L(17:24) * exp(P.pr(3));
-                        L(25:32) = L(25:32) * exp(P.pr(4));
-                        L(33:40) = L(33:40) * exp(P.pr(5));
-                        L(41:48) = L(41:48) * exp(P.pr(6));
-                        L(49:56) = L(49:56) * exp(P.pr(7));
-                        
-                        vd = v;
-                        for j = 1:length(L)
-                          ti = real(L(j))/dt;
-                          if i > 1 && any(ti)
-                              pt = t(i) - ti;
-                              if pt > 0
-                                vd(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
-                              end
-                          end
-                        end
-                        
-                        
-                        v =  v + dxdt + dt * f(vd,drive(:,i),P,M);
-
-
-                        % v = dt*f(v+full(J*dt)*v,drive(:,i),P,M);
-
-
-                        % Full update
-                        %--------------------------------------------------
-                        y(:,i) =   (v); 
-                        
-                    else
-                        % 4-th order Runge-Kutta method.
-                        [k1,J] = f(v      ,drive(:,i),P,M);
-                        k2 = f(v+0.5*dt*k1,drive(:,i),P,M);
-                        k3 = f(v-0.5*dt*k2,drive(:,i),P,M);
-                        k4 = f(v+    dt*k3,drive(:,i),P,M);
-
-                        dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
-                        v         = v + dxdt;
-                        y(:,i)    = v ;
-                        
-                    end
             end  
             
             % firing function at dxdt - the sigmoid
@@ -923,81 +837,21 @@ series.States_both = y;
 
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
-[y,s,g,noise,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive,d);
+[y,s,g,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
 
-%[y0] = spectral_response(P,M,yy,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive*0);
-
-%y = exp(P.Ly)*(y - y0);
 
 end
 
-function [y,s,g,noise,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,type,fso,drive,d)
+function [y,s,g,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,type,fso,drive)
 % Main spectral response function with lots of options.
 
 % Spectral Response Options
 %--------------------------------------------------------------------------
-DoHilbert      = 0; % take the absolute (magnitude) of the hilbert envelope
-Bandpassfilter = 0; % band pass filter to [w(1)-1) : w]
-DoDCT          = 0; % discrete cosine transform series before fft
-IncDCS         = 0; % include semi-stochastic neuronal fluctuations       x       % ON FOR DEXPRO
 DoHamming      = 0; %(1)% Cosine Hann window the model spectrum      
-HamNoise       = 0; % Hann noise components - if data was BPF, exponential 
-                    % delay based noise model wont fit without hanning edges
-KillTail       = 0;
-DoPCA          = 0;
-DoSpecResp     = 1; % 1=fft(integrated signal), 2=fft(volterra kernels)
 
-if isfield(M,'IncDCS')
-    IncDCS = M.IncDCS;
-end
 if isfield(M,'DoHamming')
     DoHamming = M.DoHamming;
 end
-
-% Compute channel noise components before computing spectral response
-%--------------------------------------------------------------------------
-% Neuronal innovations: a multiplier on the model signal
-for i = 1:size(P.a,2) 
-    Gu(:,i) = exp(P.a(1,i))*(w.^0);                  % P.a = constant
-end
-
-% Spectrum of channel noise (non-specific)
-%Gn = exp(P.b(1,i) ).*w.^(-exp(P.b(2,1))); 
-Gn = 1;
-
-% Spectrum of channel noise (specific)
-for i = 1:size(P.c,2) 
-    Gs(:,i) = exp(P.c(1,i) )+w.^(-exp(P.c(2,1)));     % P.c = expone
-end
-
-% Hamming to taper the edges - optimisation struggles with edge effects
-%----------------------------------------------------------------------
-if HamNoise
-    warning off ;        % dont warn of integer operands
-    H  = kaiser(nf,2.5);
-    warning on;
-end
-
-% % Neuronal innovations: a discrete cosine basis set (length of P.d)
-%--------------------------------------------------------------------------
-if IncDCS
-    if isfield(P,'d')
-        nd = size(P.d,1);
-        X  = spm_dctmtx(nf,nd + 1);
-        Mu = exp(X(:,2:end)*P.d);
-    else
-        Mu = ones(nf,1);
-    end
-    if size(Mu,2) == 1, Mu = Mu*ones(1,ns); end       
-    Gu = Gu.*Mu;
-    Gu = exp(P.a(1))*Mu;
-end
-
-% Return noise components for this trial
-%--------------------------------------------------------------------------
-noise.Gu = Gu;
-noise.Gn = Gn;
-noise.Gs = Gs;
 
 % Implement the observation model:  y = [ L * fft(J' * y) ] + noise
 %--------------------------------------------------------------------------
@@ -1023,6 +877,9 @@ end
 % Generate weighted (principal cells) signal - g & fft(g)i
 %--------------------------------------------------------------------------
 J      = ( exp(P.J(:)) ) ;
+
+%J = J./sum(J);
+
 Ji     = find(J);
 ts     = zeros(ns,length(t));
 
@@ -1039,7 +896,8 @@ for ins = 1:ns
             
     % apply electrode gain & store this channel / node
     %----------------------------------------------------------------------
-    ts(ins,:) = ts(ins,:) + ts0'  * exp(P.L(ins));
+    ts(ins,:) = ts(ins,:) + ts0' ;
+
 end
 
 % adjustment for when frequency intervals ~= 1 Hz; i.e. dt = dw/dt
@@ -1053,152 +911,58 @@ for ins = 1:ns
     % extract time series of all states from this region
     %----------------------------------------------------------------------
     yx = reshape( squeeze(y(ins,:,:,:)), [npp*nk,length(t)]);
-    
-    Eigenvectors = yx;
-    
-    % use dynamic mode decomposition on hidden states if M.dmd = 1
-    %----------------------------------------------------------------------
-    if isfield(M,'dmd') && M.dmd
-        warning off;
-        ndmd=2;
-        [Eigenvalues, Eigenvectors] = atcm.fun.dmd(yx', ndmd, dt);
-        yx = Eigenvectors*yx;
-        Eigenvectors = yx;
-        % the user supplied j-vector no longer makes sense, ignore it -
-        Ji = 1:ndmd;
-        P.J(1:ndmd) = log(1.1);
-        warning on;
-    end
-    
-    warning on;
-    
+        
     % loop spatio-temporal modes (in this region) and weight them
     %----------------------------------------------------------------------
     for ij = 1:length(Ji)
         
-        y0 = Eigenvectors(Ji(ij),:) ;
+        y0 = yx(Ji(ij),:) ;
         Hz = w;
         
-        % Window-smoothed fft
+        % Spectral responses of states
         %------------------------------------------------------------------
-        warning off;
         try
             
             % State timeseries without burnin
             %--------------------------------------------------------------
-            this = Eigenvectors(Ji(ij),burn:burno);
-                        
-            % DCT/iDCT components [for filtering only]
-            %--------------------------------------------------------------
-            dct_filter = 0;
-            
-            if dct_filter
-                test = atcm.fun.adct(this)';
-                pc = test;
-                nn = size(test,1);
-            else
-                test = this;%y0;
-                pc = test;
-                nn = size(test,1);
-            end
-                        
-            clear Ppf  Pfm Ppf1 Ppf2 Ppf3 
+            pc = yx(Ji(ij),burn:burno);
+            pc = atcm.fun.bandpassfilter(pc,1/dt,[w(1) w(end)]);
+            %pc = detrend(pc);
+                                                
+            clear Ppf  Pfm Ppf1 Ppf2 Ppf3            
 
-            % Select sliding-window smoothed fft or whole chunk fft
-            %--------------------------------------------------------------
-            UseSmooth = 1;
-            
-            if isfield(M,'UseSmooth') && ~isempty(M.UseSmooth)
-                UseSmooth = M.UseSmooth;
-            end
-            
-            if UseSmooth == 3
-                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,10,2);
-                
-                [Eval, Evec, Amp, Freq, GR, ME] = atcm.fun.dmd(yda,8*2,dt);
-                good = find( Freq > w(1) & Freq < w(end) );
+            % compute the fourier transform under Gaussian constraint
+            %------------------------------------------------------------
+            N = length(pc);
+            q = (1:N)./N;
+            F = dftmtx(N);
+            %G = VtoGauss(ones(size(F)),10,[],0); % 30
+            %F = real(F).*G + sqrt(-1)*(imag(F).*G);
+            f = (1/dt) * (0:(N/2))/N;
 
-                F = Freq(good);
-                A = Amp(good);
-                A = abs(A);
-                [~,I] = sort(A,'descend');
+            data   = (pc*F);
+            data   = (data/N);
+            L2     = floor(N/2);
+            data   = data(1:L2+1);
+            Ppf    = abs(data);
+            Ppf    = atcm.fun.awinsmooth(Ppf,4);
+            Ppf    = interp1(f,full(Ppf),w,'linear','extrap') ;%.* (1+w./w(end));
 
-                Nc  = 6;
-                Ppf = atcm.fun.makef(w,F(I(1:Nc)),A(I(1:Nc)),ones(1,Nc)*2);
-                
-            elseif UseSmooth == 4
-                    
-                [Ppf,hx,yda] = atcm.fun.tfdecomp(ts(burn:end),dt,w,10,2);
-                Ppf = abs(Ppf(:));
-                
-                if ij > 1
-                    continue;
-                end
-
-
-
-            elseif UseSmooth == 1
-
-                if isfield(M,'window')
-                    win = M.window;
-                else
-                    win = 10;
-                end
-                
-                % Obtain the power spectrum by hilbert envelope TF decomp
-                [Ppf,hx,yda] = atcm.fun.tfdecomp(pc,dt,w,win,4);
-                
-                %Ppf = pyulear(pc,8,w,1/dt);
-                
-                % Convert to (~Gaussian) features matrix wtd by Hz
-                Ppf = atcm.fun.approxlinfitgaussian(real(Ppf));
-        
-                Ppf = abs(Ppf(:));
-
-            elseif UseSmooth == 0 % (else use non smooth)
-                
-                % This from Jan 23
-                %----------------------------------------------------------
-                
-                series = real( Eigenvectors(1:8,burn:end) );
-                
-                % state smooth fourier transforms 
-                for i = 1:size(series,1)
-                    series(i,:) = atcm.fun.bandpassfilter(series(i,:),1/dt,[w(1) w(end)]);
-                    Pf(i,:) = atcm.fun.tfdecomp(series(i,:),dt,w,8,2);
-                end
-                
-                % state series covariance
-                PfW = Pf - mean(Pf,2);
-                PfC = cov(PfW');
-                [u,s,v] = svd(PfC);
-                Pf = abs(u(:,1)')*Pf;
-
-                H = rescale(atcm.fun.makef(w,median(w),2,32),.5,1);
-
-                Ppf = H(:).*Pf(:);%.*X(:);
-                
-            end
+            % for the GP created from VtoGauss see
+            % https://peterroelants.github.io/posts/gaussian-process-tutorial/
             
             % De-NaN/inf the spectrum
             %--------------------------------------------------------------
             Pf = Ppf;            
             Pf(isnan(Pf))=0;
             Pf(isinf(Pf))=0;
-            
-            % return the series / orthogonal VMD components if selctd
-            %--------------------------------------------------------------
-            layers.ssa_pc{ins,ij,:,:} = pc;
-            layers.pst_burn = t(burn:end);
-                       
+                                   
             % make sure its a nx1 vector
             %--------------------------------------------------------------
             Pf  = spm_vec(Pf);
                         
         end
     
-        % Make it non-sparse and vectorised
-        warning on;
         try
             Pf = (Pf)';
         catch
@@ -1211,56 +975,39 @@ for ins = 1:ns
         
         Pf = full(Pf)';
         J  = full(exp(P.J));
-
-        %J = ones(size(J));
         
         if DoHamming
             H  = .5+hamming(nf,'periodic');
             Pf = Pf(:).*H(:);
         end
         
-        if UseSmooth == 4 
-            layers.unweighted(ins,1,:) = Pf;
-            layers.weighted  (ins,1,:) = Pf;
-            layers.iweighted (ins,1,:) = Pf;
-        else
-
-            % store the weighted and unweighted population outputs
-            %------------------------------------------------------------------
-            layers.unweighted(ins,ij,:) = ( Pf             )     ;% * exp(real(P.L(ins)));
-            layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
-            layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
-        end
+        % store the weighted and unweighted population outputs
+        %------------------------------------------------------------------
+        layers.unweighted(ins,ij,:) = ( Pf             )     ;% * exp(real(P.L(ins)));
+        layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
+        layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
         
-    end   % end of state contribution(s) to region loop
-end   % end of loop of regions
+    end   
+end   
 
 
 clear Pf
 
-% Now compute node proper CSDs from sum of weighted cells [modes] per region
+% Now compute node proper CSDs from sum of states spectral responses
 %--------------------------------------------------------------------------
 for inx = 1:ns
     for iny = 1:ns
-        if ~DoHilbert
-            if inx ~= iny
-                Pf(:,inx,iny) = max(layers.iweighted(inx,:,:),2) .* conj( ...
-                    sum(layers.iweighted(iny,:,:),2) );
-            else
-                if length(Ji) > 1 && UseSmooth~=4 
-                    Pf(:,inx,iny) = sum(abs(squeeze(layers.iweighted(ins,:,:))),1);%sum(layers.iweighted(inx,:,:),2);
-                else
-                    Pf(:,inx,iny)=sum(layers.iweighted(inx,:,:),2);
-                end
-            end
+        if inx ~= iny
+            Pf(:,inx,iny) = sum(layers.iweighted(inx,:,:),2) .* conj( ...
+                sum(layers.iweighted(iny,:,:),2) );
         else
-            if inx ~= iny
-                Pf(:,inx,iny) = max(hilbert(layers.iweighted(inx,:,:)),[],2) .* conj( ...
-                    max(hilbert(layers.iweighted(iny,:,:)),[],2) );
+            if length(Ji) > 1
+                Pf(:,inx,iny) = sum((squeeze(layers.iweighted(ins,:,:))),1);%sum(layers.iweighted(inx,:,:),2);
             else
-                Pf(:,inx,iny) = max(hilbert(layers.iweighted(inx,:,:)),[],2);
+                Pf(:,inx,iny)=sum(layers.iweighted(inx,:,:),2);
             end
         end
+
     end
 end
 
@@ -1269,23 +1016,15 @@ end
 for ins = 1:ns
             
     Pf0 = Pf(:,ins,ins);
-    
+
+    % add smoothing here,
+    Pf0 = atcm.fun.awinsmooth(Pf0,6);
 
     Pf(:,ins,ins) = Pf0(:);
     
     % Electrode gain 
     %----------------------------------------------------------------------
     Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
-
-    % Add noise to (in frequency space) to this LFP channel spectrum
-    %----------------------------------------------------------------------
-    addnoise=0; % <-- note off
-    if addnoise
-        % Multiply in the {dct} neuronal fluctuations - Gu [P.a / P.d]
-        for i = 1:length(Hz)
-            Pf(i,ins,ins) = (sq(real(Pf(i,ins,ins)))*real(diag(Gu(i,ins)))*sq(real(Pf(i,ins,ins)))) + sqrt(-1)*imag(Pf(i,ins,ins));
-        end
-    end
 
 end     
 
@@ -1298,23 +1037,6 @@ for inx = 1:ns
         end
     end
 end
-
-% Re-incorporate other noise components for auto (Gs) and cross (Gn) spectra
-%--------------------------------------------------------------------------
-addnoise=0; % <-- note off
-if addnoise        
-    for i = 1:ns
-        for j = 1:ns
-            % Autospectral noise / innovations [P.b]
-            Pf(:,i,j) = (Pf(:,i,j).*Gs(:,i)) + Gn(:);
-            if j ~= i
-                % Cross spectral noise / innovations [P.c]
-                %Pf(:,j,i) = Pf(:,j,i) .* Gs(:,i);
-                %Pf(:,i,j) = Pf(:,j,i);
-            end
-        end
-    end
- end
 
 % Model the effects of filtering during preprocessing
 %--------------------------------------------------------------------------
@@ -1343,6 +1065,12 @@ g = ts;
 end
 
 % Helper subfunctions
+function R = confounds(w,h)
+
+X0 = gaubasis(length(w),h)';
+R  = speye(length(w)) - X0*X0';
+
+end
 
 function j = adfdx(IS,P,M,order,xhat)
 % faster computation of the jacobian (or hessian) states matrix
@@ -1393,6 +1121,22 @@ if size(x,3) > 1, x = squeeze(x); else, x = x(:); end
 
 end
 
+
+                        % % thalamo-cortical delay effects
+                        % ct = 8*exp(P.CT); %60;
+                        % tc = 3*exp(P.TC); %20; was 3, now 7 Usrey 2000
+                        % 
+                        % TCDM = [0  0  0  0  0  0  tc tc;
+                        %         0  0  0  0  0  0  tc tc;
+                        %         0  0  0  0  0  0  tc tc;
+                        %         0  0  0  0  0  0  tc tc;
+                        %         0  0  0  0  0  0  tc tc;
+                        %         0  0  0  0  0  0  tc tc;
+                        %         ct ct ct ct ct ct 0  0;
+                        %         ct ct ct ct ct ct 0  0];
+                        % TCDM = repmat(TCDM,[nk nk]);
+                        % v    = v + ((TCDM.*max(dfdx,1e-4))*v);
+                        
 
 
 %             elseif UseSmooth == 2
@@ -1751,3 +1495,98 @@ end
 %                         v0         = v0 + dxdt;
 %                         y0(:,i)    = v0 ;
 %                     end
+
+                %Ppf = atcm.fun.Afft(pc,1/dt,w);
+
+                %[dPf,in] = atcm.fun.padtimeseries(Ppf);
+                %dPf = atcm.fun.HighResMeanFilt(dPf,1,2);
+                %Ppf  = dPf(in);
+
+                %[ev,evec] = atcm.fun.dmd(hx,1,dt);
+                %Ppf = hx*evec';
+
+                %Ppf = atcm.fun.Afft(pc,1/dt,w);
+                %Ppf = atcm.fun.approxlinfitgaussian(real(Ppf),[],[],4)';
+
+                %H   = gradient(gradient(Ppf));
+                %K   = 2*exp(P.a(1));
+                %Ppf = Ppf - K*H;
+
+                %mu = []; amp = []; wid = [];
+                %for i = 1:length(I)
+                %    mu  = [mu(:); I{i}.mu(:)];
+                %    amp = [amp(:); I{i}.amp(:)];
+                %    wid = [wid(:); I{i}.wid(:)];
+                %end
+
+                %f = @(pw) atcm.fun.makef(w,mu,amp,wid.*pw);
+                %Q = @(x) VtoGauss(spm_vec(x));
+                %g = @(pw) norm( (Q(M.y)-Q(f(pw))) * (Q(M.y)-Q(f(pw)))' );
+
+                %inwid = ones(size(wid));
+                %[X,F] = fminsearch(g,inwid);
+
+                %Ppf = f(X);
+
+                %H = gradient(gradient(Ppf));
+                %Ppf = Ppf - 2*H;
+
+                %Ppf = atcm.fun.AfftSmooth(pc,1/dt,w,20);
+              
+                %Ppf = pyulear(pc,20,w,1/dt);
+
+
+                % mu = real(mean(hx,2));
+                % st = std(hx,[],2);
+                % 
+                %  for i = 1:length(mu)
+                %    Q(i,:) = atcm.fun.makef(w,i,mu(i),st(i)/2);
+                %  end
+                %  Q = (Q ./norm(Q))';
+                %  [u,s,v] = svd(Q);
+
+
+                 %V = (Q'+Q)./2;
+
+
+
+                
+
+                %V = VtoGauss(real(DCM.xY.y{:}));
+                % [q,r] = qr(V');
+                % r = abs(r)';
+                % I = atcm.fun.findthenearest(cumsum(max(r))./sum(max(r)),.9); I = I(1);
+                % r = r(:,1:I);
+                % b = find( mean(r) < 0 );
+                % r(:,b) = [];
+                % 
+                % Ppf = mean(r,2);
+
+
+                % 
+                %  [E,D] = eig(Q);
+                %  D = diag(D);
+                %  [D,I] = sort(D,'descend');
+                %  E = E(:,I);
+                % 
+                %  K = 20;
+                %  FDD = E(:,1:K).*D(1:K)';
+                %  Ppf = abs(sum((FDD),2));
+
+                 %[u,s,v] = svd(Q);
+                 %Q = u(:,1:20)'*Q;
+                 %B = Q./norm(Q);
+                
+                %Ppf = ProcessSignal(w(:),real(Ppf),0,3,3,0,0,0,0,0,0);;
+                
+                
+                
+                %[Ppf,I] = gausscoeffit(Ppf,20);                
+                %B = gaubasis(length(w),8);
+                %B=sqrt(B);
+                %b = B'\real(Ppf);
+                %Ppf = abs(b'*B);
+               
+
+                % Convert to (~Gaussian) features matrix 
+                %Ppf = atcm.fun.approxlinfitgaussian(real(Ppf),[],[],2);
