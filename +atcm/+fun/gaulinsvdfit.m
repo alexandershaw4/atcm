@@ -1,4 +1,8 @@
-function y = gaulinsvdfit(x)
+function y = gaulinsvdfit(x,n)
+
+if nargin < 2
+    n = 1;
+end
 
 Q = atcm.fun.VtoGauss(x);
 m = diag(Q) - x(:);
@@ -7,4 +11,5 @@ for i = 1:length(Q)
 end
 
 [u,s,v] = svd(Q - x);
-y = spm_vec(u(:,1)'*Q);
+s = diag(s);
+y = spm_vec(s(1:n)'*u(:,1:n)'*Q);

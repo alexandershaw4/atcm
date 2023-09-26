@@ -79,25 +79,13 @@ function [y,w,s,g,t,pst,layers,other] = integrate_1(P,M,U,varargin)
 %
 % The RK4 DDE implementation is as follows:
 % 
-%  k1 = f(v          ,drive(i)     ,P,M);
-%  k2 = f(v+0.5*dt*k1,drive(i)+dt/2,P,M);
-%  k3 = f(v+0.5*dt*k2,drive(i)+dt/2,P,M);
-%  k4 = f(v+    dt*k3,drive(i)     ,P,M);
+%  k1 = Q*f(v          ,drive(i)     ,P,M);
+%  k2 = Q*f(v+0.5*dt*k1,drive(i)+dt/2,P,M);
+%  k3 = Q*f(v+0.5*dt*k2,drive(i)+dt/2,P,M);
+%  k4 = Q*f(v+    dt*k3,drive(i)     ,P,M);
 % 
 %  dxdt = (dt/6)*(k1 + 2*k2 + 2*k3 + k4);
 %  v         = v + dxdt;
-% 
-%  Delays:
-%
-%  L = 100*[.006 .002 .001 .004 .001 .008 .001 .001].*exp(P.ID);
-%  L = repmat(d,[1 nk]);
-% 
-%  for j = 1:length(L)
-%      ti = real(L(j))/dt;
-%      if pt > 0
-%         v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', t(i) - ti;);
-%      end
-%  end
 %
 % Also required: SPM12 w/ DCM, plus aoptim/AO.m for param optimimsation.
 % Dr Alexander D Shaw | 2020 | alexandershaw4[@]gmail.com
@@ -738,7 +726,7 @@ switch IntMethod
                         %--------------------------------------------------
                         if isfield(P,'p') 
 
-                            % moment
+                            % moment & plasticity
                             dQ = exp(P.p(1)) * sum(exp(P.J).*(v-v0));
                             R  = spm_unvec(Qi + dt*dQ,P);
 

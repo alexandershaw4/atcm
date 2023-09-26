@@ -109,31 +109,8 @@ end
 G    = full(P.H);
 G    = exp(G);
 
-% nmda matrix
-%P.Hn=P.H;
-%P.Hn(3,3)=P.nmda;
-
 Gn = full(P.Hn);
 Gn = exp(Gn);
-%Gn = exp(full(G));
-
-% this was for specifying trial-specific intrinsic connections (w Betas)
-% in the LTP project (Sumner, Spriggs, Shaw 2020)
-%--------------------------------------------------
-% if ~all(size(P.G)==np)
-%     for i = 1:size(G,3)
-%         % trial specific intrinsic effects !
-%         Gtrial   = diag( (P.G));
-%         G(:,:,i) = G(:,:,i) + Gtrial; 
-%     end
-% elseif all(size(P.G)==np)
-%     % a full 8*8 connectivity for this trial
-%     for i = 1:size(G,3)
-%         G(:,:,i) = G(:,:,i) + P.G;
-%     end
-% end
-
-
 
 
 % connectivity switches
@@ -209,19 +186,6 @@ GEn = GEa;
 
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
-
-si = 8;
-GIa =  [ si    0     8     0     0     0     0     0;
-         0     si    64    0     0     0     0     0;
-         0     0     si    0     0     0     0     0;
-         0     0     0     12    4     0     0     0;
-         0     0     16    0     4     0     0     0;
-         0     0     0     0     8     4     0     0;
-         0     0     0     0     0     0     12    0;
-         0     0     0     0     0     0     4     si];
-     
-GIa = (~~GIa)*10;
-
 GIa =[8     0     10    0     0     0     0     0;
       0     8     10    0     0     0     0     0;
       0     0     10    0     0     0     0     0;
@@ -234,6 +198,7 @@ GIa =[8     0     10    0     0     0     0     0;
 
 GIb = GIa;
 
+% can use global scaling instead of population specific
 if isfield(P,'scale')
     GEa = GEa * exp(P.scale(1));
     GEn = GEn * exp(P.scale(2));
@@ -266,6 +231,8 @@ KI  = exp(-P.T(:,2))*1000/5;%6;           % inhibitory rate constants (GABAa)
 KN  = exp(-P.T(:,3))*1000/100;%40;          % excitatory rate constants (NMDA) 40-100
 KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
 
+% notes on time-constants:
+%-----------------------------------------------------------------------
 % cojuld even use number from this friston paper
 %https://www.sciencedirect.com/science/article/pii/S0361923000004366?via%3Dihub
 % ampa = 1.2 to 2.4 ms
@@ -274,12 +241,11 @@ KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
 %KN  = exp(-P.T(:,3))*1000/50;    
 
 % gaba-b maybe evern 300 or 500ms
-
 % now using faster AMPA and GABA-A dynamics based on this book:
 % https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
 
 
-% Trial effects on time constants: AMPA & NMDA only
+% Trial-specific effects on time constants: AMPA & NMDA only for LTP task
 if isfield(P,'T1')
     KE = KE + P.T1(1);
     KN = KN + P.T1(2);
@@ -293,13 +259,6 @@ VI   = -90 * exp(P.pr(1));;                               % reversal  potential 
 VR   = -52 * exp(P.pr(2));;   %55                            % threshold potential (firing)
 VN   =  10 * exp(P.pr(3));;                               % reversal Ca(NMDA)   
 VB   = -100 * exp(P.pr(4));;                              % reversal of GABA-B
-
-%VE = VE * exp(P.pr(1));
-%VI = VI * exp(P.pr(2));
-%VN = VN * exp(P.pr(3));
-%VB = VB * exp(P.pr(4));
-
-%VR = VR * exp(P.pr(1));
 
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
@@ -316,7 +275,6 @@ GL   = 1 ;
 %----------------------------------------------------------------------
         
 FF = 1./(1 + exp(-exp(P.S).*(x(:,:,1)-VR)));
-
 RS = 30 ;
 
 Fu = find( x(:,:,1) >= VR );
@@ -325,10 +283,8 @@ FF(Fu) = 1;
 Fl = find( x(:,:,1) >= RS );
 FF(Fl) = 0;
 
+m  = FF;
 
-m  = FF;%.*exp(P.S);
-
-    
 % extrinsic effects
 %--------------------------------------------------------------------------
 a       = zeros(ns,5);
@@ -360,6 +316,7 @@ for i = 1:ns
         %------------------------------------------------------------------
         dU = u(:)*C(i,1);
                 
+        % self-excitation (AMPA)
         Gsc = ~eye(8);
         Gsc = Gsc +  (diag(exp(P.Gsc)));
                                 
@@ -389,20 +346,24 @@ for i = 1:ns
         % flag for the oscillation injection desribed here: 
         % https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5310631/
         
+        % if length of input vector > 1, represents more than one exogenous
+        % input - one to thal relay and one to cortical pyramids
         if length(u) > 1
             E(8) = E(8) + dU(2);
             E(2) = E(2) + dU(1);
         else
+            % otherwise just drive the thalamus
             input_cell        = [8];
             E(input_cell)     = E(input_cell) + dU;            
         end
 
+        % direct current to thalamus
         if isfield(P,'thi');
             E(8) = E(8) + exp(P.thi);
             ENMDA(8) = ENMDA(8) + exp(P.thi);
         end
                               
-        % Voltage equation
+        % Voltage equations
         %==================================================================
         if ~IncludeMH
             
@@ -454,8 +415,6 @@ if nargout < 2 || nargout == 5, return, end
 %==========================================================================
 J = spm_cat(spm_diff(M.f,x,u,P,M,1));
 
-
-
 if nargout < 3, return, end
 
 % Only compute Delays if requested
@@ -485,9 +444,6 @@ Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
 
 CT = 8; %60;
 TC = 3; %20;
-
-%CT = 60;
-%TC = 20;
 
 Tc              = zeros(np,np);
 Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal

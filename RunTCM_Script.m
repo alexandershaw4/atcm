@@ -31,13 +31,13 @@ function RunTCM_Script(i)
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'AllSZNoMerge.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'MeanSZDatasets.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'TCMx_';      % outputted DCM prefix
+Data.Prefix       = 'TCMa_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -205,7 +205,6 @@ for i = i;%1:length(Data.Datasets)
 
     DCM.M.pE   = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
     DCM.M.pE.J = pE.J;  
-    DCM.M.pE.L = -2;
 
     DCM.M.pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
     DCM.M.pC.H  = pC.H;
@@ -221,8 +220,8 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE   = pE;
     DCM.M.pE.L = -2;
 
-    DCM.M.pC.S = DCM.M.pC.S + 1/8;
-    DCM.M.pC.ID = ones(1,8)/32;
+    DCM.M.pC.S = DCM.M.pC.S *0;%+ 1/8;
+    DCM.M.pC.ID = ones(1,8)*0;%/32;
     
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -252,7 +251,8 @@ for i = i;%1:length(Data.Datasets)
     M.opts.ismimo      = 1;     
     M.opts.doparallel  = 1;    
     
-    M.opts.hyperparams = 1;  
+    M.opts.hyperparams = 1; 
+    M.opts.ahyper      = 1;
     M.opts.hypertune   = 1; 
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
@@ -264,7 +264,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.normalise_gradients = 0;
     
     M.opts.memory_optimise = 0;
-    M.opts.rungekutta      = 6;
+    M.opts.rungekutta      = 8;
     M.opts.bayesoptls      = 0;
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
     M.opts.crit            = [0 0 0 0];
