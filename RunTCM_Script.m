@@ -31,13 +31,13 @@ function RunTCM_Script(i)
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'MeanSZDatasets.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'AllSZNoMerge.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'TCMa_';      % outputted DCM prefix
+Data.Prefix       = 'TCMc_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -135,6 +135,8 @@ for i = i;%1:length(Data.Datasets)
     DCM = atcm.parameters(DCM,Ns);
     
     DCM.xY.y{:} = abs(DCM.xY.y{:});
+
+    DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},4)';
     
     % If using DCM inversion, select whether to block graph or not
     DCM.M.nograph = 0;
@@ -222,6 +224,7 @@ for i = i;%1:length(Data.Datasets)
 
     DCM.M.pC.S = DCM.M.pC.S *0;%+ 1/8;
     DCM.M.pC.ID = ones(1,8)*0;%/32;
+    DCM.M.pC.L = 1/64;
     
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -232,8 +235,8 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.y  = DCM.xY.y;
     DCM.M.Hz = DCM.xY.Hz;
 
-    DCM.M.InputType=9;
-    DCM.M.pC.d(1:6)=1/8;
+    DCM.M.InputType=1;
+    %DCM.M.pC.d(1:6)=1/8;
     DCM.M.pE.J(1) = log(.4);
     ppE = DCM.M.pE;
     DCM.M.solvefixed=0;
@@ -243,6 +246,8 @@ for i = i;%1:length(Data.Datasets)
     M = AODCM(DCM);
 
     M.opts.Q = Q;%diag(w);
+
+    M.opts.FS = @(x) sqrt(x);
     
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
@@ -253,6 +258,8 @@ for i = i;%1:length(Data.Datasets)
     
     M.opts.hyperparams = 1; 
     M.opts.ahyper      = 1;
+    M.opts.ahyper_p    = 1;
+
     M.opts.hypertune   = 1; 
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;

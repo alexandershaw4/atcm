@@ -151,6 +151,7 @@ switch InputType
         drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
                      %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
                   drive=drive';
+                  
     case 2
         % For ERP inputs...
         %------------------------------------------------------------------
@@ -239,28 +240,23 @@ switch InputType
          drive = (W')*shiftphase(spec,6);
     case 9
 
-        x0 = pst;
+        %  retinogeniculate oscillations are broadband incl. gamma;
+        % https://www.frontiersin.org/articles/10.3389/neuro.06.004.2009/full
+        x0 = pst/1000;
         w0  = exp(P.d(1));
         a0 = exp(P.d(2));
         a1 = exp(P.d(3));
+        
         b1 = exp(P.d(4));
+
         a2 = exp(P.d(5));
         b2 = exp(P.d(6));
 
         drive =  a0 + a1*cos(x0*w0) + b1*sin(x0*w0) + ...
-               a2*cos(2*x0*w0) + b2*sin(2*x0*w0);
+              a2*cos(2*x0*w0) + b2*sin(2*x0*w0);
 
         drive = drive';
 
-        %  ERP input to thal...
-        %------------------------------------------------------------------
-        %drive(2,:) = exp(P.R(1));
-
-        %delay  = 6 * exp(P.R(1));             % bump
-        %scale1 = 8  * exp(P.R(2));
-        %drive2  = atcm.fun.makef(pst,delay,scale1,16);
-        %drive2  = drive2';
-        %drive = [drive; drive2];
 
 end
 
@@ -738,7 +734,7 @@ switch IntMethod
 
                         % exogenous state inputs through AMPA+NMDA receptors
                         v = v + Q(:,[9:16 25:32])*ones(16,1)*drive(i);
-                        
+
                         % 4-th order Runge-Kutta method.
                         %--------------------------------------------------
                         k1 = Q*f(v             ,0*drive(:,i),R,M);
