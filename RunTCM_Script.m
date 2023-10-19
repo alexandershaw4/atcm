@@ -31,13 +31,13 @@ function RunTCM_Script(i)
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'AllSZNoMerge.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'NewMeansSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'TCMc_';      % outputted DCM prefix
+Data.Prefix       = 'TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -93,7 +93,7 @@ for i = i;%1:length(Data.Datasets)
     fprintf('Running Dataset %d / %d\n',i,length(Data.Datasets));
     
     % Frequency range of interest
-    fq = [1 90];
+    fq =  [1 90];
     
     % Prepare Data
     %----------------------------------------------------------------------
@@ -129,14 +129,18 @@ for i = i;%1:length(Data.Datasets)
     %DCMo.options.BeRobust=0;
     %DCMo = atcm.fun.prepcsd(DCMo);
     %r = DCMo.xY.y{1} - DCM.xY.y{1};
+
+    % amount of smoothing scales linearly with frequency step
+    %SmoothingK = 4./DCM.options.FrequencyStep;
         
     % Subfunctions and default priors
     %----------------------------------------------------------------------
     DCM = atcm.parameters(DCM,Ns);
     
     DCM.xY.y{:} = abs(DCM.xY.y{:});
+    w = DCM.xY.Hz;
 
-    DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},4)';
+    DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
     
     % If using DCM inversion, select whether to block graph or not
     DCM.M.nograph = 0;
@@ -207,7 +211,7 @@ for i = i;%1:length(Data.Datasets)
 
     DCM.M.pE   = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
     DCM.M.pE.J = pE.J;  
-
+    
     DCM.M.pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
     DCM.M.pC.H  = pC.H;
     DCM.M.pC.Hn = pC.Hn;
@@ -222,32 +226,32 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE   = pE;
     DCM.M.pE.L = -2;
 
-    DCM.M.pC.S = DCM.M.pC.S *0;%+ 1/8;
     DCM.M.pC.ID = ones(1,8)*0;%/32;
     DCM.M.pC.L = 1/64;
-    
+
+    DCM.M.pC.a(1)= 1/8;
+    DCM.M.pE.a(1)=0;
+
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
     w   = DCM.xY.Hz;
     Y   = DCM.xY.y{:};
 
+
     DCM.M.y  = DCM.xY.y;
     DCM.M.Hz = DCM.xY.Hz;
 
     DCM.M.InputType=1;
-    %DCM.M.pC.d(1:6)=1/8;
-    DCM.M.pE.J(1) = log(.4);
     ppE = DCM.M.pE;
     DCM.M.solvefixed=0;
-    %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
-            
+
+    DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
+
     % Construct an AO optimisation object
     M = AODCM(DCM);
 
-    M.opts.Q = Q;%diag(w);
-
-    M.opts.FS = @(x) sqrt(x);
+    M.opts.Q = eye(length(w));
     
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
@@ -289,7 +293,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.orthogradient = 1;
     M.opts.gradtol       = 1e-8;
         
-    M.default_optimise([9],[18])
+    M.default_optimise([9],[24])
     
     M.update_parameters(M.Ep);
 

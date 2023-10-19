@@ -29,12 +29,12 @@ C  = [c(1)./m(1) c(2)./m(end)];
 lm = linspace(C(1),C(2),length(m));
 m  = m(:).*lm(:);
 
-% %while any(m>y)
-% %    m  = m + max(y-m);
-%     m  = [m(2:end); m(end)];
-%     dy = spm_vec( linspace(c(1),c(2),length(w)) );
-%     m  = rescale(m) .* dy;
-% %end
+while any(m>y)
+   m  = m + max(y-m);
+    m  = [m(2:end); m(end)];
+    dy = spm_vec( linspace(c(1),c(2),length(w)) );
+    m  = rescale(m) .* dy;
+end
 
 
 end

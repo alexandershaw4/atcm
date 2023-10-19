@@ -147,7 +147,7 @@ switch InputType
         % For oscillatory inputs...
         %------------------------------------------------------------------
         mu    = .2*exp(P.R(1));                      % mean amplitude
-        mf    = 10*exp(P.R(2));                      % frequency
+        mf    = (10)*exp(P.R(2));                      % frequency
         drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
                      %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
                   drive=drive';
@@ -158,6 +158,11 @@ switch InputType
         delay  = 6 * exp(P.R(1));             % bump
         scale1 = 8  * exp(P.R(2));
         drive  = atcm.fun.makef(pst,delay,scale1,16);
+
+        offset = max(drive)/8;
+        intercept = atcm.fun.findthenearest(offset,drive);
+        drive(intercept(1):end) = offset;
+
         drive=drive';
         
     case 3
@@ -718,13 +723,22 @@ switch IntMethod
                         Q   = eye(length(D)) - (D);
                         ddt = dt;
 
-                        % state-dependent parameters (and plasticity)
+                        % state-dependent plasticity
                         %--------------------------------------------------
                         if isfield(P,'p') 
 
                             % moment & plasticity
                             dQ = exp(P.p(1)) * sum(exp(P.J).*(v-v0));
-                            R  = spm_unvec(Qi + dt*dQ,P);
+
+                            R = P;
+                            R.H(2,2) = R.H(2,2) + dt*dQ;
+
+                            %R  = spm_unvec(Qi + dt*dQ,P);
+                            
+                            %dQ       = exp(P.p(1));
+                            %R        = P;
+                            %I        = sin(2*pi*(50*exp(P.a(1)))*t(i)/1000);
+                            %R.H(2,3) = P.H(2,3) + dQ * I;
 
                             % record so we can recover parameter timeseries
                             series.param(i,:) = spm_vec(R);
@@ -732,8 +746,10 @@ switch IntMethod
                             R = P;
                         end
 
-                        % exogenous state inputs through AMPA+NMDA receptors
-                        v = v + Q(:,[9:16 25:32])*ones(16,1)*drive(i);
+                        % exogenous state inputs through AMPA receptors                        
+                        uQ    = [15 16];%[9:16];
+                        d     = (drive(i) - drive(i-1))./exp(P.a(1));
+                        v(uQ) = v(uQ) + ones(length(uQ),1)*d;%drive(i);
 
                         % 4-th order Runge-Kutta method.
                         %--------------------------------------------------
@@ -884,6 +900,26 @@ for ins = 1:ns
 
 end
 
+if isfield(M,'dmd') && M.dmd
+    % if using DMD over states
+    ty = reshape(squeeze(y(:,:,:,burn:end)),[56 length(t(burn:end))]);
+    %ty = ty((1:8),:);
+    [Phi, mu, lambda, diagS, x0] = DMD(ty,'dt',dt);
+    [f,Px] = DMD_spectrum(Phi, mu);
+    [~,I] = sort(f,'ascend');
+    f = f(I);
+    Px = Px(I);
+    [~,i] = unique(f);
+    f = f(i);
+    Px = Px(i);
+    Pf    = interp1(f,full(Px),w,'linear','extrap') ;
+    Pf    = atcm.fun.awinsmooth(Pf,4);
+
+    layers.iweighted (ins,1,:) = ( Pf  );
+    Ji=1;
+
+else
+
 % adjustment for when frequency intervals ~= 1 Hz; i.e. dt = dw/dt
 %--------------------------------------------------------------------------
 dw = 1./(w(2)-w(1));
@@ -895,7 +931,35 @@ for ins = 1:ns
     % extract time series of all states from this region
     %----------------------------------------------------------------------
     yx = reshape( squeeze(y(ins,:,:,:)), [npp*nk,length(t)]);
-        
+    yx = yx(:,burn:burno);
+
+    % use eigenspectrum of numerical Jacobian
+    %----------------------------------------------------------------------
+    %C = cov(yx');
+    %D = -C.*dfdx'/2;
+    %[v,s]=eig(full(D),'nobalance');
+    %s=diag(s);
+    %Kw = spm_s2csd(s,w);
+    %Ppf = sum(Kw(:,1:8),2);
+    %P.J=1;
+
+
+    % Weight each state and pass through D Fourier matrix and sum
+    %----------------------------------------------------------------------
+    g  = exp(P.J(:)');
+    F  = dftmtx(size(yx,2));
+    N  = length(F);
+    fd = yx(1,:)*0;
+
+    for ig = 1:length(g)
+        ys = yx(ig,:);
+        ys = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
+        fd = fd + g(ig)*ys*F;
+    end
+
+    P.J = 0;
+    Ji  = 1;
+
     % loop spatio-temporal modes (in this region) and weight them
     %----------------------------------------------------------------------
     for ij = 1:length(Ji)
@@ -909,27 +973,27 @@ for ins = 1:ns
             
             % State timeseries without burnin
             %--------------------------------------------------------------
-            pc = yx(Ji(ij),burn:burno);
-            pc = atcm.fun.bandpassfilter(pc,1/dt,[w(1) w(end)]);
+            %pc = yx(Ji(ij),burn:burno);
+            %pc = atcm.fun.bandpassfilter(pc,1/dt,[w(1) w(end)]);
             %pc = detrend(pc);
                                                 
             clear Ppf  Pfm Ppf1 Ppf2 Ppf3            
 
-            % compute the fourier transform under Gaussian constraint
+            %compute the abs fourier transform at FoI
             %------------------------------------------------------------
-            N = length(pc);
-            q = (1:N)./N;
-            F = dftmtx(N);
-            %G = VtoGauss(ones(size(F)),10,[],0); % 30
-            %F = real(F).*G + sqrt(-1)*(imag(F).*G);
+            % N = length(pc);
+            % q = (1:N)./N;
+            % F = dftmtx(N);
             f = (1/dt) * (0:(N/2))/N;
 
-            data   = (pc*F);
+            data   = fd;
+            %data  = (pc*F);
             data   = (data/N);
             L2     = floor(N/2);
             data   = data(1:L2+1);
             Ppf    = abs(data);
-            Ppf    = atcm.fun.awinsmooth(Ppf,4);
+            %Ppf    = atcm.fun.awinsmooth(Ppf,10);
+            Ppf    = agauss_smooth(Ppf,exp(P.a(2))*2.2);            
             Ppf    = interp1(f,full(Ppf),w,'linear','extrap') ;%.* (1+w./w(end));
 
             % for the GP created from VtoGauss see
@@ -974,6 +1038,7 @@ for ins = 1:ns
     end   
 end   
 
+end
 
 clear Pf
 
@@ -988,7 +1053,7 @@ for inx = 1:ns
             if length(Ji) > 1
                 Pf(:,inx,iny) = sum((squeeze(layers.iweighted(ins,:,:))),1);%sum(layers.iweighted(inx,:,:),2);
             else
-                Pf(:,inx,iny)=sum(layers.iweighted(inx,:,:),2);
+                Pf(:,inx,iny)=squeeze(sum(layers.iweighted(inx,:,:),2));
             end
         end
 
@@ -1001,8 +1066,17 @@ for ins = 1:ns
             
     Pf0 = Pf(:,ins,ins);
 
-    % add smoothing here,
-    Pf0 = atcm.fun.awinsmooth(Pf0,6);
+    % Furnish with parameterised Eigenspectrum of innovations {CSD}
+    %B   = -[128 64 32 64]'   + 1j*2*pi*[4 12 48 64]';
+    %H   = spm_s2csd(B(1:4),w);
+    %Pf0 = Pf0(:).*sum(H,2);
+
+    %Pf0 = atcm.fun.awinsmooth(Pf0,4);
+   
+    % optimise the smoothness of the vector to match data
+    %if ~isfield(M,'dmd')
+        %Pf0 = atcm.fun.smooth_optimise(Pf0,M.y{:},1e-1);
+    %end
 
     Pf(:,ins,ins) = Pf0(:);
     
@@ -1105,6 +1179,15 @@ if size(x,3) > 1, x = squeeze(x); else, x = x(:); end
 
 end
 
+    % % dfdg
+    % Pop = squeeze(layers.unweighted(ins,:,:));
+    % J   = exp(P.J);
+    % J   = J(find(J));
+    % 
+    % gfun = @(b) sum( (spm_vec(M.y) - spm_vec(b(:)'*Pop)).^2 );
+    % dfdj = jaco(gfun,J,~~J/8,0,1);
+    % newJ = J - (dfdj/gfun(J)/8);
+    % Pf0 = newJ(:)'*Pop;
 
                         % % thalamo-cortical delay effects
                         % ct = 8*exp(P.CT); %60;

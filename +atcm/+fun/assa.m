@@ -1,4 +1,4 @@
-function [RC,lam] = assa(X,MM,reduce)
+function [RC,lam,RHO] = assa(X,MM,reduce)
 % Singular spectrum analysis 
 %
 %   RC = assa(X,MM);
