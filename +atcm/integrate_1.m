@@ -146,11 +146,16 @@ switch InputType
         
         % For oscillatory inputs...
         %------------------------------------------------------------------
-        mu    = .2*exp(P.R(1));                      % mean amplitude
-        mf    = (10)*exp(P.R(2));                      % frequency
-        drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
-                     %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
-                  drive=drive';
+        % mu    = .2*exp(P.R(1));                      % mean amplitude
+        % mf    = (10)*exp(P.R(2));                      % frequency
+        % drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
+        %              %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
+        %           drive=drive';
+
+        % Actually, create a noise distribution in frequency space
+        fdrive =  1./(1j*2*pi*w - (50));
+        drive = ifft(fdrive,length(pst)*2);
+        drive = drive(1:length(pst))*5000;
                   
     case 2
         % For ERP inputs...
@@ -944,7 +949,7 @@ for ins = 1:ns
     %P.J=1;
 
 
-    % Weight each state and pass through D Fourier matrix and sum
+    % Weight each state and pass through Dscr Fourier matrix and sum
     %----------------------------------------------------------------------
     g  = exp(P.J(:)');
     F  = dftmtx(size(yx,2));
@@ -970,30 +975,21 @@ for ins = 1:ns
         % Spectral responses of states
         %------------------------------------------------------------------
         try
-            
-            % State timeseries without burnin
-            %--------------------------------------------------------------
-            %pc = yx(Ji(ij),burn:burno);
-            %pc = atcm.fun.bandpassfilter(pc,1/dt,[w(1) w(end)]);
-            %pc = detrend(pc);
-                                                
+                                                            
             clear Ppf  Pfm Ppf1 Ppf2 Ppf3            
 
             %compute the abs fourier transform at FoI
             %------------------------------------------------------------
-            % N = length(pc);
-            % q = (1:N)./N;
-            % F = dftmtx(N);
-            f = (1/dt) * (0:(N/2))/N;
-
+            f      = (1/dt) * (0:(N/2))/N;
             data   = fd;
-            %data  = (pc*F);
             data   = (data/N);
             L2     = floor(N/2);
             data   = data(1:L2+1);
             Ppf    = abs(data);
-            %Ppf    = atcm.fun.awinsmooth(Ppf,10);
-            Ppf    = agauss_smooth(Ppf,exp(P.a(2))*2.2);            
+            %Ppf   = atcm.fun.awinsmooth(Ppf,10);
+
+            Ppf    = atcm.fun.agauss_smooth_mat(Ppf,3);            
+            Ppf    = sum(Ppf);
             Ppf    = interp1(f,full(Ppf),w,'linear','extrap') ;%.* (1+w./w(end));
 
             % for the GP created from VtoGauss see

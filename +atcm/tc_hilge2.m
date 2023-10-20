@@ -187,7 +187,7 @@ GEn = GEa;
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
 GIa =[8     0     10    0     0     0     0     0;
-      0     18     10    0     0     0     0     0;
+      0     18    10    0     0     0     0     0;
       0     0     10    0     0     0     0     0;
       0     0     0     8     4    0     0     0;
       0     0     0     0     4    0     0     0;
@@ -375,6 +375,9 @@ for i = 1:ns
             
         elseif IncludeMH
             
+          % alternative magnesium block:
+          mag_block = 1/(1 + 0.2*exp(-0.062*(exp(P.scale_NMDA))*squeeze(x(i,:,1))')) ;
+
           
           f(i,:,1) =  (GL*(VL - x(i,:,1))+...
                        x(i,:,2).*((VE - x(i,:,1)))+...
@@ -382,7 +385,10 @@ for i = 1:ns
                        x(i,:,5).*((VB - x(i,:,1)))+...
                        x(i,:,6).*((VM - x(i,:,1)))+...
                        x(i,:,7).*((VH - x(i,:,1)))+...
-                       x(i,:,4).*((VN - x(i,:,1))).*mg_switch(x(i,:,1)))./CV;
+                       x(i,:,4).*((VN - x(i,:,1))).*mag_block)./CV;
+                       %x(i,:,4).*((VN - x(i,:,1))).*mg_switch(x(i,:,1)))./CV;
+          
+          
         end
                    
         % Conductance equations
@@ -459,7 +465,7 @@ ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
 ID = -ID.*exp(P.ID)/1000; 
 ID = repmat(ID,[1 nk]);
 
-
+ID = ID - ID(:);
 
 % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
 %--------------------------------------------------------------------------
@@ -467,7 +473,7 @@ Dp = ~Ss;                            % states: different sources
 Ds = ~Sp & Ss;                       % states: same source different pop.
 %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
 
-D = d(1)*Ds + Tc + diag(ID) ;
+D = d(1)*Ds + Tc + (ID) ;
 
 %if ~isfield(P,'delays')
  %   D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;

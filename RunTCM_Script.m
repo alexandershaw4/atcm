@@ -177,9 +177,7 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE = Ep;
     DCM.M.pC = pC;
 
-
-    DCM.M.pC.S  = ones(1,8)/8;
-
+    DCM.M.pC.S = ones(1,8)/8;
     DCM.M.pE.T = [0 0 0 0 0 0];
     DCM.M.pC.T = [1 1 1 1 1 1]/8;
 
@@ -224,20 +222,26 @@ for i = i;%1:length(Data.Datasets)
 
     load('new_priors_6923','pE')
     DCM.M.pE   = pE;
-    DCM.M.pE.L = -2;
+    DCM.M.pE.L = -4;
 
-    DCM.M.pC.ID = ones(1,8)*0;%/32;
+    DCM.M.pC.ID = ones(1,8)*0;
+    DCM.M.pC.ID = DCM.M.pC.ID + 1/32;;
     DCM.M.pC.L = 1/64;
+    %DCM.M.pC.T = DCM.M.pC.T + 1/16;
 
     DCM.M.pC.a(1)= 1/8;
     DCM.M.pE.a(1)=0;
+
+    DCM.M.pE.scale_NMDA=0;
+    DCM.M.pC.scale_NMDA=1/8;
+
+    %DCM.M.pC.T = [1 1 1 1 0 0]./8;
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
     w   = DCM.xY.Hz;
     Y   = DCM.xY.y{:};
-
 
     DCM.M.y  = DCM.xY.y;
     DCM.M.Hz = DCM.xY.Hz;
@@ -246,7 +250,7 @@ for i = i;%1:length(Data.Datasets)
     ppE = DCM.M.pE;
     DCM.M.solvefixed=0;
 
-    DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
+    %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
 
     % Construct an AO optimisation object
     M = AODCM(DCM);
@@ -276,6 +280,7 @@ for i = i;%1:length(Data.Datasets)
     
     M.opts.memory_optimise = 0;
     M.opts.rungekutta      = 8;
+    M.opts.wolfelinesearch = 0;
     M.opts.bayesoptls      = 0;
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
     M.opts.crit            = [0 0 0 0];
