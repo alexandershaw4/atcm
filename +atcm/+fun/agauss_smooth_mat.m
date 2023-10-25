@@ -17,6 +17,7 @@ for i = 1:length(x)
     ym(i,:) = ( x.*fun(n,i) );
 end
 
+
 % decompose matrix using svd of covariance
 [u,s,v] = svd(cov(ym'));
 

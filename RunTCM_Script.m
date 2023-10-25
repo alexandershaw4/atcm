@@ -210,6 +210,7 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE   = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
     DCM.M.pE.J = pE.J;  
     
+    % set pC = zeros
     DCM.M.pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
     DCM.M.pC.H  = pC.H;
     DCM.M.pC.Hn = pC.Hn;
@@ -227,15 +228,12 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pC.ID = ones(1,8)*0;
     DCM.M.pC.ID = DCM.M.pC.ID + 1/32;;
     DCM.M.pC.L = 1/64;
-    %DCM.M.pC.T = DCM.M.pC.T + 1/16;
 
     DCM.M.pC.a(1)= 1/8;
     DCM.M.pE.a(1)=0;
 
     DCM.M.pE.scale_NMDA=0;
     DCM.M.pC.scale_NMDA=1/8;
-
-    %DCM.M.pC.T = [1 1 1 1 0 0]./8;
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy

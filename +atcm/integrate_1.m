@@ -725,7 +725,7 @@ switch IntMethod
                         
                         % Matrix delays and rate (integration) constants
                         %--------------------------------------------------
-                        Q   = eye(length(D)) - (D);
+                        Q   = inv(eye(length(D)) - (D*dt));
                         ddt = dt;
 
                         % state-dependent plasticity
@@ -734,27 +734,23 @@ switch IntMethod
 
                             % moment & plasticity
                             dQ = exp(P.p(1)) * sum(exp(P.J).*(v-v0));
+                            R  = P;
 
-                            R = P;
                             R.H(2,2) = R.H(2,2) + dt*dQ;
-
-                            %R  = spm_unvec(Qi + dt*dQ,P);
-                            
-                            %dQ       = exp(P.p(1));
-                            %R        = P;
-                            %I        = sin(2*pi*(50*exp(P.a(1)))*t(i)/1000);
-                            %R.H(2,3) = P.H(2,3) + dQ * I;
-
-                            % record so we can recover parameter timeseries
-                            series.param(i,:) = spm_vec(R);
                         else
                             R = P;
                         end
 
-                        % exogenous state inputs through AMPA receptors                        
-                        uQ    = [15 16];%[9:16];
+                        % exogenous inputs through thal AMPA receptors  
+                        %--------------------------------------------------
+                        uQ    = [15 16];
                         d     = (drive(i) - drive(i-1))./exp(P.a(1));
-                        v(uQ) = v(uQ) + ones(length(uQ),1)*d;%drive(i);
+                        v(uQ) = v(uQ) + ones(length(uQ),1)*d;
+
+                        % fast drive to inhibitory cells
+                        %--------------------------------------------------
+                        %fsd = sin(2*pi*453*t(i)./1000);
+                        %R.H([2 3],3) = P.H([2 3],3) + fsd;
 
                         % 4-th order Runge-Kutta method.
                         %--------------------------------------------------
@@ -770,8 +766,10 @@ switch IntMethod
                         %--------------------------------------------------
                         y(:,i) =   (v);
 
-                     else
-                        % 4-th order Runge-Kutta method.
+                    else
+
+                        % 4-th order Runge-Kutta method
+                        %--------------------------------------------------
                         [k1,J,D] = f(v    ,0*drive(:,i),P,M);
                         k2 = f(v+0.5*dt*k1,0*drive(:,i),P,M);
                         k3 = f(v-0.5*dt*k2,0*drive(:,i),P,M);
@@ -780,7 +778,6 @@ switch IntMethod
                         dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
                         v         = v + dxdt;
                         y(:,i)    = v ;
-                        Qi        = spm_vec(P);
                         
                     end
                 
@@ -986,7 +983,7 @@ for ins = 1:ns
             L2     = floor(N/2);
             data   = data(1:L2+1);
             Ppf    = abs(data);
-            %Ppf   = atcm.fun.awinsmooth(Ppf,10);
+            %Ppf    = atcm.fun.awinsmooth(Ppf,10);
 
             Ppf    = atcm.fun.agauss_smooth_mat(Ppf,3);            
             Ppf    = sum(Ppf);

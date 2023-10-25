@@ -49,14 +49,15 @@ function [f,J,D] = tc_hilge2(x,u,P,M,fso)
 % Info:
 %  - Ih is a hyperpolarization-activated cation current mediated by HCN channel
 %  - non-selective, voltag gated, responsible for cariac 'funny' (pacemaker) current
+%  - HCN = Hyperpolarization-Activated Cyclic Nucleotide-Gated Channels
 %
 %  - M-channels (aka Kv7) are noninactivating potassium channels
 %  - M is unique because it is open at rest and even more likely to be open during depolarization
 %  - M is a pip2 regulated ion channel
 %
-% Alexander Shaw 2019: ShawA10@cardiff.ac.uk
-%
 % Notes, changes, updates:
+%
+% Kv7 channels are actually everwhere - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7530275/#ref90
 %
 % Extrinsics connection matrices [ampa but AN{n} is nmda equiv]:
 % A{1} = Forward  SP -> SS & DP
@@ -183,6 +184,7 @@ GEa = [  0     0     0     0     0     2     0     2;
 GEa = (~~GEa)*2;
 GEn = GEa;
 
+GEn([2 3],3) = 2;
 
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
@@ -206,23 +208,6 @@ if isfield(P,'scale')
     GIb = GIb * exp(P.scale(4));
 end
 
-
-if IncludeMH
-    
-    % M- & H- channel conductances (np x np) {L6 & Thal Relay cells only}
-    %----------------------------------------------------------------------
-    % https://www.sciencedirect.com/science/article/pii/S0006349599769250
-    VM   = -70;                            % reversal potential m-channels          
-    VH   = -30;                            % reversal potential h-channels 
-
-    GIm = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Mh(:)'));
-    GIh = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Hh(:)'));
-
-    KM    = (exp(-P.T(:,5))*1000/160) ;               % m-current opening + CV
-    KH    = (exp(-P.T(:,6))*1000/100) ;               % h-current opening + CV
-    h     = 1 - spm_Ncdf_jdw(x(:,:,1),-100,300); % mean firing for h-currents
-    %h      = 1./(1+exp((x(:,:,1)+81)/7));
-end
 
 % Channel rate constants [decay times]
 %--------------------------------------------------------------------------
@@ -254,11 +239,30 @@ end
 % Voltages [reversal potentials] (mV)
 %--------------------------------------------------------------------------
 VL   = -70;                               % reversal  potential leak (K)
-VE   =  60 ;                               % reversal  potential excite (Na)
-VI   = -90 * exp(P.pr(1));;                               % reversal  potential inhib (Cl)
-VR   = -52 * exp(P.pr(2));;   %55                            % threshold potential (firing)
-VN   =  10 * exp(P.pr(3));;                               % reversal Ca(NMDA)   
-VB   = -100 * exp(P.pr(4));;                              % reversal of GABA-B
+VE   =  60 ;                              % reversal  potential excite (Na)
+VI   = -90 * exp(P.pr(1));                % reversal  potential inhib (Cl)
+VR   = -52 * exp(P.pr(2));   %55          % threshold potential (firing)
+VN   =  10 * exp(P.pr(3));                % reversal Ca(NMDA)   
+VB   = -100 * exp(P.pr(4));               % reversal of GABA-B
+
+
+if IncludeMH
+    
+    % M- & H- channel conductances (np x np) {L6 & Thal Relay cells only}
+    %----------------------------------------------------------------------
+    % https://www.sciencedirect.com/science/article/pii/S0006349599769250
+    VM   = VR;%-70;                            % reversal potential m-channels          
+    VH   = -30;                            % reversal potential h-channels 
+
+    GIm = diag(4*[1 1 1 1 1 1 1 1].*exp(P.Mh(:)'));
+    GIh = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Hh(:)'));
+
+    KM    = (exp(-P.T(:,5))*1000/160) ;               % m-current opening + CV
+    KH    = (exp(-P.T(:,6))*1000/100) ;               % h-current opening + CV
+    h     = 1 - spm_Ncdf_jdw(x(:,:,1),-100,300); % mean firing for h-currents
+    h     = 1 - 1./(1 + exp(-(2/3).*(x(:,:,1)-VH)));
+    %h      = 1./(1+exp((x(:,:,1)+81)/7));
+end
 
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
@@ -273,16 +277,12 @@ GL   = 1 ;
 
 % neural-mass approximation to covariance of states: trial specific
 %----------------------------------------------------------------------
-        
-FF = 1./(1 + exp(-exp(P.S).*(x(:,:,1)-VR)));
+R  = 2/3 * exp(P.S);
+FF = 1./(1 + exp(-R.*(x(:,:,1)-VR)));
+
 RS = 30 ;
-
-Fu = find( x(:,:,1) >= VR );
-FF(Fu) = 1;
-
-Fl = find( x(:,:,1) >= RS );
-FF(Fl) = 0;
-
+Fu = find( x(:,:,1) >= VR ); FF(Fu) = 1;
+Fl = find( x(:,:,1) >= RS ); FF(Fl) = 0;
 m  = FF;
 
 % extrinsic effects
@@ -315,14 +315,10 @@ for i = 1:ns
         % input scaling: 
         %------------------------------------------------------------------
         dU = u(:)*C(i,1);
-                
-        % self-excitation (AMPA)
-        Gsc = ~eye(8);
-        Gsc = Gsc +  (diag(exp(P.Gsc)));
-                                
+                                                
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------
-        E      = ( (G(:,:,i).*GEa).*Gsc )*m(i,:)'; % AMPA currents
+        E      = ( G(:,:,i).*GEa)*m(i,:)'; % AMPA currents
         ENMDA  = (Gn(:,:,i).*GEn)*m(i,:)'; % NMDA currents
         I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
         IB     = ( G(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
@@ -339,8 +335,7 @@ for i = 1:ns
         %------------------------------------------------------------------
         E     = (E     +  BE  + SA   *a (i,:)')*2;
         ENMDA = (ENMDA +  BE  + SNMDA*an(i,:)')*2;
-                
-        
+                   
         % and exogenous input(U): 
         %------------------------------------------------------------------
         % flag for the oscillation injection desribed here: 
@@ -460,12 +455,14 @@ Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
 
 
 %kd = exp(P.a(1)) * 8;
-ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
-%ID = [1 1 1 1 1 1 1 1];
+%ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
+ID = [1 1 1 1 1 1 1 1];
 ID = -ID.*exp(P.ID)/1000; 
 ID = repmat(ID,[1 nk]);
 
-ID = ID - ID(:);
+ID = repmat(ID(:)',[np*nk,1]);
+
+%ID = ID - ID(:);
 
 % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
 %--------------------------------------------------------------------------
