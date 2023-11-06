@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'TCM_';      % outputted DCM prefix
+Data.Prefix       = 'aTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -168,10 +168,10 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.InputType = 1;
 
     % Use a 2-point RK method for integration
-    DCM.M.intmethod = 45;
+    DCM.M.intmethod = 45;%45;
 
     % No hamming on spectrum
-    DCM.M.DoHamming = 0;
+    DCM.M.DoHamming = 1;
 
     load("newpriors.mat")
     DCM.M.pE = Ep;
@@ -235,6 +235,13 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE.scale_NMDA=0;
     DCM.M.pC.scale_NMDA=1/8;
 
+    x = load('params_25oct23');
+    DCM.M.pE = x.Ep;
+    DCM.M.pE.L=-1;
+
+    %x = load('really_good_3nov23')
+    %DCM.M.pE = spm_unvec(x.M.Ep,DCM.M.pE);
+
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
@@ -253,7 +260,7 @@ for i = i;%1:length(Data.Datasets)
     % Construct an AO optimisation object
     M = AODCM(DCM);
 
-    M.opts.Q = eye(length(w));
+    M.opts.Q = diag(w(:).*Y(:));%eye(length(w));
     
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
@@ -278,6 +285,7 @@ for i = i;%1:length(Data.Datasets)
     
     M.opts.memory_optimise = 0;
     M.opts.rungekutta      = 8;
+    M.opts.dopowell        = 1;
     M.opts.wolfelinesearch = 0;
     M.opts.bayesoptls      = 0;
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
@@ -288,7 +296,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.isNewton      = 0;
     M.opts.isQuasiNewton = 0;
     M.opts.isNewtonReg   = 0;      
-    M.opts.isGaussNewton = 0;
+    M.opts.isGaussNewton = 1;
     M.opts.isTrust       = 0;
     
     % order of dfdx: grads or curv & whether to orthogoanlise
@@ -296,11 +304,11 @@ for i = i;%1:length(Data.Datasets)
     M.opts.orthogradient = 1;
     M.opts.gradtol       = 1e-8;
         
-    M.default_optimise([9],[24])
+    M.default_optimise([1],[18])
     
-    M.update_parameters(M.Ep);
+    %M.update_parameters(M.Ep);
 
-    M.default_optimise([9],[18])
+    %M.default_optimise([9],[18])
 
     % save in DCM structures after optim 
     %----------------------------------------------------------------------

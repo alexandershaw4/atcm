@@ -101,6 +101,12 @@ Fs    = 1/dt;                     % sampling frequency
 tn    = 3;                        % sample window length, in seconds
 pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
 
+% stop P from becoming complex
+%P = spm_unvec( real(spm_vec(P)), P);
+
+P.L = real(P.L);
+P.J = real(P.J);
+
 % unpack simulation pst options, if specified
 %--------------------------------------------------------------------------
 if isfield(M,'sim')
@@ -144,18 +150,12 @@ switch InputType
         drive = drive(:)';%.*NS(:); 
     case 1
         
-        % For oscillatory inputs...
-        %------------------------------------------------------------------
-        % mu    = .2*exp(P.R(1));                      % mean amplitude
-        % mf    = (10)*exp(P.R(2));                      % frequency
-        % drive = mu * ( (sin(2*pi*mf*(pst/1000))) );%...
-        %              %   + sin(2*pi*(10*exp(P.R(3)))*(pst/1000)) );
-        %           drive=drive';
-
-        % Actually, create a noise distribution in frequency space
+        % create a noise distribution in frequency space for endogenous inp
         fdrive =  1./(1j*2*pi*w - (50));
         drive = ifft(fdrive,length(pst)*2);
         drive = drive(1:length(pst))*5000;
+
+        % and an ERP like input for exogenous input to thalamic
                   
     case 2
         % For ERP inputs...
@@ -398,7 +398,7 @@ switch IntMethod
 
 
     case 'spm';
-                x
+                x;
         P.J=P.J';
         M.dt = dt;
             [~,y] = spm_int_L(P,M,drive);
@@ -538,11 +538,42 @@ switch IntMethod
                 
                 
             elseif WithDelays == 1
-                
-                [dxdt,dfdx] = f(v,drive(i,:),P,M);   
-                dfdx=dfdx./norm(full(dfdx));
-                v = v + dt*dfdx*dxdt;
-                y(:,i) = v;
+                 
+                % Matrix delays and rate (integration) constants
+                %--------------------------------------------------
+                if i == 1
+                    [k1,J,D] = f(v,0*drive(:,i),P,M);
+                end
+
+                %if i == 2
+                    D   = real(D);
+                    Q   = (1 - D).*(~~real(J));%inv(eye(npp*nk) - D);
+                    QJ  = Q.*J;
+                    ddt = dt;
+                %end
+
+                if i > 1
+                    % endogenous noise via AMPA receptors
+                    %--------------------------------------------------
+                    d       = (drive(i) - drive(i-1))./exp(P.a(1));
+                    v(9:16) = v(9:16) + d;
+                end
+
+                R=P;
+
+                % 
+                %--------------------------------------------------
+                dxdt = dt*f(v,0,P,M);
+                g    = dxdt ;
+                b    = J\g;
+                dxdt = QJ*b ;
+                v    = v + dxdt;
+
+                % Full update
+                %--------------------------------------------------
+                y(:,i) =   (v);
+
+                     
                 
             elseif WithDelays == 1.5
                 
@@ -725,46 +756,50 @@ switch IntMethod
                         
                         % Matrix delays and rate (integration) constants
                         %--------------------------------------------------
-                        Q   = inv(eye(length(D)) - (D*dt));
-                        ddt = dt;
+                        if i == 2
+                            D   = real(D);
+                            Q   = (1 - D).*(~~real(J));%inv(eye(npp*nk) - D);
+                            QJ  = Q.*J;
+                            ddt = dt;
+                        end  
 
-                        % state-dependent plasticity
+                        % endogenous noise via AMPA receptors  
                         %--------------------------------------------------
-                        if isfield(P,'p') 
+                        d       = (drive(i) - drive(i-1))./exp(P.a(1));
+                        v(9:16) = v(9:16) + d;
 
-                            % moment & plasticity
-                            dQ = exp(P.p(1)) * sum(exp(P.J).*(v-v0));
-                            R  = P;
+                        R=P;
 
-                            R.H(2,2) = R.H(2,2) + dt*dQ;
-                        else
-                            R = P;
-                        end
-
-                        % exogenous inputs through thal AMPA receptors  
+                        % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
-                        uQ    = [15 16];
-                        d     = (drive(i) - drive(i-1))./exp(P.a(1));
-                        v(uQ) = v(uQ) + ones(length(uQ),1)*d;
-
-                        % fast drive to inhibitory cells
-                        %--------------------------------------------------
-                        %fsd = sin(2*pi*453*t(i)./1000);
-                        %R.H([2 3],3) = P.H([2 3],3) + fsd;
-
-                        % 4-th order Runge-Kutta method.
-                        %--------------------------------------------------
-                        k1 = Q*f(v             ,0*drive(:,i),R,M);
-                        k2 = Q*f(v+0.5.*ddt.*k1,0*drive(:,i),R,M);
-                        k3 = Q*f(v+0.5.*ddt.*k2,0*drive(:,i),R,M);
-                        k4 = Q*f(v+     ddt.*k3,0*drive(:,i),R,M);
+                        k1 = f(v             ,0,R,M);
+                        k2 = f(v+0.5.*ddt.*k1,0,R,M);
+                        k3 = f(v+0.5.*ddt.*k2,0,R,M);
+                        k4 = f(v+     ddt.*k3,0,R,M);
                         
                         dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
+
+                        if i > 2
+                            % from the update dx = f(x), can can recover
+                            % which x lead to which change in dx assuming a
+                            % static Jacobian; 
+                            %     dv = x + dx
+                            %     b  = J \ dx
+                            %     dv = x + J*b
+                            %     dv = x + (Q*J)*b  <-- add delays
+
+                            g    = dxdt ;
+                            b    = J\g;
+                            dxdt = QJ*b ;
+                        end
+                        
                         v    = v + dxdt;
-                  
+                                               
                         % Full update
                         %--------------------------------------------------
                         y(:,i) =   (v);
+
+                        %plot(t(1:i),y(1:8,:)); drawnow;
 
                     else
 
@@ -779,6 +814,8 @@ switch IntMethod
                         v         = v + dxdt;
                         y(:,i)    = v ;
                         
+                        %dfdp  = spm_diff(M.f,M.x,0,P,M,3);
+                        %idfdp = pinv(full(dfdp));
                     end
                 
             end  
@@ -902,25 +939,39 @@ for ins = 1:ns
 
 end
 
-if isfield(M,'dmd') && M.dmd
+% if isfield(M,'dmd') && M.dmd
+%     J = P.J*0 - 1000;
+% 
+%     JJ = reshape(J,[8 7]);
+%     JJ(:,2) =log(  1 * exp(P.J(1)));
+%     JJ(:,3) =log( -1 * exp(P.J(2)));
+%     JJ(:,4) =log( .6 * exp(P.J(3))); 
+%     JJ(:,5) =log(-.6 * exp(P.J(4)));
+% 
+%     P.J = exp(JJ(:));
+% end
+
+%if isfield(M,'dmd') && M.dmd
     % if using DMD over states
-    ty = reshape(squeeze(y(:,:,:,burn:end)),[56 length(t(burn:end))]);
-    %ty = ty((1:8),:);
-    [Phi, mu, lambda, diagS, x0] = DMD(ty,'dt',dt);
-    [f,Px] = DMD_spectrum(Phi, mu);
-    [~,I] = sort(f,'ascend');
-    f = f(I);
-    Px = Px(I);
-    [~,i] = unique(f);
-    f = f(i);
-    Px = Px(i);
-    Pf    = interp1(f,full(Px),w,'linear','extrap') ;
-    Pf    = atcm.fun.awinsmooth(Pf,4);
+    % ty = reshape(squeeze(y(:,:,:,burn:end)),[56 length(t(burn:end))]);
+    % %ty = ty((1:8),:);
+    % [Phi, mu, lambda, diagS, x0] = DMD(ty,'dt',dt);
+    % [f,Px] = DMD_spectrum(Phi, mu);
+    % [~,I] = sort(f,'ascend');
+    % f = f(I);
+    % Px = Px(I);
+    % [~,i] = unique(f);
+    % f = f(i);
+    % Px = Px(i);
+    % Pf    = interp1(f,full(Px),w,'linear','extrap') ;
+    % Pf    = atcm.fun.awinsmooth(Pf,4);
+    % 
+    % layers.iweighted (ins,1,:) = ( Pf  );
+    % Ji=1;
 
-    layers.iweighted (ins,1,:) = ( Pf  );
-    Ji=1;
+    
 
-else
+%else
 
 % adjustment for when frequency intervals ~= 1 Hz; i.e. dt = dw/dt
 %--------------------------------------------------------------------------
@@ -977,17 +1028,46 @@ for ins = 1:ns
 
             %compute the abs fourier transform at FoI
             %------------------------------------------------------------
-            f      = (1/dt) * (0:(N/2))/N;
-            data   = fd;
-            data   = (data/N);
-            L2     = floor(N/2);
-            data   = data(1:L2+1);
-            Ppf    = abs(data);
-            %Ppf    = atcm.fun.awinsmooth(Ppf,10);
+            %f      = (1/dt) * (0:(N/2))/N;
+            %data   = fd;
+            %data   = (data/N);
+            %L2     = floor(N/2);
+            %data   = data(1:L2+1);
+            %Ppf    = abs(data);
 
-            Ppf    = atcm.fun.agauss_smooth_mat(Ppf,3);            
-            Ppf    = sum(Ppf);
-            Ppf    = interp1(f,full(Ppf),w,'linear','extrap') ;%.* (1+w./w(end));
+            N   = length(t);
+            S1  = fd*dt;
+
+            w1  = ((1:N) - 1)/(N*dt);
+            j   = w1 < max(w);
+            S1  = S1(j);
+            w1  = w1(j);
+            S1  = abs(S1);
+
+            %S1 = atcm.fun.awinsmooth(S1,6);
+            S1  = agauss_smooth(S1,2);
+
+            
+            Ppf  = interp1(w1,full(abs(S1)),w,'nearest','extrap') ;
+            
+            %Ppf  = agauss_smooth(abs(Ppf),1);
+
+            %Ppf = atcm.fun.awinsmooth(Ppf,2);
+            %Ppf = abs(Ppf);
+            
+            %[Pps]  = atcm.fun.agauss_smooth_mat(Ppf,1.5);         
+            %Ppf    = sum(Pps);
+
+
+            %Ppf    = interp1(f,full(Ppf),w,'linear','extrap') ;%.* (1+w./w(end));
+            
+            %Ppf = agauss_smooth(Ppf,1);
+
+            %sfun = @(x) 1 - (corr(spm_vec(M.y),agauss_smooth(Ppf,x)').^2);
+
+            %X = fminsearch(sfun,1);
+
+            %Ppf = agauss_smooth(Ppf,1);
 
             % for the GP created from VtoGauss see
             % https://peterroelants.github.io/posts/gaussian-process-tutorial/
@@ -1031,7 +1111,7 @@ for ins = 1:ns
     end   
 end   
 
-end
+%end
 
 clear Pf
 
@@ -1059,10 +1139,25 @@ for ins = 1:ns
             
     Pf0 = Pf(:,ins,ins);
 
+    % if isfield(P,'hp')
+    %     %fp = 1-( (0.2*exp(P.hp(1))) ./w.^(2*exp(P.hp(2))));
+    %     %f  = f(:).*fp(:);
+    %     ap = 2*exp(P.hp(1));
+    %     bp = 6*exp(P.hp(2));
+    %     gp = @(a,b) w.^(a-1)/(b^a*gamma(a)).*exp(-w/b);
+    %     fp = (P.hp(3)) + gp(ap,bp);
+    %     for i = 1:ns
+    %         for j = 1:ns
+    %             Pf0 = Pf0(:).*fp(:);
+    %         end
+    %     end
+    % end
+
+
     % Furnish with parameterised Eigenspectrum of innovations {CSD}
-    %B   = -[128 64 32 64]'   + 1j*2*pi*[4 12 48 64]';
+    %B   = -[128 64 32 64]'   + 1j*2*pi*[4 12 48 64]' * exp(P.a(2));
     %H   = spm_s2csd(B(1:4),w);
-    %Pf0 = Pf0(:).*sum(H,2);
+    %Pf0 = Pf0(:).*sum(1000*H,2);
 
     %Pf0 = atcm.fun.awinsmooth(Pf0,4);
    

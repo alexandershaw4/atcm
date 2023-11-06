@@ -191,12 +191,11 @@ GEn([2 3],3) = 2;
 GIa =[8     0     10    0     0     0     0     0;
       0     18    10    0     0     0     0     0;
       0     0     10    0     0     0     0     0;
-      0     0     0     8     4    0     0     0;
-      0     0     0     0     4    0     0     0;
-      0     0     0     0     4    8     0     0;
+      0     0     0     8     4     0     0     0;
+      0     0     0     0     4     0     0     0;
+      0     0     0     0     4     8     0     0;
       0     0     0     0     0     0     8     0;
       0     0     0     0     0     0     8     8];
-
 
 GIb = GIa;
 
@@ -371,8 +370,9 @@ for i = 1:ns
         elseif IncludeMH
             
           % alternative magnesium block:
+          warning off;
           mag_block = 1/(1 + 0.2*exp(-0.062*(exp(P.scale_NMDA))*squeeze(x(i,:,1))')) ;
-
+          warning on;
           
           f(i,:,1) =  (GL*(VL - x(i,:,1))+...
                        x(i,:,2).*((VE - x(i,:,1)))+...
@@ -431,7 +431,7 @@ if nargout < 3, return, end
 % [specified] fixed parameters
 %--------------------------------------------------------------------------
 D  = [1 16];
-d  = -D.*full(exp(P.D(1:2)))/1000;
+d  = D.*full(exp(P.D(1:2)))/1000;
 Sp = kron(ones(nk,nk),kron( eye(np,np),eye(ns,ns)));  % states: same pop.
 Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
 
@@ -450,14 +450,14 @@ Tc              = zeros(np,np);
 Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal
 Tc([1:6],[7 8]) = TC  * exp(P.TC); % thal->ss
 
-Tc = -Tc / 1000;
+Tc = Tc / 1000;
 Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
 
 
 %kd = exp(P.a(1)) * 8;
 %ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
 ID = [1 1 1 1 1 1 1 1];
-ID = -ID.*exp(P.ID)/1000; 
+ID = ID.*exp(P.ID)/1000; 
 ID = repmat(ID,[1 nk]);
 
 ID = repmat(ID(:)',[np*nk,1]);
