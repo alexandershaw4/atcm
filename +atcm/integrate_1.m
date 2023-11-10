@@ -393,7 +393,7 @@ switch IntMethod
 
     case 'amtf'
 
-        y = exp(DCM.M.pE.J)'*amtf(P,M,U);
+        y = exp(P.J)*amtf(P,M,U);
 
 
 
@@ -545,12 +545,10 @@ switch IntMethod
                     [k1,J,D] = f(v,0*drive(:,i),P,M);
                 end
 
-                %if i == 2
-                    D   = real(D);
-                    Q   = (1 - D).*(~~real(J));%inv(eye(npp*nk) - D);
-                    QJ  = Q.*J;
-                    ddt = dt;
-                %end
+                D   = real(D);
+                Q   = (1 - D).*(~~real(J));
+                QJ  = Q.*J;
+                ddt = dt;
 
                 if i > 1
                     % endogenous noise via AMPA receptors
@@ -563,8 +561,9 @@ switch IntMethod
 
                 % 
                 %--------------------------------------------------
-                dxdt = dt*f(v,0,P,M);
-                g    = dxdt ;
+                dxdt  = dt*f(v,0,P,M);
+                dxdt1 = dt*f(v + dt*dxdt,0,P,M); 
+                g    = (dxdt + dxdt1)./2 ;
                 b    = J\g;
                 dxdt = QJ*b ;
                 v    = v + dxdt;
@@ -769,6 +768,9 @@ switch IntMethod
                         v(9:16) = v(9:16) + d;
 
                         R=P;
+
+                        %fsi = sin(2*pi*100*(t./1000));
+                        %R.S(3) = R.S(3)+fsi(i);
 
                         % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
@@ -1045,12 +1047,15 @@ for ins = 1:ns
             S1  = abs(S1);
 
             %S1 = atcm.fun.awinsmooth(S1,6);
+            %B = gaubasis(length(w1),18);
+            %b = B'\S1';
+            %S1 = b'*B;
+
             S1  = agauss_smooth(S1,2);
 
+            Ppf = interp1(w1,full(abs(S1)),w,'nearest','extrap') ;
             
-            Ppf  = interp1(w1,full(abs(S1)),w,'nearest','extrap') ;
-            
-            %Ppf  = agauss_smooth(abs(Ppf),1);
+            %Ppf  = agauss_smooth(abs(Ppf),1.5);
 
             %Ppf = atcm.fun.awinsmooth(Ppf,2);
             %Ppf = abs(Ppf);

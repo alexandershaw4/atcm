@@ -199,6 +199,14 @@ GIa =[8     0     10    0     0     0     0     0;
 
 GIb = GIa;
 
+
+% GEa = double(~~GEa);
+% GEn = double(~~GEn);
+% GIa = double(~~GIa);
+% GIb = double(~~GIb);
+
+
+
 % can use global scaling instead of population specific
 if isfield(P,'scale')
     GEa = GEa * exp(P.scale(1));

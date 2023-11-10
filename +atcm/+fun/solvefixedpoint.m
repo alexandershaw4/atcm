@@ -83,8 +83,9 @@ for i = 1:128
 %         mf = spm_unvec(f,M.x);
 %         f  = spm_vec(mf{1});
 %     end
-    
+    warning off;
     dx       = - dfdx\f;
+    warning on;
     
     % regularise
     %--------------------------------------------------------------

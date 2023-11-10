@@ -291,12 +291,12 @@ for i = i;%1:length(Data.Datasets)
     M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
     M.opts.crit            = [0 0 0 0];
     
-    M.opts.userplotfun = @aodcmplotfun;
+    %M.opts.userplotfun = @aodcmplotfun;
     
     M.opts.isNewton      = 0;
     M.opts.isQuasiNewton = 0;
     M.opts.isNewtonReg   = 0;      
-    M.opts.isGaussNewton = 1;
+    M.opts.isGaussNewton = 0;
     M.opts.isTrust       = 0;
     
     % order of dfdx: grads or curv & whether to orthogoanlise
@@ -308,7 +308,7 @@ for i = i;%1:length(Data.Datasets)
     
     %M.update_parameters(M.Ep);
 
-    %M.default_optimise([9],[18])
+    %M.default_optimise([1],[18])
 
     % save in DCM structures after optim 
     %----------------------------------------------------------------------
