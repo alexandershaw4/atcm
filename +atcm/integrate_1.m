@@ -566,6 +566,8 @@ switch IntMethod
                 g    = (dxdt + dxdt1)./2 ;
                 b    = J\g;
                 dxdt = QJ*b ;
+                %dxdt = spm_dx(dt*QJ,g);
+
                 v    = v + dxdt;
 
                 % Full update
@@ -765,6 +767,7 @@ switch IntMethod
                         % endogenous noise via AMPA receptors  
                         %--------------------------------------------------
                         d       = (drive(i) - drive(i-1))./exp(P.a(1));
+                        %v = v + D(:,9:16)*ones(8,1)*d;
                         v(9:16) = v(9:16) + d;
 
                         R=P;
@@ -957,7 +960,7 @@ end
     % if using DMD over states
     % ty = reshape(squeeze(y(:,:,:,burn:end)),[56 length(t(burn:end))]);
     % %ty = ty((1:8),:);
-    % [Phi, mu, lambda, diagS, x0] = DMD(ty,'dt',dt);
+    % [Phi, mu, lambda, diagS, x0] = DMFindD(ty,'dt',dt);
     % [f,Px] = DMD_spectrum(Phi, mu);
     % [~,I] = sort(f,'ascend');
     % f = f(I);
@@ -1030,34 +1033,34 @@ for ins = 1:ns
 
             %compute the abs fourier transform at FoI
             %------------------------------------------------------------
-            %f      = (1/dt) * (0:(N/2))/N;
-            %data   = fd;
-            %data   = (data/N);
-            %L2     = floor(N/2);
-            %data   = data(1:L2+1);
-            %Ppf    = abs(data);
+            f      = (1/dt) * (0:(N/2))/N;
+            data   = fd;
+            data   = (data/N);
+            L2     = floor(N/2);
+            data   = data(1:L2+1);
+            S1     = abs(data);
+            w1     = f;
 
-            N   = length(t);
-            S1  = fd*dt;
-
-            w1  = ((1:N) - 1)/(N*dt);
+            %N   = length(t);
+            %S1  = fd*dt;
+            %w1  = ((1:N) - 1)/(N*dt);
+            
             j   = w1 < max(w);
             S1  = S1(j);
             w1  = w1(j);
-            S1  = abs(S1);
-
-            %S1 = atcm.fun.awinsmooth(S1,6);
-            %B = gaubasis(length(w1),18);
-            %b = B'\S1';
-            %S1 = b'*B;
-
-            S1  = agauss_smooth(S1,2);
-
-            Ppf = interp1(w1,full(abs(S1)),w,'nearest','extrap') ;
             
-            %Ppf  = agauss_smooth(abs(Ppf),1.5);
+            S1  = agauss_smooth(S1,1.6);
 
-            %Ppf = atcm.fun.awinsmooth(Ppf,2);
+            Ppf = interp1(w1,full(abs(S1)),w,'linear','extrap') ;
+            
+            Ppf = abs(Ppf);
+
+            %Ppf = agauss_smooth(Ppf,1);
+
+            %Ppf  = agauss_smooth(abs(Ppf),1);
+
+            %Ppf = atcm.fun.awinsmooth(Ppf,1);
+            
             %Ppf = abs(Ppf);
             
             %[Pps]  = atcm.fun.agauss_smooth_mat(Ppf,1.5);         
@@ -1143,6 +1146,8 @@ end
 for ins = 1:ns
             
     Pf0 = Pf(:,ins,ins);
+
+
 
     % if isfield(P,'hp')
     %     %fp = 1-( (0.2*exp(P.hp(1))) ./w.^(2*exp(P.hp(2))));

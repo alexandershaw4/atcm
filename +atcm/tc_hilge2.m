@@ -1,4 +1,4 @@
-function [f,J,D] = tc_hilge2(x,u,P,M,fso)
+function [f,J,D] = tc_hilge2(x,u,P,M)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -247,10 +247,10 @@ end
 %--------------------------------------------------------------------------
 VL   = -70;                               % reversal  potential leak (K)
 VE   =  60 ;                              % reversal  potential excite (Na)
-VI   = -90 * exp(P.pr(1));                % reversal  potential inhib (Cl)
-VR   = -52 * exp(P.pr(2));   %55          % threshold potential (firing)
-VN   =  10 * exp(P.pr(3));                % reversal Ca(NMDA)   
-VB   = -100 * exp(P.pr(4));               % reversal of GABA-B
+VI   = -90 ;%* exp(P.pr(1));                % reversal  potential inhib (Cl)
+VR   = -52 ;%* exp(P.pr(2));   %55          % threshold potential (firing)
+VN   =  10 ;%* exp(P.pr(3));                % reversal Ca(NMDA)   
+VB   = -100;%* exp(P.pr(4));               % reversal of GABA-B
 
 
 if IncludeMH
@@ -469,6 +469,7 @@ ID = ID.*exp(P.ID)/1000;
 ID = repmat(ID,[1 nk]);
 
 ID = repmat(ID(:)',[np*nk,1]);
+
 
 %ID = ID - ID(:);
 

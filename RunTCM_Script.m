@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'aTCM_';      % outputted DCM prefix
+Data.Prefix       = 'SS_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -116,13 +116,15 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.Nmodes        = length(DCM.M.U);    %... number of modes
     
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 1;
+    DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;
     
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
+
+    DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
 
     % also without the robust fitting to get the residual
     %DCMo = DCM;
@@ -140,7 +142,7 @@ for i = i;%1:length(Data.Datasets)
     DCM.xY.y{:} = abs(DCM.xY.y{:});
     w = DCM.xY.Hz;
 
-    DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
+    %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
     
     % If using DCM inversion, select whether to block graph or not
     DCM.M.nograph = 0;
@@ -239,6 +241,12 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE = x.Ep;
     DCM.M.pE.L=-1;
 
+    DCM.M.pC.CV = zeros(1,8) + 1/8;
+    %DCM.M.pC.A{1}=1/8;
+
+    x=load('newpoints','Ep')
+    DCM.M.pE = x.Ep;
+
     %x = load('really_good_3nov23')
     %DCM.M.pE = spm_unvec(x.M.Ep,DCM.M.pE);
 
@@ -255,13 +263,18 @@ for i = i;%1:length(Data.Datasets)
     ppE = DCM.M.pE;
     DCM.M.solvefixed=0;
 
+    %DCM.M.x = FindSteadyState(DCM,128,1/600); close; drawnow;
+
+    load('tcm_initialx_limitcycle','x');
+    DCM.M.x = x;
+
     %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
 
     % Construct an AO optimisation object
     M = AODCM(DCM);
 
     M.opts.Q = diag(w(:).*Y(:));%eye(length(w));
-    
+      
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
     M.opts.WeightByProbability = 0;
@@ -306,9 +319,9 @@ for i = i;%1:length(Data.Datasets)
         
     M.default_optimise([1],[18])
     
-    %M.update_parameters(M.Ep);
+    M.update_parameters(M.Ep);
 
-    %M.default_optimise([1],[18])
+    M.default_optimise([1],[8])
 
     % save in DCM structures after optim 
     %----------------------------------------------------------------------
