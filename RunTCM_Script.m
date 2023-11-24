@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'SS_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'sSS_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -175,105 +175,56 @@ for i = i;%1:length(Data.Datasets)
     % No hamming on spectrum
     DCM.M.DoHamming = 1;
 
-    load("newpriors.mat")
-    DCM.M.pE = Ep;
+    load('newpoints3','pE','pC')
+
+    pC = spm_unvec(spm_vec(pC)./4, pC);
+
+    DCM.M.pE = pE;
     DCM.M.pC = pC;
-
-    DCM.M.pC.S = ones(1,8)/8;
-    DCM.M.pE.T = [0 0 0 0 0 0];
-    DCM.M.pC.T = [1 1 1 1 1 1]/8;
-
-    DCM.M.pE.Mh = zeros(1,8);
-    DCM.M.pC.Mh = [0 0 0 0 0 1 0 1]*0;%/8;
-
-    DCM.M.pE.Hh = zeros(1,8);
-    DCM.M.pC.Hh = [0 0 0 0 0 1 0 1]*0;%/8;
-
-    % remove old params
-    rm = {'h' 'm' 'gaba' 'psmooth'};
-
-    for i = 1:length(rm)
-        try DCM.M.pE = rmfield(DCM.M.pE,rm{i});end
-        try DCM.M.pC = rmfield(DCM.M.pC,rm{i});end
-    end
     
-    % generate a confounds Q matrix
-    Y = DCM.xY.y{:};
-    w  = DCM.xY.Hz;
-
-    Q = spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1)';    
-    Q = Q .* atcm.fun.AGenQn(DCM.xY.y{:},8);
-    Q = abs(Q) + AGenQn(diag(Q),8);
-    
-    % July 2023: try turning everything off except intrinsics and delays:
-    pE = DCM.M.pE;
-    pC = DCM.M.pC;
-
-    DCM.M.pE   = spm_unvec( real(spm_vec(DCM.M.pE)*0), DCM.M.pE);
-    DCM.M.pE.J = pE.J;  
-    
-    % set pC = zeros
-    DCM.M.pC = spm_unvec(spm_vec(DCM.M.pC)*0,DCM.M.pC);
-    DCM.M.pC.H  = pC.H;
-    DCM.M.pC.Hn = pC.Hn;
-    DCM.M.pC.ID = ones(1,8)*0;%./32;%/16;
-    DCM.M.pC.L = 1/8;
-    
-    DCM.M.pC.H(6,6) = 1/8;
-    DCM.M.pC.CT = 1/8;
-    DCM.M.pC.TC = 1/8;    
-
-    load('new_priors_6923','pE')
-    DCM.M.pE   = pE;
-    DCM.M.pE.L = -4;
-
-    DCM.M.pC.ID = ones(1,8)*0;
-    DCM.M.pC.ID = DCM.M.pC.ID + 1/32;;
-    DCM.M.pC.L = 1/64;
-
-    DCM.M.pC.a(1)= 1/8;
-    DCM.M.pE.a(1)=0;
-
-    DCM.M.pE.scale_NMDA=0;
-    DCM.M.pC.scale_NMDA=1/8;
-
-    x = load('params_25oct23');
-    DCM.M.pE = x.Ep;
-    DCM.M.pE.L=-1;
-
-    DCM.M.pC.CV = zeros(1,8) + 1/8;
-    %DCM.M.pC.A{1}=1/8;
-
-    x=load('newpoints','Ep')
-    DCM.M.pE = x.Ep;
-
-    %x = load('really_good_3nov23')
-    %DCM.M.pE = spm_unvec(x.M.Ep,DCM.M.pE);
+    %DCM.M.dmd=1;
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
     %----------------------------------------------------------------------
     w   = DCM.xY.Hz;
     Y   = DCM.xY.y{:};
-
     DCM.M.y  = DCM.xY.y;
     DCM.M.Hz = DCM.xY.Hz;
 
-    DCM.M.InputType=1;
     ppE = DCM.M.pE;
-    DCM.M.solvefixed=0;
+    ppC = DCM.M.pC;
 
-    %DCM.M.x = FindSteadyState(DCM,128,1/600); close; drawnow;
+    % ensure stable pnt & find steady state
+   % DCM.M.x = FindSteadyState(DCM,128,1/1200);
+    
 
-    load('tcm_initialx_limitcycle','x');
-    DCM.M.x = x;
-
-    %DCM.M.x = atcm.fun.solvefixedpoint(DCM.M.pE,DCM.M,[],-70);
+% for j = 1:10
+    % fprintf('--------------- STATE ESTIMATION ---------------\n');
+    % fprintf('iteration %d\n',j);
+    % 
+    % % one-iteration states search
+    % opts     = AO('options');
+    % opts.fun = @(x) spm_vec(feval(DCM.M.IS,DCM.M.pE,DCM.M,DCM.xU,x));
+    % opts.x0  = DCM.M.x(:);
+    % opts.V   = ones(56,1)/8;
+    % opts.y   = DCM.xY.y{:};
+    % 
+    % opts.objective='gauss';
+    % opts.maxit = 1;
+    % [X,F,Cp] = AO(opts);
+    % 
+    % %update initial states ready for parameter estimation
+    % DCM.M.x = spm_unvec(X,DCM.M.x);
+    
+    
+    fprintf('--------------- PARAM ESTIMATION: Neuronal ---------------\n');
+    %fprintf('iteration %d\n',j);
 
     % Construct an AO optimisation object
     M = AODCM(DCM);
 
-    M.opts.Q = diag(w(:).*Y(:));%eye(length(w));
+    %M.opts.Q = diag(w(:).*Y(:));%eye(length(w));
       
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
@@ -290,7 +241,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
     
-    M.opts.objective   = 'gauss';%'qrmse_g';%'gauss';
+    M.opts.objective   = 'gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
     M.opts.criterion   = -inf;
     
     M.opts.factorise_gradients = 0;
@@ -301,15 +252,15 @@ for i = i;%1:length(Data.Datasets)
     M.opts.dopowell        = 1;
     M.opts.wolfelinesearch = 0;
     M.opts.bayesoptls      = 0;
-    M.opts.updateQ         = 1; % do a grd ascent on Q but also weight by residual
+    M.opts.updateQ         = 1; 
     M.opts.crit            = [0 0 0 0];
     
-    %M.opts.userplotfun = @aodcmplotfun;
+    M.opts.userplotfun = @aodcmplotfun;
     
     M.opts.isNewton      = 0;
     M.opts.isQuasiNewton = 0;
     M.opts.isNewtonReg   = 0;      
-    M.opts.isGaussNewton = 0;
+    M.opts.isGaussNewton = 1;
     M.opts.isTrust       = 0;
     
     % order of dfdx: grads or curv & whether to orthogoanlise
@@ -318,10 +269,15 @@ for i = i;%1:length(Data.Datasets)
     M.opts.gradtol       = 1e-8;
         
     M.default_optimise([1],[18])
-    
-    M.update_parameters(M.Ep);
 
-    M.default_optimise([1],[8])
+    % update parameters ready for state estimation
+    DCM.M.pE = spm_unvec(M.Ep,DCM.M.pE);
+
+%end
+   
+
+    % M.update_parameters(M.Ep);
+    %M.default_optimise([1],[8])
 
     % save in DCM structures after optim 
     %----------------------------------------------------------------------

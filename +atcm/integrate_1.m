@@ -107,6 +107,12 @@ pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
 P.L = real(P.L);
 P.J = real(P.J);
 
+if nargin == 4 && ~isempty(varargin{1})
+    %fprintf('using user-supplied M.x\m');
+    M.x = spm_unvec(varargin{1},M.x);
+    x = M.x;
+end
+
 % unpack simulation pst options, if specified
 %--------------------------------------------------------------------------
 if isfield(M,'sim')
@@ -151,9 +157,9 @@ switch InputType
     case 1
         
         % create a noise distribution in frequency space for endogenous inp
-        fdrive =  1./(1j*2*pi*w - (50));
+        fdrive =  1./(1j*2*pi*w - (50)*exp(P.R(1)));
         drive = ifft(fdrive,length(pst)*2);
-        drive = drive(1:length(pst))*5000;
+        drive = exp(P.R(2))*drive(1:length(pst))*5000;
 
         % and an ERP like input for exogenous input to thalamic
                   
@@ -292,6 +298,9 @@ if solvefp;
 else ;      x    = x;
 end
 
+%DM = struct; DM.M=M;DM.pE=P;
+%x = FindSteadyState(DM,128,1/1200);
+
 M.x  = x;
 v    = spm_vec(x);
 NoFX = 0;
@@ -387,7 +396,7 @@ dw = 1./(w(2)-w(1));
 % setup a baseline jacobian using finite differecnes
 fun = @(v) f(spm_unvec(v,M.x),drive(1),P,M);
 Jf = jaco(fun,v,ones(size(v))/128,0,2);
-
+vi = v*0;
 
 switch IntMethod
 
@@ -764,23 +773,26 @@ switch IntMethod
                             ddt = dt;
                         end  
 
-                        % endogenous noise via AMPA receptors  
+                       
+                        % endogenous inputs
                         %--------------------------------------------------
-                        d       = (drive(i) - drive(i-1))./exp(P.a(1));
-                        %v = v + D(:,9:16)*ones(8,1)*d;
-                        v(9:16) = v(9:16) + d;
+                        v(16) = v(16) + exp(P.a(1));
+                        v(9)  = v(9)  + exp(P.a(2));
+                        v(10) = v(10) + exp(P.a(3));
+                        v(18) = v(18) + exp(P.a(4));
+                        v(19) = v(19) + exp(P.a(5));
+                        v(26) = v(26) + exp(P.a(6));
+
 
                         R=P;
-
-                        %fsi = sin(2*pi*100*(t./1000));
-                        %R.S(3) = R.S(3)+fsi(i);
+                        
 
                         % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
-                        k1 = f(v             ,0,R,M);
-                        k2 = f(v+0.5.*ddt.*k1,0,R,M);
-                        k3 = f(v+0.5.*ddt.*k2,0,R,M);
-                        k4 = f(v+     ddt.*k3,0,R,M);
+                        k1 = f(v             ,0*drive(i),R,M);
+                        k2 = f(v+0.5.*ddt.*k1,0*drive(i),R,M);
+                        k3 = f(v+0.5.*ddt.*k2,0*drive(i),R,M);
+                        k4 = f(v+     ddt.*k3,0*drive(i),R,M);
                         
                         dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
 
@@ -818,6 +830,7 @@ switch IntMethod
                         dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
                         v         = v + dxdt;
                         y(:,i)    = v ;
+
                         
                         %dfdp  = spm_diff(M.f,M.x,0,P,M,3);
                         %idfdp = pinv(full(dfdp));
@@ -882,6 +895,9 @@ series.States_both = y;
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
 [y,s,g,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+
+% jf = @(x)struct('type','.','subs',J)
+% jd = @(x) spectral_response(jf(x),M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive)
 
 
 end
@@ -978,6 +994,9 @@ end
 
 %else
 
+% 
+
+
 % adjustment for when frequency intervals ~= 1 Hz; i.e. dt = dw/dt
 %--------------------------------------------------------------------------
 dw = 1./(w(2)-w(1));
@@ -993,14 +1012,24 @@ for ins = 1:ns
 
     % use eigenspectrum of numerical Jacobian
     %----------------------------------------------------------------------
-    %C = cov(yx');
-    %D = -C.*dfdx'/2;
-    %[v,s]=eig(full(D),'nobalance');
-    %s=diag(s);
-    %Kw = spm_s2csd(s,w);
-    %Ppf = sum(Kw(:,1:8),2);
-    %P.J=1;
+    UseSS = 0;
+    if UseSS
+        C = cov(yx');
+        D = -C.*dfdx'/2;
+        [v,s]=eig(full(D),'nobalance');
+        s=diag(s);
+        Kw = spm_s2csd(s,w);
+        Ppf = sum(Kw(:,1:8),2);
+        P.J=1;
+        layers.iweighted(1,1,:) = Ppf;
+        continue;
+    end
 
+    if isfield(M,'dmd') && M.dmd
+        [evec,eval] = atcm.fun.dmd(yx', 1, dt);
+        yx = eval*yx;
+        P.J = 1;
+    end
 
     % Weight each state and pass through Dscr Fourier matrix and sum
     %----------------------------------------------------------------------
@@ -1033,23 +1062,33 @@ for ins = 1:ns
 
             %compute the abs fourier transform at FoI
             %------------------------------------------------------------
-            f      = (1/dt) * (0:(N/2))/N;
-            data   = fd;
-            data   = (data/N);
-            L2     = floor(N/2);
-            data   = data(1:L2+1);
-            S1     = abs(data);
-            w1     = f;
+             f      = (1/dt) * (0:(N/2))/N;
+             data   = fd;
+             data   = (data/N);
+             L2     = floor(N/2);
+             data   = data(1:L2+1);
+             S1     = abs(data);
+             w1     = f;
 
             %N   = length(t);
             %S1  = fd*dt;
             %w1  = ((1:N) - 1)/(N*dt);
+
+            %N         = length(t);
+            %S1        = fd*dt;
+            %w1        = ((1:N) - 1)/(N*dt);
+            %j         = w1 < max(w);
+            %S1        = S1(j);
+            %w1        = w1(j);
             
-            j   = w1 < max(w);
-            S1  = S1(j);
-            w1  = w1(j);
+            %j   = w1 < max(w);
+            %S1  = S1(j);
+            %w1  = w1(j);
             
-            S1  = agauss_smooth(S1,1.6);
+            S1  = agauss_smooth(S1,1);
+            
+            %[Pps]  = atcm.fun.agauss_smooth_mat(abs(S1),3);  
+            %S1    = sum(Pps);
 
             Ppf = interp1(w1,full(abs(S1)),w,'linear','extrap') ;
             
@@ -1059,7 +1098,7 @@ for ins = 1:ns
 
             %Ppf  = agauss_smooth(abs(Ppf),1);
 
-            %Ppf = atcm.fun.awinsmooth(Ppf,1);
+            Ppf = atcm.fun.awinsmooth(Ppf,2);
             
             %Ppf = abs(Ppf);
             

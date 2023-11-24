@@ -197,6 +197,15 @@ GIa =[8     0     10    0     0     0     0     0;
       0     0     0     0     0     0     8     0;
       0     0     0     0     0     0     8     8];
 
+% GIa  = [ 8    0    2    0    0    0    0    0
+%          0    8    2    0    0    0    0    0
+%          0    0   32    0    0    0    0    0
+%          0    0    8  128    2    0    0    0
+%          0    0    0    0   32    0    0    0
+%          0    0    0    0    2   32    0    0
+%          0    0    0    0    0    0    2    0
+%          0    0    0    0    0    0    2    32];
+
 GIb = GIa;
 
 
@@ -274,6 +283,10 @@ end
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
 CV   = exp(P.CV).*      [128*3 128 128/2 128 64  128  64  64*2]/1000;  
+
+%CV   = exp(P.CV).*      [128 128 256 32 256 32 256  128]/1000;  
+
+%CV   = exp(P.CV).*[128 128 256 32]/1000;  % 
 
 % leak conductance - fixed
 %--------------------------------------------------------------------------
@@ -378,10 +391,14 @@ for i = 1:ns
         elseif IncludeMH
             
           % alternative magnesium block:
-          warning off;
-          mag_block = 1/(1 + 0.2*exp(-0.062*(exp(P.scale_NMDA))*squeeze(x(i,:,1))')) ;
-          warning on;
-          
+          %warning off;
+          %mag_block = 1/(1 + 0.2*exp(-0.062*(exp(P.scale_NMDA))*squeeze(x(i,:,1))')) ;
+          warning('off','all') ;
+          mag_block = mldivide((1 + 0.2*exp(-0.062*(exp(P.scale_NMDA))*squeeze(x(i,:,1))'))',1)';
+          %warning on;
+          [~,warnID] = lastwarn;
+          warning('off',warnID);
+
           f(i,:,1) =  (GL*(VL - x(i,:,1))+...
                        x(i,:,2).*((VE - x(i,:,1)))+...
                        x(i,:,3).*((VI - x(i,:,1)))+...

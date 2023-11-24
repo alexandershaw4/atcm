@@ -61,7 +61,7 @@ elseif method == 2
     % decompose matrix using svd of covariance
     [u,s,v] = svd(cov(fm'));
 
-    i  = atcm.fun.findthenearest(cumsum(diag(s))./sum(diag(s)),.99);
+    i  = length(s);%atcm.fun.findthenearest(cumsum(diag(s))./sum(diag(s)),.99);
     P  = fm*u(:,1:i);
     P  = abs(P);
     uu = u(:,1:i);
@@ -94,6 +94,10 @@ elseif method == 3
     for i = 1:length(c)
         P(i,:) = ( c(i) * P(i,:) );
     end
+
+elseif method == 4
+
+    [L,D] = ldl_smola(fm,ones(size(fm,1)));
 
 end
 
