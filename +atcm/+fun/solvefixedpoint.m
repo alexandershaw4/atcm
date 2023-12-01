@@ -35,11 +35,14 @@ else
     nk = 7;
 end
 
+x        = zeros(ns,np,nk) ;
+x(:,:,1) = mV;
+
+
 %if isfield(M,'x') && ~iscell(M.x)
     % Point estimator / neural mass models
     mfm = 0;
-    x        = zeros(ns,np,nk) ;
-    x(:,:,1) = mV;
+    
 %elseif isfield(M,'x') && iscell(M.x)
 %    % Mean field models
 %    mfm = 1;

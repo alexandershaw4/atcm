@@ -306,7 +306,7 @@ v    = spm_vec(x);
 NoFX = 0;
 
 % flag no modulatory effects in this model
-if isempty(U)
+if isempty(U) || (isfield(U,'X') && isempty(U.X))
     U.X  = 1;
     NoFX = 1; 
 end
@@ -773,16 +773,29 @@ switch IntMethod
                             ddt = dt;
                         end  
 
+                        if isfield(M,'drive')
+                            drive(i) = M.drive(i);
+                        end
+
                        
                         % endogenous inputs
                         %--------------------------------------------------
-                        v(16) = v(16) + exp(P.a(1));
-                        v(9)  = v(9)  + exp(P.a(2));
-                        v(10) = v(10) + exp(P.a(3));
-                        v(18) = v(18) + exp(P.a(4));
-                        v(19) = v(19) + exp(P.a(5));
-                        v(26) = v(26) + exp(P.a(6));
+                         v(16) = v(16) + exp(P.a(1));
+                         v(12) = v(12) + exp(P.a(2));
+                         v(10) = v(10) + exp(P.a(3));
+                         v(18) = v(18) + exp(P.a(4));
+                         v(19) = v(19) + exp(P.a(5));
+                         v(26) = v(26) + exp(P.a(6));
 
+                        %v(16) = v(16) + exp(P.a(1));
+                        %v(10) = v(10) + exp(P.a(2));
+                        %v(26) = v(26) + exp(P.a(3));
+                        %v(12) = v(12) + exp(P.a(4));
+                        %v(28) = v(28) + exp(P.a(5));
+                        %v(19) = v(19) + exp(P.a(6));
+
+                        % sin-cosine coupled in ptut
+                        %I = cos(2*pi*(exp(P.b(1))*10)*t(i)/1000).*sin(2*pi*(exp(P.b(2))*50)*t(i)/1000);
 
                         R=P;
                         
@@ -791,10 +804,12 @@ switch IntMethod
                         %--------------------------------------------------
                         k1 = f(v             ,0*drive(i),R,M);
                         k2 = f(v+0.5.*ddt.*k1,0*drive(i),R,M);
-                        k3 = f(v+0.5.*ddt.*k2,0*drive(i),R,M);
-                        k4 = f(v+     ddt.*k3,0*drive(i),R,M);
+                        %k3 = f(v+0.5.*ddt.*k2,0*drive(i),R,M);
+                        %k4 = f(v+     ddt.*k3,0*drive(i),R,M);
                         
-                        dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
+                        %dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
+
+                        dxdt = (ddt/2)*(k1 + k2);
 
                         if i > 2
                             % from the update dx = f(x), can can recover
@@ -1033,19 +1048,19 @@ for ins = 1:ns
 
     % Weight each state and pass through Dscr Fourier matrix and sum
     %----------------------------------------------------------------------
-    g  = exp(P.J(:)');
-    F  = dftmtx(size(yx,2));
-    N  = length(F);
-    fd = yx(1,:)*0;
+    % g  = exp(P.J(:)');
+    % F  = dftmtx(size(yx,2));
+    % N  = length(F);
+    % fd = yx(1,:)*0;
+    % 
+    % for ig = 1:length(g)
+    %     ys = yx(ig,:);
+    %     ys = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
+    %     fd = fd + g(ig)*ys*F;
+    % end
 
-    for ig = 1:length(g)
-        ys = yx(ig,:);
-        ys = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
-        fd = fd + g(ig)*ys*F;
-    end
-
-    P.J = 0;
-    Ji  = 1;
+    %P.J = 0;
+   % Ji  = 1;
 
     % loop spatio-temporal modes (in this region) and weight them
     %----------------------------------------------------------------------
@@ -1057,11 +1072,26 @@ for ins = 1:ns
         % Spectral responses of states
         %------------------------------------------------------------------
         try
-                                                            
-            clear Ppf  Pfm Ppf1 Ppf2 Ppf3            
+            
+            clear Ppf  Pfm Ppf1 Ppf2 Ppf3    
+
+            ys = yx(Ji(ij),:);
+
+           % ys = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
+
+            F  = dftmtx(size(ys,2));
+            N  = length(F);
+            fd = ys*F;
+
+            %Ppf = pyulear(ys,36,w,1/dt);
+            
+
+            %Ppf = atcm.fun.AfftSmooth(ys,1/dt,w,36);
+
+            %Ppf = atcm.fun.awinsmooth(Ppf,4);        
 
             %compute the abs fourier transform at FoI
-            %------------------------------------------------------------
+            % %------------------------------------------------------------
              f      = (1/dt) * (0:(N/2))/N;
              data   = fd;
              data   = (data/N);
@@ -1080,25 +1110,41 @@ for ins = 1:ns
             %j         = w1 < max(w);
             %S1        = S1(j);
             %w1        = w1(j);
-            
+
             %j   = w1 < max(w);
             %S1  = S1(j);
             %w1  = w1(j);
-            
-            S1  = agauss_smooth(S1,1);
-            
+
+            %S1 = atcm.fun.awinsmooth(S1,8);
+
+            %B  = gaubasis(length(w1),round(length(w1)/4));
+            %b  = B'\S1';
+            %S1 = b'*B; 
+
+            %S1  = agauss_smooth(S1,1);
+
             %[Pps]  = atcm.fun.agauss_smooth_mat(abs(S1),3);  
             %S1    = sum(Pps);
 
+            %S1 = medfilt1(S1);
+
+            %S1 = envelope(S1,1,'peak');
+
             Ppf = interp1(w1,full(abs(S1)),w,'linear','extrap') ;
-            
+
             Ppf = abs(Ppf);
+
+            B   = gaubasis(length(w)*2,20);
+            B   = B(:,1:length(w));
+            b   = B'\Ppf(:);
+            Ppf = b'*B; 
+
 
             %Ppf = agauss_smooth(Ppf,1);
 
             %Ppf  = agauss_smooth(abs(Ppf),1);
 
-            Ppf = atcm.fun.awinsmooth(Ppf,2);
+           % Ppf = atcm.fun.awinsmooth(Ppf,2);
             
             %Ppf = abs(Ppf);
             
@@ -1187,6 +1233,44 @@ for ins = 1:ns
     Pf0 = Pf(:,ins,ins);
 
 
+    % slope
+    k   = -1 * exp(P.d(2));
+    Gu  = exp(P.d(1)) * rescale(w .^ k, .5 ,1);
+    Pf0 = Pf0(:).*Gu(:);
+
+
+
+    % if isfield(M,'Y0')
+    %     Pf0 = Pf0(:) - M.Y0(:);
+    % end
+    % 
+    % 
+
+    %B   = B(:,1:length(w));
+    %b   = B'\Pf0;
+    %bB  = b'*B;
+    %bB = agauss_smooth(Ppf,3);
+
+    %Pf0 = (1 * Pf0 * exp(P.d(1))) + (.5 * bB(:) * exp(P.d(2)));
+    
+
+    % b  = exp(P.d);
+    % 
+    % Pf0 = Pf0(:) .* spm_vec(b(:)'*B);
+
+   % residual = abs(spm_vec(M.y) - Pf0);
+   % B  = gaubasis(length(w),8);
+   % b  = B'\residual;
+   % R  = spm_vec(b'*B);
+
+   % Pf0 = Pf0(:) + exp(P.d(1))*R;
+
+    %residual = Pf0;
+    %B  = gaubasis(length(w),8);
+    %b  = B'\residual;
+    %b  = spm_vec(exp(P.d(1:8))).*b(:);
+
+    %Pf0 = Pf0(:) + spm_vec(b'*B);
 
     % if isfield(P,'hp')
     %     %fp = 1-( (0.2*exp(P.hp(1))) ./w.^(2*exp(P.hp(2))));
@@ -1215,7 +1299,7 @@ for ins = 1:ns
         %Pf0 = atcm.fun.smooth_optimise(Pf0,M.y{:},1e-1);
     %end
 
-    Pf(:,ins,ins) = Pf0(:);
+    Pf(:,ins,ins) = abs( Pf0(:) );
     
     % Electrode gain 
     %----------------------------------------------------------------------
