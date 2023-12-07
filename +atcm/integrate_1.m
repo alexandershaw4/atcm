@@ -768,61 +768,47 @@ switch IntMethod
                         %--------------------------------------------------
                         if i == 2
                             D   = real(D);
-                            Q   = (1 - D).*(~~real(J));%inv(eye(npp*nk) - D);
+                            Q   = (1- D).*(~~real(J));%inv(eye(npp*nk) - D);
                             QJ  = Q.*J;
                             ddt = dt;
                         end  
 
-                        if isfield(M,'drive')
-                            drive(i) = M.drive(i);
-                        end
-
-                       
                         % endogenous inputs
                         %--------------------------------------------------
-                         v(16) = v(16) + exp(P.a(1));
-                         v(12) = v(12) + exp(P.a(2));
-                         v(10) = v(10) + exp(P.a(3));
-                         v(18) = v(18) + exp(P.a(4));
-                         v(19) = v(19) + exp(P.a(5));
-                         v(26) = v(26) + exp(P.a(6));
-
-                        %v(16) = v(16) + exp(P.a(1));
-                        %v(10) = v(10) + exp(P.a(2));
-                        %v(26) = v(26) + exp(P.a(3));
-                        %v(12) = v(12) + exp(P.a(4));
-                        %v(28) = v(28) + exp(P.a(5));
-                        %v(19) = v(19) + exp(P.a(6));
-
-                        % sin-cosine coupled in ptut
-                        %I = cos(2*pi*(exp(P.b(1))*10)*t(i)/1000).*sin(2*pi*(exp(P.b(2))*50)*t(i)/1000);
+                        v(16) = v(16) + exp(P.a(1));
+                        v(12) = v(12) + exp(P.a(2));
+                        v(10) = v(10) + exp(P.a(3));
+                        v(18) = v(18) + exp(P.a(4));
+                        v(19) = v(19) + exp(P.a(5));
+                        v(26) = v(26) + exp(P.a(6));
 
                         R=P;
-                        
+
+                        %R.H(3,3)  = R.H(3,3) * exp(P.d(1)) * v(19);
+                        %R.H(2,2)  = R.H(2,2) * exp(P.d(2)) * v(10);
+                        %R.Hn(2,2) = R.Hn(2,2) * exp(P.d(3)) * v(26);
 
                         % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
                         k1 = f(v             ,0*drive(i),R,M);
                         k2 = f(v+0.5.*ddt.*k1,0*drive(i),R,M);
-                        %k3 = f(v+0.5.*ddt.*k2,0*drive(i),R,M);
-                        %k4 = f(v+     ddt.*k3,0*drive(i),R,M);
+                        k3 = f(v+0.5.*ddt.*k2,0*drive(i),R,M);
+                        k4 = f(v+     ddt.*k3,0*drive(i),R,M);
                         
-                        %dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
-
-                        dxdt = (ddt/2)*(k1 + k2);
+                        dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
 
                         if i > 2
                             % from the update dx = f(x), can can recover
                             % which x lead to which change in dx assuming a
-                            % static Jacobian; 
+                            % static Jacobian; [algebraic proof]:
                             %     dv = x + dx
                             %     b  = J \ dx
                             %     dv = x + J*b
-                            %     dv = x + (Q*J)*b  <-- add delays
+                            %     dv = x + (Q*J)*b  <-- delays in state flow
 
-                            g    = dxdt ;
+                            g    = dxdt - v;
                             b    = J\g;
-                            dxdt = QJ*b ;
+                            dxdt = v + QJ*b ;
                         end
                         
                         v    = v + dxdt;
@@ -857,7 +843,16 @@ switch IntMethod
             %--------------------------------------------------------------
             VR  = -52;
             V   = spm_unvec(v,M.x);            
-            S   = [];
+            
+            R  = 2/3 * exp(P.S);
+            FF = 1./(1 + exp(-R'.*(v(1:8)-VR)));
+
+            RS = 30 ;
+            Fu = find( v(1:8) >= VR ); FF(Fu) = 1;
+            Fl = find( v(1:8) >= RS ); FF(Fl) = 0;
+            
+            m(i,:)  = FF;
+
             
             % log whether membrane potential crossed threshold
             %--------------------------------------------------------------
@@ -874,7 +869,7 @@ end
 
 warning on;
 
-
+S = m;
 
 
 % Reshape to model state space outputs
@@ -911,9 +906,14 @@ series.States_both = y;
 %==========================================================================
 [y,s,g,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
 
+%PP = P;
+%PP.J = [1 1 1 1 1 0 0 0];
+%firy = spectral_response(PP,M,m',w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+
 % jf = @(x)struct('type','.','subs',J)
 % jd = @(x) spectral_response(jf(x),M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive)
 
+%y = y + firy;
 
 end
 
@@ -961,55 +961,20 @@ ts     = zeros(ns,length(t));
 % This loop generates a weighted 'LFP' time-domain signal for each node in
 % the model, with a specific SnR. Note - this is NOT what we'll calculate
 % the frequency spectrum from.
-for ins = 1:ns
-    
-    % J-weighted sum of this channel / region
-    %----------------------------------------------------------------------
-    xseries   = full( squeeze(y(ins,:,:,:)) );
-    xseries   = reshape(xseries, [npp*nk,length(t)] );
-    ts0       = spm_vec(J'*xseries);
-            
-    % apply electrode gain & store this channel / node
-    %----------------------------------------------------------------------
-    ts(ins,:) = ts(ins,:) + ts0' ;
-
-end
-
-% if isfield(M,'dmd') && M.dmd
-%     J = P.J*0 - 1000;
+% for ins = 1:ns
 % 
-%     JJ = reshape(J,[8 7]);
-%     JJ(:,2) =log(  1 * exp(P.J(1)));
-%     JJ(:,3) =log( -1 * exp(P.J(2)));
-%     JJ(:,4) =log( .6 * exp(P.J(3))); 
-%     JJ(:,5) =log(-.6 * exp(P.J(4)));
+%     % J-weighted sum of this channel / region
+%     %----------------------------------------------------------------------
+%     xseries   = full( squeeze(y(ins,:,:,:)) );
+%     xseries   = reshape(xseries, [npp*nk,length(t)] );
+%     ts0       = spm_vec(J'*xseries);
 % 
-%     P.J = exp(JJ(:));
+%     % apply electrode gain & store this channel / node
+%     %----------------------------------------------------------------------
+%     ts(ins,:) = ts(ins,:) + ts0' ;
+% 
 % end
-
-%if isfield(M,'dmd') && M.dmd
-    % if using DMD over states
-    % ty = reshape(squeeze(y(:,:,:,burn:end)),[56 length(t(burn:end))]);
-    % %ty = ty((1:8),:);
-    % [Phi, mu, lambda, diagS, x0] = DMFindD(ty,'dt',dt);
-    % [f,Px] = DMD_spectrum(Phi, mu);
-    % [~,I] = sort(f,'ascend');
-    % f = f(I);
-    % Px = Px(I);
-    % [~,i] = unique(f);
-    % f = f(i);
-    % Px = Px(i);
-    % Pf    = interp1(f,full(Px),w,'linear','extrap') ;
-    % Pf    = atcm.fun.awinsmooth(Pf,4);
-    % 
-    % layers.iweighted (ins,1,:) = ( Pf  );
-    % Ji=1;
-
-    
-
-%else
-
-% 
+ts=0;
 
 
 % adjustment for when frequency intervals ~= 1 Hz; i.e. dt = dw/dt
@@ -1022,7 +987,12 @@ for ins = 1:ns
         
     % extract time series of all states from this region
     %----------------------------------------------------------------------
-    yx = reshape( squeeze(y(ins,:,:,:)), [npp*nk,length(t)]);
+    if ndims(y) == 4
+        yx = reshape( squeeze(y(ins,:,:,:)), [npp*nk,length(t)]);
+    else
+        yx = y;
+    end
+    
     yx = yx(:,burn:burno);
 
     % use eigenspectrum of numerical Jacobian
@@ -1076,95 +1046,31 @@ for ins = 1:ns
             clear Ppf  Pfm Ppf1 Ppf2 Ppf3    
 
             ys = yx(Ji(ij),:);
-
-           % ys = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
-
+            ys = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
             F  = dftmtx(size(ys,2));
             N  = length(F);
             fd = ys*F;
 
-            %Ppf = pyulear(ys,36,w,1/dt);
-            
-
+            %Ppf = pyulear(ys,36,w,1/dt);         
             %Ppf = atcm.fun.AfftSmooth(ys,1/dt,w,36);
-
             %Ppf = atcm.fun.awinsmooth(Ppf,4);        
 
             %compute the abs fourier transform at FoI
             % %------------------------------------------------------------
-             f      = (1/dt) * (0:(N/2))/N;
-             data   = fd;
-             data   = (data/N);
-             L2     = floor(N/2);
-             data   = data(1:L2+1);
-             S1     = abs(data);
-             w1     = f;
-
-            %N   = length(t);
-            %S1  = fd*dt;
-            %w1  = ((1:N) - 1)/(N*dt);
-
-            %N         = length(t);
-            %S1        = fd*dt;
-            %w1        = ((1:N) - 1)/(N*dt);
-            %j         = w1 < max(w);
-            %S1        = S1(j);
-            %w1        = w1(j);
-
-            %j   = w1 < max(w);
-            %S1  = S1(j);
-            %w1  = w1(j);
-
-            %S1 = atcm.fun.awinsmooth(S1,8);
-
-            %B  = gaubasis(length(w1),round(length(w1)/4));
-            %b  = B'\S1';
-            %S1 = b'*B; 
-
-            %S1  = agauss_smooth(S1,1);
-
-            %[Pps]  = atcm.fun.agauss_smooth_mat(abs(S1),3);  
-            %S1    = sum(Pps);
-
-            %S1 = medfilt1(S1);
-
-            %S1 = envelope(S1,1,'peak');
+            f      = (1/dt) * (0:(N/2))/N;
+            data   = fd;
+            data   = (data/N);
+            L2     = floor(N/2);
+            data   = data(1:L2+1);
+            S1     = abs(data);
+            w1     = f;
 
             Ppf = interp1(w1,full(abs(S1)),w,'linear','extrap') ;
-
             Ppf = abs(Ppf);
 
-            B   = gaubasis(length(w)*2,20);
-            B   = B(:,1:length(w));
-            b   = B'\Ppf(:);
-            Ppf = b'*B; 
-
-
+            % *6.2831853
             %Ppf = agauss_smooth(Ppf,1);
 
-            %Ppf  = agauss_smooth(abs(Ppf),1);
-
-           % Ppf = atcm.fun.awinsmooth(Ppf,2);
-            
-            %Ppf = abs(Ppf);
-            
-            %[Pps]  = atcm.fun.agauss_smooth_mat(Ppf,1.5);         
-            %Ppf    = sum(Pps);
-
-
-            %Ppf    = interp1(f,full(Ppf),w,'linear','extrap') ;%.* (1+w./w(end));
-            
-            %Ppf = agauss_smooth(Ppf,1);
-
-            %sfun = @(x) 1 - (corr(spm_vec(M.y),agauss_smooth(Ppf,x)').^2);
-
-            %X = fminsearch(sfun,1);
-
-            %Ppf = agauss_smooth(Ppf,1);
-
-            % for the GP created from VtoGauss see
-            % https://peterroelants.github.io/posts/gaussian-process-tutorial/
-            
             % De-NaN/inf the spectrum
             %--------------------------------------------------------------
             Pf = Ppf;            
@@ -1232,72 +1138,11 @@ for ins = 1:ns
             
     Pf0 = Pf(:,ins,ins);
 
-
-    % slope
-    k   = -1 * exp(P.d(2));
-    Gu  = exp(P.d(1)) * rescale(w .^ k, .5 ,1);
-    Pf0 = Pf0(:).*Gu(:);
-
-
-
-    % if isfield(M,'Y0')
-    %     Pf0 = Pf0(:) - M.Y0(:);
-    % end
-    % 
-    % 
-
-    %B   = B(:,1:length(w));
-    %b   = B'\Pf0;
-    %bB  = b'*B;
-    %bB = agauss_smooth(Ppf,3);
-
-    %Pf0 = (1 * Pf0 * exp(P.d(1))) + (.5 * bB(:) * exp(P.d(2)));
-    
-
-    % b  = exp(P.d);
-    % 
-    % Pf0 = Pf0(:) .* spm_vec(b(:)'*B);
-
-   % residual = abs(spm_vec(M.y) - Pf0);
-   % B  = gaubasis(length(w),8);
-   % b  = B'\residual;
-   % R  = spm_vec(b'*B);
-
-   % Pf0 = Pf0(:) + exp(P.d(1))*R;
-
-    %residual = Pf0;
-    %B  = gaubasis(length(w),8);
-    %b  = B'\residual;
-    %b  = spm_vec(exp(P.d(1:8))).*b(:);
-
-    %Pf0 = Pf0(:) + spm_vec(b'*B);
-
-    % if isfield(P,'hp')
-    %     %fp = 1-( (0.2*exp(P.hp(1))) ./w.^(2*exp(P.hp(2))));
-    %     %f  = f(:).*fp(:);
-    %     ap = 2*exp(P.hp(1));
-    %     bp = 6*exp(P.hp(2));
-    %     gp = @(a,b) w.^(a-1)/(b^a*gamma(a)).*exp(-w/b);
-    %     fp = (P.hp(3)) + gp(ap,bp);
-    %     for i = 1:ns
-    %         for j = 1:ns
-    %             Pf0 = Pf0(:).*fp(:);
-    %         end
-    %     end
-    % end
-
-
-    % Furnish with parameterised Eigenspectrum of innovations {CSD}
-    %B   = -[128 64 32 64]'   + 1j*2*pi*[4 12 48 64]' * exp(P.a(2));
-    %H   = spm_s2csd(B(1:4),w);
-    %Pf0 = Pf0(:).*sum(1000*H,2);
-
-    %Pf0 = atcm.fun.awinsmooth(Pf0,4);
-   
-    % optimise the smoothness of the vector to match data
-    %if ~isfield(M,'dmd')
-        %Pf0 = atcm.fun.smooth_optimise(Pf0,M.y{:},1e-1);
+    %if isfield(M,'Y0')
+    %    Pf0 = Pf0(:) - M.Y0(:);
     %end
+
+    Pf0  = agauss_smooth(Pf0,1);
 
     Pf(:,ins,ins) = abs( Pf0(:) );
     
@@ -1399,6 +1244,93 @@ function [x] = sq(x)
 if size(x,3) > 1, x = squeeze(x); else, x = x(:); end
 
 end
+
+            %B   = gaubasis(length(w)*2,20);
+            %B   = B(:,1:length(w));
+            %b   = B'\Ppf(:);
+            %Ppf = b'*B; 
+
+
+            %Ppf = agauss_smooth(Ppf,1);
+
+            %Ppf  = agauss_smooth(abs(Ppf),1);
+
+           % Ppf = atcm.fun.awinsmooth(Ppf,2);
+            
+            %Ppf = abs(Ppf);
+            
+            %[Pps]  = atcm.fun.agauss_smooth_mat(Ppf,1.5);         
+            %Ppf    = sum(Pps);
+
+
+            %Ppf    = interp1(f,full(Ppf),w,'linear','extrap') ;%.* (1+w./w(end));
+            
+            %Ppf = agauss_smooth(Ppf,1);
+
+            %sfun = @(x) 1 - (corr(spm_vec(M.y),agauss_smooth(Ppf,x)').^2);
+
+            %X = fminsearch(sfun,1);
+
+            %Ppf = agauss_smooth(Ppf,1);
+
+            % for the GP created from VtoGauss see
+            % https://peterroelants.github.io/posts/gaussian-process-tutorial/
+
+    % residual = spm_vec(M.y) - spm_vec(Pf0);
+    % B = gaubasis(length(w),8);
+    % b = B'\residual;
+    % 
+    % resbasis = b.*B;
+    % 
+    % Pf0 = Pf0(:) + spm_vec(exp(P.d(:)')*resbasis);
+    % 
+
+    % Furnish with parameterised Eigenspectrum of innovations {CSD}
+    %B   = -[128 64 32 64]'   + 1j*2*pi*[4 12 48 64]' * exp(P.a(2));
+    %H   = spm_s2csd(B(1:4),w);
+    %Pf0 = Pf0(:).*sum(1000*H,2);
+
+    %Pf0 = atcm.fun.awinsmooth(Pf0,4);
+   
+    % optimise the smoothness of the vector to match data
+    %if ~isfield(M,'dmd')
+        %Pf0 = atcm.fun.smooth_optimise(Pf0,M.y{:},1e-1);
+    %end
+
+
+            %N   = length(t);
+            %S1  = fd*dt;
+            %w1  = ((1:N) - 1)/(N*dt);
+
+            %N         = length(t);
+            %S1        = fd*dt;
+            %w1        = ((1:N) - 1)/(N*dt);
+            %j         = w1 < max(w);
+            %S1        = S1(j);
+            %w1        = w1(j);
+
+            %j   = w1 < max(w);
+            %S1  = S1(j);
+            %w1  = w1(j);
+
+            %S1 = atcm.fun.awinsmooth(S1,8);
+
+            %B  = gaubasis(length(w1),round(length(w1)/4));
+            %b  = B'\S1';
+            %S1 = b'*B; 
+
+            %S1  = agauss_smooth(S1,1);
+
+            % [Pps]  = atcm.fun.agauss_smooth_mat(abs(S1),2);  
+            % S1    = sum(Pps);
+
+            %S1 = medfilt1(S1);
+
+            %S1 = envelope(S1,1,'peak');
+
+            %pp = csaps(w1.',S1.');
+
+
 
     % % dfdg
     % Pop = squeeze(layers.unweighted(ins,:,:));

@@ -308,6 +308,7 @@ Fu = find( x(:,:,1) >= VR ); FF(Fu) = 1;
 Fl = find( x(:,:,1) >= RS ); FF(Fl) = 0;
 m  = FF;
 
+
 % extrinsic effects
 %--------------------------------------------------------------------------
 a       = zeros(ns,5);
@@ -500,6 +501,8 @@ Ds = ~Sp & Ss;                       % states: same source different pop.
 %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
 
 D = d(1)*Ds + Tc + (ID) ;
+
+D =  Tc + (ID) ;
 
 %if ~isfield(P,'delays')
  %   D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;

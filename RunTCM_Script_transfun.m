@@ -40,7 +40,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'stf_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'Laplace_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -119,20 +119,25 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.Nmodes        = length(DCM.M.U);    %... number of modes
     
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 1;
+    DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;
     
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
+
+
+    DCM.xY.y{:}  = agauss_smooth(abs(DCM.xY.y{:}),1)';
         
     % Subfunctions and default priors
     %----------------------------------------------------------------------
     DCM = atcm.parameters(DCM,Ns);
     
-    DCM.xY.y{:} = abs(DCM.xY.y{:});
-    w = DCM.xY.Hz;
+
+    
+    %DCM.xY.y{:} = abs(DCM.xY.y{:});
+    %w = DCM.xY.Hz;
 
     %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
         
@@ -179,7 +184,7 @@ for i = i;%1:length(Data.Datasets)
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
     %fprintf('iteration %d\n',j);
 
-    DCM.M.nograph = 1;
+    DCM.M.nograph = 0;
 
     [Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
 

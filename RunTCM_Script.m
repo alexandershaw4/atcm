@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'aFP_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'newFP_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -116,13 +116,16 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.Nmodes        = length(DCM.M.U);    %... number of modes
     
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 1;
+    DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
     DCM.options.FrequencyStep = 1;
     
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
+
+
+    DCM.xY.y{:}  = agauss_smooth(DCM.xY.y{:},1);
 
     %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
 
@@ -177,12 +180,17 @@ for i = i;%1:length(Data.Datasets)
 
     load('newpoints3','pE','pC')
 
-    %pC = spm_unvec(spm_vec(pC)./4, pC);
+    pE = spm_unvec(spm_vec(pE)*0,pE);
 
-    pC.d(1:2)=1/8;
-    %pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
-    pE.J([1 2 4]) = log([.4 .8 .4]);
-    pE.L = -3;
+    pC.ID = pC.ID * 0;
+    pC.T  = pC.T *0;
+
+    
+    pE.J = pE.J-1000;
+    pE.J([1 2 4]) = log([.4 .8 .6]);
+    pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
+
+    pE.L = -1;
 
     DCM.M.pE = pE;
     DCM.M.pC = pC;
@@ -239,7 +247,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
     
-    M.opts.objective   = 'gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+    M.opts.objective   = 'gaussfe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
     M.opts.criterion   = -inf;
     
     M.opts.factorise_gradients = 0;
@@ -250,6 +258,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.dopowell        = 0;
     M.opts.wolfelinesearch = 0;
     M.opts.bayesoptls      = 0;
+    M.opts.agproptls       = 0;
     M.opts.updateQ         = 0; 
     M.opts.crit            = [0 0 0 0];
     
