@@ -40,6 +40,9 @@ Data.Design.Sname = {'V1'};            % channel (node) names
 Data.Prefix       = 'newFP_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
+[p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
+
+
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
 %--------------------------------------------------------------------------
 T = [... % this is a 1-node model; nothing to put here...
@@ -125,7 +128,7 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.DATA = 1 ;
 
 
-    DCM.xY.y{:}  = agauss_smooth(DCM.xY.y{:},1);
+    DCM.xY.y{:}  = atcm.fun.agauss_smooth(DCM.xY.y{:},1);
 
     %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
 
@@ -178,7 +181,7 @@ for i = i;%1:length(Data.Datasets)
     % No hamming on spectrum
     DCM.M.DoHamming = 0;
 
-    load('newpoints3','pE','pC')
+    load([p '/newpoints3.mat'],'pE','pC')
 
     pE = spm_unvec(spm_vec(pE)*0,pE);
 
@@ -211,7 +214,7 @@ for i = i;%1:length(Data.Datasets)
     fprintf('--------------- STATE ESTIMATION ---------------\n');
     fprintf('Search for a stable fixed point\n');
 
-    xx = load('newx'); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
+    xx = load([p '/newx.mat']); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
     x = atcm.fun.alexfixed(DCM.M.pE,DCM.M);
     DCM.M.x = spm_unvec(x,DCM.M.x);
 
@@ -219,8 +222,6 @@ for i = i;%1:length(Data.Datasets)
     %Y0 = spm_vec(feval(DCM.M.IS,DCM.M.pE,DCM.M,DCM.xU));
     %DCM.M.Y0 = Y0;
     fprintf('Finished...\n');
-    
-
       
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
     %fprintf('iteration %d\n',j);
@@ -228,9 +229,9 @@ for i = i;%1:length(Data.Datasets)
     % Construct an AO optimisation object
     M = AODCM(DCM);
 
-    %QQ = spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1)';
-
-    %M.opts.Q = QQ;
+    QQ = spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1)';
+    QQ = diag(QQ).*DCM.xY.y{:}';
+    M.opts.Q = diag(QQ);
       
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
@@ -247,7 +248,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
     
-    M.opts.objective   = 'gaussfe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+    M.opts.objective   = 'gauss_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
     M.opts.criterion   = -inf;
     
     M.opts.factorise_gradients = 0;

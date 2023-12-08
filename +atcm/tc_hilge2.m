@@ -142,7 +142,6 @@ SA   = [1   0   0   0   0;   %  SS    % added TP->SP
     
     SA(:,[3 4 5]) = 0; % For ket study
     
-    
 % % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
 % %--------------------------------------------------------------------------    
 SNMDA = [1   0   0   0   0;   %  SS
@@ -173,18 +172,22 @@ GIa = zeros(8,8);
 % Excitatory (np x np): AMPA & NMDA
 %--------------------------------------------------------------------------
 GEa = [  0     0     0     0     0     2     0     2;
-         4     4     0     0     0     0     0     0;
+         2     2     0     0     0     0     0     0;
          0     2     0     0     0     0     0     0;
          0     2     0     0     0     0     0     0;
          0     0     0     2     0     0     0     0;
-         0     0     0     8     0     0     0     0;
+         0     0     0     2     0     0     0     0;
          0     0     0     0     0     0     0     2;
          2     0     0     0     0     2     0     0];
 
-GEa = (~~GEa)*2;
-GEn = GEa;
-
-GEn([2 3],3) = 2;
+GEn =   [0     0     0     0     0     2     0     2;
+         2     2     2     0     0     0     0     0;
+         0     2     2     0     0     0     0     0;
+         0     2     0     0     0     0     0     0;
+         0     0     0     2     0     0     0     0;
+         0     0     0     2     0     0     0     0;
+         0     0     0     0     0     0     0     2;
+         2     0     0     0     0     2     0     0];
 
 % Inhibitory connections (np x np): GABA-A & GABA-B
 %--------------------------------------------------------------------------
@@ -197,32 +200,9 @@ GIa =[8     0     10    0     0     0     0     0;
       0     0     0     0     0     0     8     0;
       0     0     0     0     0     0     8     8];
 
-% GIa  = [ 8    0    2    0    0    0    0    0
-%          0    8    2    0    0    0    0    0
-%          0    0   32    0    0    0    0    0
-%          0    0    8  128    2    0    0    0
-%          0    0    0    0   32    0    0    0
-%          0    0    0    0    2   32    0    0
-%          0    0    0    0    0    0    2    0
-%          0    0    0    0    0    0    2    32];
 
 GIb = GIa;
 
-
-% GEa = double(~~GEa);
-% GEn = double(~~GEn);
-% GIa = double(~~GIa);
-% GIb = double(~~GIb);
-
-
-
-% can use global scaling instead of population specific
-if isfield(P,'scale')
-    GEa = GEa * exp(P.scale(1));
-    GEn = GEn * exp(P.scale(2));
-    GIa = GIa * exp(P.scale(3));
-    GIb = GIb * exp(P.scale(4));
-end
 
 
 % Channel rate constants [decay times]

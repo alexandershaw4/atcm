@@ -1069,7 +1069,7 @@ for ins = 1:ns
             Ppf = abs(Ppf);
 
             % *6.2831853
-            %Ppf = agauss_smooth(Ppf,1);
+            %Ppf = atcm.fun.agauss_smooth(Ppf,1);
 
             % De-NaN/inf the spectrum
             %--------------------------------------------------------------
@@ -1138,13 +1138,27 @@ for ins = 1:ns
             
     Pf0 = Pf(:,ins,ins);
 
-    %if isfield(M,'Y0')
-    %    Pf0 = Pf0(:) - M.Y0(:);
-    %end
+    if isfield(M,'Y0')
+        Pf0 = Pf0(:) - M.Y0(:);
+    end
 
-    Pf0  = agauss_smooth(Pf0,1);
+    % smooth with a sliding Gaussian kernel
+    Pf0  = atcm.fun.agauss_smooth(Pf0,1);
 
-    Pf(:,ins,ins) = abs( Pf0(:) );
+    % convert vector to (Gaussian combo aka process) matrix and decompose with svd, to
+    % match energy & dimensionality of model to data (M.y)
+    YM = VtoGauss(spm_vec(M.y));
+    [u,s,v] = svd(YM);
+    I = atcm.fun.findthenearest(cumsum(diag(s))./sum(diag(s)),.9);
+
+    ym = VtoGauss(spm_vec(Pf0));
+    [u,s,v] = svd(ym);
+    ym = u(:,1:I)*s(1:I,1:I)*v(:,1:I)';
+    Pf0 = diag(ym);
+
+    
+
+    Pf(:,ins,ins) = abs( Pf0(:));
     
     % Electrode gain 
     %----------------------------------------------------------------------

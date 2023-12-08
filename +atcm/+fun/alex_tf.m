@@ -33,27 +33,26 @@ delta_x = 1e-6;
 D         = inv(eye(56) - D);
 
 % Compute A matrix numerically
-A_numeric = zeros(length(x0), length(x0));
+A = zeros(length(x0), length(x0));
 for i = 1:length(x0)
     x_perturbed = x0;
     x_perturbed(i) = x_perturbed(i) + delta_x;
     dx_perturbed = f(x_perturbed, u0, []);
-    A_numeric(:, i) = (dx_perturbed - f(x0, u0, [])) / delta_x;
+    A(:, i) = (dx_perturbed - f(x0, u0, [])) / delta_x;
 end
 
-A_numeric = D*A_numeric;
+A = D*A;
 
 % Compute B matrix numerically
-B_numeric = zeros(length(x0), 1);
+B = zeros(length(x0), 1);
 for i = 1:length(u0)
     u_perturbed = u0;
     u_perturbed(i) = u_perturbed(i) + delta_x;
     dx_perturbed = f(x0, u_perturbed, []);
-    B_numeric(:, i) = (dx_perturbed - f(x0, u0, [])) / delta_x;
+    B(:, i) = (dx_perturbed - f(x0, u0, [])) / delta_x;
 end
 
-%B_numeric = B_numeric + 1e-3;
-
+% Inputs - 
 v = zeros(56,1) + 1e-3;
 v(16) = v(16) + exp(P.a(1));
 v(12) = v(12) + exp(P.a(2));
@@ -62,30 +61,25 @@ v(18) = v(18) + exp(P.a(4));
 v(19) = v(19) + exp(P.a(5));
 v(26) = v(26) + exp(P.a(6));
 
-B_numeric = B_numeric + v;
+B = B + v;
 
-
-C_numeric = exp(P.J(:));
+% we use a static observer model anyway...
+C = exp(P.J(:));
 
 % Create a transfer function
 %s = tf('s');
-G = ss(A_numeric, B_numeric, diag(C_numeric), 0);  % Assuming unity output matrix
+G = ss(A, B, diag(C), 0);  % Assuming unity output matrix
 
-% Display transfer function
-%disp('Transfer Function (Numerical):');
-%disp(G);
-
+% use Bode to get Laplace transform
 [magnitude, phase] = bode(G,w*6.2831853); % convert Hz to radians
 
 Y = squeeze(magnitude);
-
 Y = sum(Y,1);
 
+% Laplace is pretty smooth, parameterise granularity
 H = gradient(gradient(Y));
-
 Y = Y - (exp(P.d(1))*3)*H;
 
-%Y = exp(P.L(1))*(exp(P.J(:))'*Y);
-
+% global scaling / electrode gain
 Y = {exp(P.L(1))*abs(Y)};
 
