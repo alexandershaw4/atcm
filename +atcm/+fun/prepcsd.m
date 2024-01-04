@@ -339,6 +339,8 @@ for i = 1:Ne;
                     else
                         [Pf, F] = SpecFun(Ymod',  1/DCM.xY.dt, DCM.xY.Hz) ;
 
+                        %[Pf,F] = atcm.fun.afftg(Ymod,DCM.xY.dt,DCM.xY.Hz);
+
                         %[Pf,F] = atcm.fun.fftgc(Ymod',DCM.xY.dt,DCM.xY.Hz,10);
 
                         %F = DCM.xY.Hz;

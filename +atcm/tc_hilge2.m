@@ -43,7 +43,6 @@ function [f,J,D] = tc_hilge2(x,u,P,M)
 %
 %      outputs: f = model states as a vector - hint: spm_unvec(f,M.x) 
 %               J = system Jacobian - dfdx
-%               Q = delay operator  - Q = inv(1 - D.*dfdx)*f(x(t))
 %               D = states delay matrix
 %
 % Info:
@@ -200,6 +199,14 @@ GIa =[8     0     10    0     0     0     0     0;
       0     0     0     0     0     0     8     0;
       0     0     0     0     0     0     8     8];
 
+% GIa =[8     0     10    0     0     0     0     0;
+%       0    18     10    0     0     0     0     0;
+%       0     0     10    0     0     0     0     0;
+%       0     0     0     8     4     0     0     0;
+%       0     0     0     0     8     0     0     0;
+%       0     0     0     0     4     8     0     0;
+%       0     0     0     0     0     0     8     0;
+%       0     0     0     0     0     0     8     8];
 
 GIb = GIa;
 

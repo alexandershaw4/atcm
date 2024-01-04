@@ -241,6 +241,9 @@ n = numel(r);
 p = numel(beta);
 sse = r'*r;
 
+%vr = VtoGauss(r);
+%sse = norm(vr*vr');
+
 % After removing NaNs in either the responses or in the fitted values at 
 % the starting point, if n = 0 then stop execution.
 if ( n == 0 )
@@ -561,6 +564,9 @@ nans = isnan(fullr); % a col vector
 r = fullr(~nans);
 sse = r'*r;
 
+%vr = VtoGauss(r);
+%sse = norm(vr*vr');
+
 zerosp = zeros(p,1,class(r));
 iter = 0;
 breakOut = false;
@@ -593,6 +599,10 @@ while iter < maxiter
     fullr = sweights(:) .* (y(:) - yfit(:));
     r = fullr(~nans);
     sse = r'*r;
+    
+    %vr = VtoGauss(r);
+    %sse = norm(vr*vr');
+
     if funValCheck && ~isfinite(sse), checkFunVals(r); end
     % If the LM step decreased the SSE, decrease lambda to downweight the
     % steepest descent direction.  Prevent underflowing to zero after many
@@ -617,6 +627,10 @@ while iter < maxiter
             fullr = sweights(:) .* (y(:) - yfit(:));
             r = fullr(~nans);
             sse = r'*r;
+
+            %vr = VtoGauss(r);
+            %sse = norm(vr*vr');
+
             if funValCheck && ~isfinite(sse), checkFunVals(r); end
         end
     end

@@ -162,6 +162,8 @@ switch InputType
         drive = exp(P.R(2))*drive(1:length(pst))*5000;
 
         % and an ERP like input for exogenous input to thalamic
+        %fre = 40 * exp(P.R(2));
+        %drive = exp(P.R(1)) * sin(2*pi*fre*pst./1000);
                   
     case 2
         % For ERP inputs...
@@ -294,7 +296,9 @@ f    = spm_funcheck(M.f);
 % solve for a fixed point, or not
 if solvefp; 
     %x    = atcm.fun.solvefixedpoint(P,M);
-        x = atcm.fun.solvefixedpoint(P,M,[],-70);
+        %x = atcm.fun.solvefixedpoint(P,M,[],-70);
+        x = spm_unvec(atcm.fun.alexfixed(P,M,1e-6,[],1),M.x);
+        
 else ;      x    = x;
 end
 
@@ -398,20 +402,22 @@ fun = @(v) f(spm_unvec(v,M.x),drive(1),P,M);
 Jf = jaco(fun,v,ones(size(v))/128,0,2);
 vi = v*0;
 
+xb = M.x(:);
+
 switch IntMethod
 
     case 'amtf'
 
+        % another transfer function based on the eigenspectrum of the
+        % numerical jacobian
         y = exp(P.J)*amtf(P,M,U);
 
-
-
     case 'spm';
-                x;
+        x;
         P.J=P.J';
         M.dt = dt;
-            [~,y] = spm_int_L(P,M,drive);
-            S=[];
+        [~,y] = spm_int_L(P,M,drive);
+        S=[];
 
     case 'kernels'
         
@@ -581,7 +587,7 @@ switch IntMethod
 
                 % Full update
                 %--------------------------------------------------
-                y(:,i) =   (v);
+                y(:,i) =   (v - xb);
 
                      
                 
@@ -768,10 +774,13 @@ switch IntMethod
                         %--------------------------------------------------
                         if i == 2
                             D   = real(D);
-                            Q   = (1- D).*(~~real(J));%inv(eye(npp*nk) - D);
+                            Q   = (1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
                             QJ  = Q.*J;
                             ddt = dt;
                         end  
+
+                        % Function that implements delays
+                        delf = @(dxdt,v) v + QJ*(J \ (dxdt - v) );
 
                         % endogenous inputs
                         %--------------------------------------------------
@@ -783,24 +792,25 @@ switch IntMethod
                         v(26) = v(26) + exp(P.a(6));
 
                         R=P;
-
-                        %R.H(3,3)  = R.H(3,3) * exp(P.d(1)) * v(19);
-                        %R.H(2,2)  = R.H(2,2) * exp(P.d(2)) * v(10);
-                        %R.Hn(2,2) = R.Hn(2,2) * exp(P.d(3)) * v(26);
+                        
+                        drive(i) = 0;
 
                         % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
-                        k1 = f(v             ,0*drive(i),R,M);
-                        k2 = f(v+0.5.*ddt.*k1,0*drive(i),R,M);
-                        k3 = f(v+0.5.*ddt.*k2,0*drive(i),R,M);
-                        k4 = f(v+     ddt.*k3,0*drive(i),R,M);
+                        k1 = f(v             ,drive(i),R,M);
+
+                        k2 = f(v+0.5.*ddt.*k1,drive(i),R,M);
+
+                        k3 = f(v+0.5.*ddt.*k2,drive(i),R,M);
+
+                        k4 = f(v+     ddt.*k3,drive(i),R,M);
                         
                         dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
 
                         if i > 2
                             % from the update dx = f(x), can can recover
                             % which x lead to which change in dx assuming a
-                            % static Jacobian; [algebraic proof]:
+                            % static Jacobian map; 
                             %     dv = x + dx
                             %     b  = J \ dx
                             %     dv = x + J*b
@@ -809,15 +819,15 @@ switch IntMethod
                             g    = dxdt - v;
                             b    = J\g;
                             dxdt = v + QJ*b ;
+
+                            dxdt = dt*f(v+dxdt,drive(i),R,M);
                         end
                         
                         v    = v + dxdt;
                                                
                         % Full update
                         %--------------------------------------------------
-                        y(:,i) =   (v);
-
-                        %plot(t(1:i),y(1:8,:)); drawnow;
+                        y(:,i) =   (v );
 
                     else
 
@@ -830,13 +840,11 @@ switch IntMethod
 
                         dxdt      = (dt/6)*(k1+2*k2+2*k3+k4);
                         v         = v + dxdt;
-                        y(:,i)    = v ;
+                        y(:,i)    = v ;%- xb;
 
-                        
-                        %dfdp  = spm_diff(M.f,M.x,0,P,M,3);
-                        %idfdp = pinv(full(dfdp));
                     end
-                
+
+
             end  
             
             % firing function at dxdt - the sigmoid
@@ -952,9 +960,6 @@ end
 % Generate weighted (principal cells) signal - g & fft(g)i
 %--------------------------------------------------------------------------
 J      = ( exp(P.J(:)) ) ;
-
-%J = J./sum(J);
-
 Ji     = find(J);
 ts     = zeros(ns,length(t));
 
@@ -1016,21 +1021,6 @@ for ins = 1:ns
         P.J = 1;
     end
 
-    % Weight each state and pass through Dscr Fourier matrix and sum
-    %----------------------------------------------------------------------
-    % g  = exp(P.J(:)');
-    % F  = dftmtx(size(yx,2));
-    % N  = length(F);
-    % fd = yx(1,:)*0;
-    % 
-    % for ig = 1:length(g)
-    %     ys = yx(ig,:);
-    %     ys = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
-    %     fd = fd + g(ig)*ys*F;
-    % end
-
-    %P.J = 0;
-   % Ji  = 1;
 
     % loop spatio-temporal modes (in this region) and weight them
     %----------------------------------------------------------------------
@@ -1039,38 +1029,46 @@ for ins = 1:ns
         y0 = yx(Ji(ij),:) ;
         Hz = w;
         
-        % Spectral responses of states
+        % Spectral responses of (observable) states
         %------------------------------------------------------------------
         try
             
             clear Ppf  Pfm Ppf1 Ppf2 Ppf3    
 
-            ys = yx(Ji(ij),:);
-            ys = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
-            F  = dftmtx(size(ys,2));
-            N  = length(F);
-            fd = ys*F;
+            ys  = yx(Ji(ij),:);
+            ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) .49/dt]);
+            
+         
+            if ij == 1
+                F   = dftmtx(size(ys,2));   
+                N   = length(F);
+                f   = (1/dt) * (0:(N/2))/N;
+                Mt  = pinv(atcm.fun.cdist(f',w'))';
 
-            %Ppf = pyulear(ys,36,w,1/dt);         
-            %Ppf = atcm.fun.AfftSmooth(ys,1/dt,w,36);
-            %Ppf = atcm.fun.awinsmooth(Ppf,4);        
+                if isfield(M,'GFFTM') && ~isempty(M.GFFTM)
+                    Mt = M.GFFTM; 
+                else
+                    for i = 1:size(Mt,1)
+                        %Mt(:,i) = atcm.fun.VtoGauss(Mt(:,i))*Mt(:,i);
+                        Mt(i,:) = Mt(i,:)*atcm.fun.VtoGauss(Mt(i,:),1.6);
+                    end
 
-            %compute the abs fourier transform at FoI
-            % %------------------------------------------------------------
-            f      = (1/dt) * (0:(N/2))/N;
-            data   = fd;
-            data   = (data/N);
-            L2     = floor(N/2);
-            data   = data(1:L2+1);
-            S1     = abs(data);
-            w1     = f;
+                    % include symmetric first part of dft matrix
+                    %Mt = flipud(Mt)+Mt;
 
-            Ppf = interp1(w1,full(abs(S1)),w,'linear','extrap') ;
+                end
+            end          
+            
+            % Pf(w) = fft(y)*iM, where iM is the inverse distance between
+            % natural frequency vector and those of interest, subject to
+            % each column of iM conforming to a Gaussian
+            Ppf = (ys*F(:,1:length(f))*Mt)./N;                  
             Ppf = abs(Ppf);
 
-            % *6.2831853
-            %Ppf = atcm.fun.agauss_smooth(Ppf,1);
+            %Ppf = atcm.fun.agauss_smooth(Ppf,1); %  kernel smoothing
+            %Ppf = gau_signal_decomp(Ppf,4);
 
+           
             % De-NaN/inf the spectrum
             %--------------------------------------------------------------
             Pf = Ppf;            
@@ -1104,8 +1102,8 @@ for ins = 1:ns
         % store the weighted and unweighted population outputs
         %------------------------------------------------------------------
         layers.unweighted(ins,ij,:) = ( Pf             )     ;% * exp(real(P.L(ins)));
-        layers.weighted  (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
-        layers.iweighted (ins,ij,:) = ( Pf * abs(J(Ji(ij))) );% * exp(real(P.L(ins)));
+        layers.weighted  (ins,ij,:) = ( Pf * (J(Ji(ij))) );% * exp(real(P.L(ins)));
+        layers.iweighted (ins,ij,:) = ( Pf * (J(Ji(ij))) );% * exp(real(P.L(ins)));
         
     end   
 end   
@@ -1135,36 +1133,28 @@ end
 % Addition of system noise & Lead field scaling: L, Gu, Gn, Gs [if requested]
 %--------------------------------------------------------------------------
 for ins = 1:ns
-            
+
     Pf0 = Pf(:,ins,ins);
 
-    if isfield(M,'Y0')
-        Pf0 = Pf0(:) - M.Y0(:);
+    if isfield(M,'nosmooth') && M.nosmooth;
+
+    else
+       %Pf0 = atcm.fun.awinsmooth(Pf0,6);
     end
 
-    % smooth with a sliding Gaussian kernel
-    Pf0  = atcm.fun.agauss_smooth(Pf0,1);
-
-    % convert vector to (Gaussian combo aka process) matrix and decompose with svd, to
-    % match energy & dimensionality of model to data (M.y)
-    YM = VtoGauss(spm_vec(M.y));
-    [u,s,v] = svd(YM);
-    I = atcm.fun.findthenearest(cumsum(diag(s))./sum(diag(s)),.9);
-
-    ym = VtoGauss(spm_vec(Pf0));
-    [u,s,v] = svd(ym);
-    ym = u(:,1:I)*s(1:I,1:I)*v(:,1:I)';
-    Pf0 = diag(ym);
-
-    
-
     Pf(:,ins,ins) = abs( Pf0(:));
-    
-    % Electrode gain 
-    %----------------------------------------------------------------------
-    Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
 
-end     
+
+    % Electrode gain: rescale to sum of data spectrum
+    %----------------------------------------------------------------------
+    SY = sum(spm_vec(M.y));
+    Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
+    Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
+
+    %Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+
+
+end
 
 % Recompute cross spectrum of regions (CSDs) incl. noise
 %--------------------------------------------------------------------------
@@ -1258,6 +1248,33 @@ function [x] = sq(x)
 if size(x,3) > 1, x = squeeze(x); else, x = x(:); end
 
 end
+
+ %Ppf = atcm.fun.match_energy_signals(spm_vec(M.y),Ppf);
+
+            % this is equivalent of: compute the abs fourier transform at FoI
+            % %------------------------------------------------------------
+            % f      = (1/dt) * (0:(N/2))/N;
+            % data   = fd;
+            % data   = (data/N);
+            % L2     = floor(N/2);
+            % data   = data(1:L2+1);
+            % S1     = abs(data);
+            % w1     = f;
+
+            %Ppf = interp1(w1,full(abs(S1)),w,'linear','extrap') ;
+            %Ppf = abs(Ppf);
+
+            % *6.2831853
+            %Ppf = atcm.fun.agauss_smooth(Ppf,1);
+
+
+
+%for iw = 1:length(w)
+            %    wi(iw) = atcm.fun.findthenearest(w(iw),f);
+            %end
+            %F   = F(:,wi);
+            %F   = atcm.fun.HighResMeanFilt(F,1,4);
+            %Ppf = (ys*F)./N;  
 
             %B   = gaubasis(length(w)*2,20);
             %B   = B(:,1:length(w));

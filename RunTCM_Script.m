@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'newFP_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'Tscale_FP_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 [p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
@@ -96,7 +96,7 @@ for i = i;%1:length(Data.Datasets)
     fprintf('Running Dataset %d / %d\n',i,length(Data.Datasets));
     
     % Frequency range of interest
-    fq =  [1 90];
+    fq =  [3 90];
     
     % Prepare Data
     %----------------------------------------------------------------------
@@ -128,7 +128,7 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.DATA = 1 ;
 
 
-    DCM.xY.y{:}  = atcm.fun.agauss_smooth(DCM.xY.y{:},1);
+    DCM.xY.y{:}  = atcm.fun.agauss_smooth(DCM.xY.y{:},.6);
 
     %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
 
@@ -162,7 +162,7 @@ for i = i;%1:length(Data.Datasets)
     
     % other model options
     %----------------------------------------------------------------------
-    DCM.M.solvefixed=0;      % oscillations == no fixed point search
+    DCM.M.solvefixed=0;      % 
     DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
     DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
         
@@ -191,9 +191,14 @@ for i = i;%1:length(Data.Datasets)
     
     pE.J = pE.J-1000;
     pE.J([1 2 4]) = log([.4 .8 .6]);
+    
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
+        
+    pC.ID = pC.ID + 1/8;
+    %pC.J(1:8) = 1/8;
 
-    pE.L = -1;
+
+    pE.L = 0;
 
     DCM.M.pE = pE;
     DCM.M.pC = pC;
@@ -215,73 +220,139 @@ for i = i;%1:length(Data.Datasets)
     fprintf('Search for a stable fixed point\n');
 
     xx = load([p '/newx.mat']); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
-    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M);
+    %x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
+    load('init_14dec','x');
     DCM.M.x = spm_unvec(x,DCM.M.x);
 
-    %DCM.M.x = FindSteadyState(DCM,20,1/1200); close;drawnow;
+    %x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
+    %DCM.M.x = spm_unvec(x,DCM.M.x);
+
+    %xx0 = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
+    %DCM.M.x = spm_unvec(xx0,DCM.M.x);
+
     %Y0 = spm_vec(feval(DCM.M.IS,DCM.M.pE,DCM.M,DCM.xU));
     %DCM.M.Y0 = Y0;
+    
     fprintf('Finished...\n');
+
+    %load('GausFFTMat','Mt');
+    %DCM.M.GFFTM = Mt;
       
-    fprintf('--------------- PARAM ESTIMATION ---------------\n');
-    %fprintf('iteration %d\n',j);
+    fprintf('--------------- PARAM ESTIMATION (neural) ---------------\n');
+    %fprintf('iteration %d\n',j);   
 
     % Construct an AO optimisation object
     M = AODCM(DCM);
 
-    QQ = spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1)';
-    QQ = diag(QQ).*DCM.xY.y{:}';
-    M.opts.Q = diag(QQ);
-      
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
     M.opts.WeightByProbability = 0;
 
     M.opts.ismimo      = 1;     
     M.opts.doparallel  = 1;    
-    
+
     M.opts.hyperparams = 1; 
-    M.opts.ahyper      = 1;
-    M.opts.ahyper_p    = 1;
+    M.opts.ahyper      = 0;
+    M.opts.ahyper_p    = 0;
 
     M.opts.hypertune   = 0; 
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
-    
-    M.opts.objective   = 'gauss_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+
+    M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
     M.opts.criterion   = -inf;
-    
+
     M.opts.factorise_gradients = 0;
     M.opts.normalise_gradients = 0;
-    
+
     M.opts.memory_optimise = 0;
-    M.opts.rungekutta      = 8;
+    M.opts.rungekutta      = 4;
+    M.opts.surrls          = 0;
     M.opts.dopowell        = 0;
     M.opts.wolfelinesearch = 0;
     M.opts.bayesoptls      = 0;
     M.opts.agproptls       = 0;
     M.opts.updateQ         = 0; 
     M.opts.crit            = [0 0 0 0];
-    
+
     M.opts.userplotfun = @aodcmplotfun;
-    
+
     M.opts.isNewton      = 0;
     M.opts.isQuasiNewton = 0;
     M.opts.isNewtonReg   = 0;      
     M.opts.isGaussNewton = 0;
     M.opts.isTrust       = 0;
-    
+
     % order of dfdx: grads or curv & whether to orthogoanlise
     M.opts.order         = 1;
     M.opts.orthogradient = 1;
     M.opts.gradtol       = 1e-8;
-        
+
     M.default_optimise([1],[20]);
+     
+     M.update_parameters(M.Ep);
+     
+     M.default_optimise(1,20);
 
-    M.update_parameters(M.Ep);
-
-    M.default_optimise(1,8);
-
+    % opts = AO('options');
+    % 
+    % % model and parameters and data
+    % opts.fun = @(P,M) spm_vec(DCM.M.IS(spm_unvec(P,DCM.M.pE),DCM.M,DCM.xU));
+    % 
+    % opts.x0 = spm_vec(DCM.M.pE);
+    % opts.M  = DCM.M;
+    % opts.V  = spm_vec(DCM.M.pC);
+    % opts.y  = spm_vec(DCM.xY.y);
+    % 
+    % %opts.isDynamicalSS = 1;
+    % 
+    % opts.maxit = 24;
+    % 
+    % opts.EnforcePriorProb    = 0; 
+    % opts.WeightByProbability = 0;
+    % 
+    % opts.ismimo      = 1;     
+    % opts.doparallel  = 1;    
+    % 
+    % opts.hyperparams = 1; 
+    % opts.ahyper      = 0;
+    % opts.ahyper_p    = 0;
+    % 
+    % opts.hypertune   = 0; 
+    % opts.fsd         = 0;        
+    % opts.inner_loop  = 1;
+    % 
+    % opts.objective   = 'sse';%_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+    % opts.criterion   = -inf;
+    % 
+    % opts.factorise_gradients = 0;
+    % opts.normalise_gradients = 1;
+    % 
+    % opts.memory_optimise = 0;
+    % opts.rungekutta      = 4;
+    % opts.dopowell        = 0;
+    % opts.wolfelinesearch = 0;
+    % opts.bayesoptls      = 0;
+    % opts.agproptls       = 0;
+    % opts.updateQ         = 0; 
+    % opts.crit            = [0 0 0 0];
+    % 
+    % opts.allow_worsen = 1000;
+    % 
+    % opts.isNewton      = 0;
+    % opts.isQuasiNewton = 0;
+    % opts.isNewtonReg   = 0;      
+    % opts.isGaussNewton = 1;
+    % opts.isTrust       = 0;
+    % 
+    % % order of dfdx: grads or curv & whether to orthogoanlise
+    % opts.im            = 0;
+    % opts.order         = 1;
+    % opts.orthogradient = 1;
+    % opts.gradtol       = 1e-8;
+    % 
+    % [X,F,CV,~,Hi] = AO(opts);    
+    % % 
 
 %     fprintf('--------------- STATE ESTIMATION ---------------\n');
 %     fprintf('iteration %d\n',j);
