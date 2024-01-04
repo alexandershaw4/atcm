@@ -235,7 +235,7 @@ for i = i;%1:length(Data.Datasets)
     
     fprintf('Finished...\n');
 
-    %load('GausFFTMat','Mt');
+    %load('GausFFTMat2','Mt');
     %DCM.M.GFFTM = Mt;
       
     fprintf('--------------- PARAM ESTIMATION (neural) ---------------\n');

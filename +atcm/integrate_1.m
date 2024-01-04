@@ -1036,7 +1036,7 @@ for ins = 1:ns
             clear Ppf  Pfm Ppf1 Ppf2 Ppf3    
 
             ys  = yx(Ji(ij),:);
-            ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) .49/dt]);
+            ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
             
          
             if ij == 1
@@ -1050,12 +1050,8 @@ for ins = 1:ns
                 else
                     for i = 1:size(Mt,1)
                         %Mt(:,i) = atcm.fun.VtoGauss(Mt(:,i))*Mt(:,i);
-                        Mt(i,:) = Mt(i,:)*atcm.fun.VtoGauss(Mt(i,:),1.6);
+                        Mt(i,:) = abs(Mt(i,:))*atcm.fun.VtoGauss(abs(Mt(i,:)));
                     end
-
-                    % include symmetric first part of dft matrix
-                    %Mt = flipud(Mt)+Mt;
-
                 end
             end          
             
@@ -1065,7 +1061,7 @@ for ins = 1:ns
             Ppf = (ys*F(:,1:length(f))*Mt)./N;                  
             Ppf = abs(Ppf);
 
-            %Ppf = atcm.fun.agauss_smooth(Ppf,1); %  kernel smoothing
+            Ppf = atcm.fun.agauss_smooth(Ppf,1); %  kernel smoothing
             %Ppf = gau_signal_decomp(Ppf,4);
 
            
@@ -1136,11 +1132,11 @@ for ins = 1:ns
 
     Pf0 = Pf(:,ins,ins);
 
-    if isfield(M,'nosmooth') && M.nosmooth;
+    %if isfield(M,'nosmooth') && M.nosmooth;
 
-    else
-       %Pf0 = atcm.fun.awinsmooth(Pf0,6);
-    end
+    %else
+    %   Pf0 = atcm.fun.awinsmooth(Pf0,6);
+    %end
 
     Pf(:,ins,ins) = abs( Pf0(:));
 
