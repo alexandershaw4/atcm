@@ -1048,12 +1048,19 @@ for ins = 1:ns
                 if isfield(M,'GFFTM') && ~isempty(M.GFFTM)
                     Mt = M.GFFTM; 
                 else
+                    % generate the interpolation matrix s.t. Gauss Kernel
+                    % smoothing on both axes
+                    %GM = atcm.fun.VtoGauss(ones(length(w),1),1);
+                    %FM = atcm.fun.VtoGauss(ones(length(f),1),1);
                     for i = 1:size(Mt,1)
-                        %Mt(:,i) = atcm.fun.VtoGauss(Mt(:,i))*Mt(:,i);
+                        %Mt(:,i) = atcm.fun.VtoGauss(Mt(:,i),8)*Mt(:,i);
                         Mt(i,:) = abs(Mt(i,:))*atcm.fun.VtoGauss(abs(Mt(i,:)));
                     end
+                    %Mt = FM*Mt;
                 end
             end          
+
+            %for i = 1:length(w); I(i) = atcm.fun.findthenearest(f,w(i)); end
             
             % Pf(w) = fft(y)*iM, where iM is the inverse distance between
             % natural frequency vector and those of interest, subject to
@@ -1146,6 +1153,10 @@ for ins = 1:ns
     SY = sum(spm_vec(M.y));
     Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
     Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
+
+    %SY = max(spm_vec(M.y));
+    %Pf(:,ins,ins) = Pf(:,ins,ins) ./ max(Pf(:,ins,ins) );
+    %Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
 
     %Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
 

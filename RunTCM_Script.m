@@ -244,6 +244,8 @@ for i = i;%1:length(Data.Datasets)
     % Construct an AO optimisation object
     M = AODCM(DCM);
 
+    %M.opts.Q = atcm.fun.VtoGauss(1+hamming(length(w)));
+
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
     M.opts.WeightByProbability = 0;
