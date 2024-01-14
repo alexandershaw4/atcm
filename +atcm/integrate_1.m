@@ -104,8 +104,8 @@ pst   = 1000*((0:dt:tn-dt)');     % peristim times we'll sample
 % stop P from becoming complex
 %P = spm_unvec( real(spm_vec(P)), P);
 
-P.L = real(P.L);
-P.J = real(P.J);
+%P.L = real(P.L);
+%P.J = real(P.J);
 
 if nargin == 4 && ~isempty(varargin{1})
     %fprintf('using user-supplied M.x\m');
@@ -157,13 +157,13 @@ switch InputType
     case 1
         
         % create a noise distribution in frequency space for endogenous inp
-        fdrive =  1./(1j*2*pi*w - (50)*exp(P.R(1)));
-        drive = ifft(fdrive,length(pst)*2);
-        drive = exp(P.R(2))*drive(1:length(pst))*5000;
+        %fdrive =  1./(1j*2*pi*w - (50)*exp(P.R(1)));
+        %drive = ifft(fdrive,length(pst)*2);
+        %drive = exp(P.R(2))*drive(1:length(pst))*5000;
 
         % and an ERP like input for exogenous input to thalamic
-        %fre = 40 * exp(P.R(2));
-        %drive = exp(P.R(1)) * sin(2*pi*fre*pst./1000);
+        fre = 40 * exp(P.R(2));
+        drive = exp(P.R(1)) * sin(2*pi*fre*pst./1000);
                   
     case 2
         % For ERP inputs...
@@ -517,8 +517,10 @@ switch IntMethod
                 % Use a Euler integration scheme
                 for j = 1;
                     
+                    drive(:,i) = 1;
+                    
                     % Next step with input
-                    [dxdt] = f(v,drive(i,:),P,M);      
+                    [dxdt] = f(v,drive(:,i),P,M);      
 
                     % full update
                     v      = v + dt*dxdt;
@@ -565,12 +567,18 @@ switch IntMethod
                 QJ  = Q.*J;
                 ddt = dt;
 
-                if i > 1
-                    % endogenous noise via AMPA receptors
-                    %--------------------------------------------------
-                    d       = (drive(i) - drive(i-1))./exp(P.a(1));
-                    v(9:16) = v(9:16) + d;
-                end
+                % Neuronal inputs and background activity
+                B  = zeros(56,1); B(16) = 455.5465 * dt;
+                vx = zeros(56,1) + 1e-3;
+                vx(16) = vx(16) + exp(P.a(1));
+                vx(12) = vx(12) + exp(P.a(2));
+                vx(10) = vx(10) + exp(P.a(3));
+                vx(18) = vx(18) + exp(P.a(4));
+                vx(19) = vx(19) + exp(P.a(5));
+                vx(26) = vx(26) + exp(P.a(6));
+
+                %v = v + vx+B;
+
 
                 R=P;
 
@@ -583,7 +591,7 @@ switch IntMethod
                 dxdt = QJ*b ;
                 %dxdt = spm_dx(dt*QJ,g);
 
-                v    = v + dxdt;
+                v    = v + dxdt + vx+B;
 
                 % Full update
                 %--------------------------------------------------
@@ -777,23 +785,38 @@ switch IntMethod
                             Q   = (1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
                             QJ  = Q.*J;
                             ddt = dt;
+
                         end  
 
                         % Function that implements delays
-                        delf = @(dxdt,v) v + QJ*(J \ (dxdt - v) );
+                        %delf = @(dxdt,v) v + QJ*(J \ (dxdt - v) );
 
                         % endogenous inputs
                         %--------------------------------------------------
-                        v(16) = v(16) + exp(P.a(1));
-                        v(12) = v(12) + exp(P.a(2));
-                        v(10) = v(10) + exp(P.a(3));
-                        v(18) = v(18) + exp(P.a(4));
-                        v(19) = v(19) + exp(P.a(5));
-                        v(26) = v(26) + exp(P.a(6));
+                        %v(16) = v(16) + exp(P.a(1));
+                        %v(12) = v(12) + exp(P.a(2));
+                        %v(10) = v(10) + exp(P.a(3));
+                        %v(18) = v(18) + exp(P.a(4));
+                        %v(19) = v(19) + exp(P.a(5));
+                        %v(26) = v(26) + exp(P.a(6));
+
+                        % % Neuronal inputs and background activity
+                        % B  = zeros(56,1); B(16) = 455.5465 * dt;
+                        % vx = zeros(56,1) + 1e-3;
+                        % vx(16) = vx(16) + exp(P.a(1));
+                        % vx(12) = vx(12) + exp(P.a(2));
+                        % vx(10) = vx(10) + exp(P.a(3));
+                        % vx(18) = vx(18) + exp(P.a(4));
+                        % vx(19) = vx(19) + exp(P.a(5));
+                        % vx(26) = vx(26) + exp(P.a(6));
+                        % 
+                        % v = v + vx+B;
 
                         R=P;
                         
-                        drive(i) = 0;
+                        %dr = exp(P.a(:));
+
+                        %drive(i) = 0;%rand/64;
 
                         % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
@@ -817,10 +840,10 @@ switch IntMethod
                             %     dv = x + (Q*J)*b  <-- delays in state flow
 
                             g    = dxdt - v;
-                            b    = J\g;
-                            dxdt = v + QJ*b ;
+                            b    = J'\g;
+                            dxdt = v + QJ'*b ;
 
-                            dxdt = dt*f(v+dxdt,drive(i),R,M);
+                            %dxdt = dt*f(v+dxdt,drive(i),R,M);
                         end
                         
                         v    = v + dxdt;
@@ -1036,41 +1059,52 @@ for ins = 1:ns
             clear Ppf  Pfm Ppf1 Ppf2 Ppf3    
 
             ys  = yx(Ji(ij),:);
-            ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)]);
-            
+            ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)-1]);
+
+            F   = atcm.fun.asinespectrum(w,t(burn:end));
+            Ppf = abs(F*ys');
+            Ppf = atcm.fun.agauss_smooth(Ppf,2);
+
+
+            %Ppf = pyulear(ys,18,w,1/dt);
          
-            if ij == 1
-                F   = dftmtx(size(ys,2));   
-                N   = length(F);
-                f   = (1/dt) * (0:(N/2))/N;
-                Mt  = pinv(atcm.fun.cdist(f',w'))';
+            % if ij == 1
+            %     %F   = dftmtx(size(ys,2));   
+            %     F = atcm.fun.asinespectrum(w,t(burn:end));
+            % 
+            %     N   = length(F);
+            %     f   = (1/dt) * (0:(N/2))/N;
+            %     Mt  = pinv(atcm.fun.cdist(f',w'))';
+            %     Mt  = abs(Mt);
+            % 
+            %     if isfield(M,'GFFTM') && ~isempty(M.GFFTM)
+            %         Mt0 = M.GFFTM;
+            %     else
+            %         % generate the interpolation matrix s.t. Gauss Kernel
+            %         Mt0 = Mt*0;
+            %         for i = 1:size(Mt,2)
+            %             Mt0(:,i) = atcm.fun.agauss_smooth(Mt(:,i),3);
+            %             Mt0(:,i) = Mt0(:,i)./max(Mt0(:,i));
+            %         end
+            %     end
+            % 
+            %     % filtering
+            %     H   = .5+hamming(nf,'periodic');
+            %     Mt0 = Mt0.*H';
+            % 
+            %     Fr   = F(:,1:length(f));
+            %     FrMt = Fr*Mt0;
+            % end          
+            % 
+            % 
+            % yF  = ys*FrMt;
+            % 
+            % Ppf = yF;
+            % Ppf = abs(Ppf);
 
-                if isfield(M,'GFFTM') && ~isempty(M.GFFTM)
-                    Mt = M.GFFTM; 
-                else
-                    % generate the interpolation matrix s.t. Gauss Kernel
-                    % smoothing on both axes
-                    %GM = atcm.fun.VtoGauss(ones(length(w),1),1);
-                    %FM = atcm.fun.VtoGauss(ones(length(f),1),1);
-                    for i = 1:size(Mt,1)
-                        %Mt(:,i) = atcm.fun.VtoGauss(Mt(:,i),8)*Mt(:,i);
-                        Mt(i,:) = abs(Mt(i,:))*atcm.fun.VtoGauss(abs(Mt(i,:)));
-                    end
-                    %Mt = FM*Mt;
-                end
-            end          
-
-            %for i = 1:length(w); I(i) = atcm.fun.findthenearest(f,w(i)); end
-            
-            % Pf(w) = fft(y)*iM, where iM is the inverse distance between
-            % natural frequency vector and those of interest, subject to
-            % each column of iM conforming to a Gaussian
-            Ppf = (ys*F(:,1:length(f))*Mt)./N;                  
-            Ppf = abs(Ppf);
-
-            Ppf = atcm.fun.agauss_smooth(Ppf,1); %  kernel smoothing
+            %Ppf = envelope((Ppf),1,'peak');
+            %Ppf = atcm.fun.agauss_smooth(Ppf,1); %  kernel smoothing
             %Ppf = gau_signal_decomp(Ppf,4);
-
            
             % De-NaN/inf the spectrum
             %--------------------------------------------------------------
@@ -1139,20 +1173,21 @@ for ins = 1:ns
 
     Pf0 = Pf(:,ins,ins);
 
-    %if isfield(M,'nosmooth') && M.nosmooth;
+    PfL = squeeze(layers.iweighted);
+    b   = PfL'\M.y{:}';
+    Pf0 = b'*PfL;
 
-    %else
-    %   Pf0 = atcm.fun.awinsmooth(Pf0,6);
-    %end
+    H   = gradient(gradient(Pf0));
+    Pf0 = Pf0 - (exp(P.d(1))*3)*H;
 
+    
     Pf(:,ins,ins) = abs( Pf0(:));
-
 
     % Electrode gain: rescale to sum of data spectrum
     %----------------------------------------------------------------------
-    SY = sum(spm_vec(M.y));
-    Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
-    Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
+    %SY = sum(spm_vec(M.y));
+    %Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
+    %Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
 
     %SY = max(spm_vec(M.y));
     %Pf(:,ins,ins) = Pf(:,ins,ins) ./ max(Pf(:,ins,ins) );

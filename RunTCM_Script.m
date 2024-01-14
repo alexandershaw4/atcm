@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'Tscale_FP_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'Rscale_FP_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 [p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
@@ -96,7 +96,7 @@ for i = i;%1:length(Data.Datasets)
     fprintf('Running Dataset %d / %d\n',i,length(Data.Datasets));
     
     % Frequency range of interest
-    fq =  [3 90];
+    fq =  [1 90];
     
     % Prepare Data
     %----------------------------------------------------------------------
@@ -128,7 +128,7 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.DATA = 1 ;
 
 
-    DCM.xY.y{:}  = atcm.fun.agauss_smooth(DCM.xY.y{:},.6);
+    DCM.xY.y{:}  = atcm.fun.agauss_smooth(DCM.xY.y{:},1);
 
     %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
 
@@ -185,23 +185,38 @@ for i = i;%1:length(Data.Datasets)
 
     pE = spm_unvec(spm_vec(pE)*0,pE);
 
-    pC.ID = pC.ID * 0;
+    pC.ID = (pC.ID * 0);
     pC.T  = pC.T *0;
 
+    pC.CV = (pC.CV * 0);
     
     pE.J = pE.J-1000;
-    pE.J([1 2 4]) = log([.4 .8 .6]);
+    %pE.J([1 2 4]) = log([.4 .8 .6]);
     
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
-        
-    pC.ID = pC.ID + 1/8;
-    %pC.J(1:8) = 1/8;
-
-
+    %pC.J(1:8) = 1/32;
+    
+    pC.d(1) = 1/8;
+          
     pE.L = 0;
+    pC.L=0;
+
+    %pC.C = 1/8;
+
+    %pE.a = zeros(8,1);
+    %pC.a = ones(8,1)/8;
+    pC.a = pC.a*0;
+
+    pC.R = [1 1]./8;
+
+    pC = spm_unvec( ~~spm_vec(pC)/8, pC);
 
     DCM.M.pE = pE;
     DCM.M.pC = pC;
+
+    %load('REDUCED_SET_JAN24','NewpC')
+
+    %DCM.M.pC = NewpC;
     
     %DCM.M.dmd=1;
 
@@ -224,8 +239,10 @@ for i = i;%1:length(Data.Datasets)
     load('init_14dec','x');
     DCM.M.x = spm_unvec(x,DCM.M.x);
 
-    %x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
-    %DCM.M.x = spm_unvec(x,DCM.M.x);
+    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
+    DCM.M.x = spm_unvec(x,DCM.M.x);
+
+    norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
 
     %xx0 = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
     %DCM.M.x = spm_unvec(xx0,DCM.M.x);
@@ -241,6 +258,7 @@ for i = i;%1:length(Data.Datasets)
     fprintf('--------------- PARAM ESTIMATION (neural) ---------------\n');
     %fprintf('iteration %d\n',j);   
 
+    
     % Construct an AO optimisation object
     M = AODCM(DCM);
 
@@ -261,7 +279,9 @@ for i = i;%1:length(Data.Datasets)
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
 
-    M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+    %M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+    M.opts.objective   = 'sse';
+
     M.opts.criterion   = -inf;
 
     M.opts.factorise_gradients = 0;

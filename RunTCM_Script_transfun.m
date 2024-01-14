@@ -3,7 +3,7 @@ function RunTCM_Script_transfun(i)
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
 %
 % This version using a linearisation and transfer function (numerical
-% Laplace) rather than integration.
+% Laplace) rather than brute numerical integration.
 %
 % Requires atcm (thalamo cortical modelling package) and aoptim
 % (optimisation package)
@@ -40,7 +40,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'Laplace_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'LM_Laplace_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -51,6 +51,9 @@ F = (T==1);
 B = (T==2);
 C = [1]';          % input(s)
 L = sparse(1,1);
+
+[p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
+
 
 % Set up, over subjects
 %--------------------------------------------------------------------------
@@ -127,35 +130,42 @@ for i = i;%1:length(Data.Datasets)
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
 
-
     DCM.xY.y{:}  = agauss_smooth(abs(DCM.xY.y{:}),1)';
         
     % Subfunctions and default priors
     %----------------------------------------------------------------------
     DCM = atcm.parameters(DCM,Ns);
-    
-
-    
-    %DCM.xY.y{:} = abs(DCM.xY.y{:});
-    %w = DCM.xY.Hz;
-
-    %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
-        
+            
     % other model options
     %----------------------------------------------------------------------
     DCM.M.solvefixed=0;      % oscillations == no fixed point search
     DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
     DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
         
-    load('newpoints3','pE','pC')
+    load([p '/newpoints3.mat'],'pE','pC')
 
-    pC.d(1) = 1/8;
+    pE = spm_unvec(spm_vec(pE)*0,pE);
+
+    pC.ID = pC.ID * 0;
+    pC.T  = pC.T *0;
+    
+    pE.J = pE.J-1000;    
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
+    %pC.ID = pC.ID + 1/8;
+    pE.L = 0;
+
+    pC.J(1:8)=1/8;
+    pC.d(1) = 1/8;
+    
+
+    % Make changes here;
+    %-----------------------------------------------------------
+   % pC.H = pC.H*0;
+    
+
 
     DCM.M.pE = pE;
     DCM.M.pC = pC;
-    
-    %DCM.M.dmd=1;
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -171,9 +181,16 @@ for i = i;%1:length(Data.Datasets)
     fprintf('--------------- STATE ESTIMATION ---------------\n');
     fprintf('Search for a stable fixed point\n');
 
-    xx = load('newx'); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
-    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M);
+    xx = load([p '/newx.mat']); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
+    %x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
+    load('init_14dec','x');
     DCM.M.x = spm_unvec(x,DCM.M.x);
+
+    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
+    DCM.M.x = spm_unvec(x,DCM.M.x);
+
+    norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
+
 
     %DCM.M.x = FindSteadyState(DCM,20,1/1200); close;drawnow;
     %Y0 = spm_vec(feval(DCM.M.IS,DCM.M.pE,DCM.M,DCM.xU));
@@ -184,76 +201,36 @@ for i = i;%1:length(Data.Datasets)
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
     %fprintf('iteration %d\n',j);
 
-    DCM.M.nograph = 0;
+    % Alex's version of the Levenberg-Marquard routine
+    M = AODCM(DCM);
 
-    [Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
+    M.alex_lm;
 
+    %DCM.M.nograph = 0;
 
-    % % Construct an AO optimisation object
-    % M = AODCM(DCM);
-    % 
-    % %QQ = spm_Q(1/2,length(w),1)*diag(w)*spm_Q(1/2,length(w),1)';
-    % 
-    % %M.opts.Q = QQ;
-    % 
-    % % Optimisation option set 1.
-    % M.opts.EnforcePriorProb    = 0; 
-    % M.opts.WeightByProbability = 0;
-    % 
-    % M.opts.ismimo      = 1;     
-    % M.opts.doparallel  = 0;    
-    % 
-    % M.opts.hyperparams = 0; 
-    % M.opts.ahyper      = 0;
-    % M.opts.ahyper_p    = 0;
-    % 
-    % M.opts.hypertune   = 0; 
-    % M.opts.fsd         = 0;        
-    % M.opts.inner_loop  = 1;
-    % 
-    % M.opts.objective   = 'gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
-    % M.opts.criterion   = -inf;
-    % 
-    % M.opts.factorise_gradients = 0;
-    % M.opts.normalise_gradients = 0;
-    % 
-    % M.opts.memory_optimise = 0;
-    % M.opts.rungekutta      = 8;
-    % M.opts.dopowell        = 0;
-    % M.opts.wolfelinesearch = 0;
-    % M.opts.bayesoptls      = 0;
-    % M.opts.crit            = [0 0 0 0];
-    % 
-    % M.opts.isNewton      = 0;
-    % M.opts.isQuasiNewton = 0;
-    % M.opts.isNewtonReg   = 0;      
-    % M.opts.isGaussNewton = 0;
-    % M.opts.isTrust       = 0;
-    % 
-    % % order of dfdx: grads or curv & whether to orthogoanlise
-    % M.opts.order         = 1;
-    % M.opts.orthogradient = 1;
-    % M.opts.gradtol       = 1e-8;
-    % 
-    % M.default_optimise([1],[20]);
-    % 
-    % M.update_parameters(M.Ep);
-    % 
-    % M.default_optimise(1,8);
+    %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
 
 
-    % M.update_parameters(M.Ep);
-    %M.default_optimise([1],[8])
 
     % save in DCM structures after optim 
     %----------------------------------------------------------------------
     DCM.M.pE = ppE;
-    DCM.Ep = Qp;%spm_unvec(M.Ep,DCM.M.pE);
-    DCM.Cp = Cp;
+    DCM.Ep = spm_unvec(M.Ep,DCM.M.pE);
+    DCM.Cp = [];
+
+    DCM.M.sim.dt  = 1./600;
+    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
+
+    [y,w,G,s] = feval(DCM.M.IS,DCM.Ep,DCM.M,DCM.xU);
+
+    DCM.pred = y;
+    DCM.w = w;
+    DCM.G = G;
+    DCM.series = s;
     
     %DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
     %DCM.Cp = makeposdef(DCM.Cp);
-    DCM.F = F;
+    DCM.F = M.F;
     save(DCM.name); close all; clear global;
     
 end

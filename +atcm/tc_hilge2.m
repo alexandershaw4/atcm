@@ -193,9 +193,9 @@ GEn =   [0     0     0     0     0     2     0     2;
 GIa =[8     0     10    0     0     0     0     0;
       0    18     10    0     0     0     0     0;
       0     0     10    0     0     0     0     0;
-      0     0     0     8     4     0     0     0;
-      0     0     0     0     4     0     0     0;
-      0     0     0     0     4     8     0     0;
+      0     0     0     8     6     0     0     0;
+      0     0     0     0    14     0     0     0;
+      0     0     0     0     6     8     0     0;
       0     0     0     0     0     0     8     0;
       0     0     0     0     0     0     8     8];
 
@@ -359,7 +359,7 @@ for i = 1:ns
             E(2) = E(2) + dU(1);
         else
             % otherwise just drive the thalamus
-            input_cell        = [8];
+            input_cell        = [7 8];
             E(input_cell)     = E(input_cell) + dU;            
         end
 
@@ -414,6 +414,7 @@ for i = 1:ns
             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );%*pop_rates );
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
         end
+
 
 
 end

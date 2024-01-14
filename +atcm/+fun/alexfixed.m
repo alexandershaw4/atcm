@@ -30,6 +30,7 @@ rf = 0.2;
 for i = 1:3e10
 
     [dx,A] = f(x0,[]);
+
     
     x1 = x0 - exp(-a) * pinv(full(A)) * dx;
 

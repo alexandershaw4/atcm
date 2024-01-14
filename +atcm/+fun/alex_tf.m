@@ -1,5 +1,5 @@
-function [Y,w] = alex_tf(P,M,U)
-% linearisation and numerical transfer function for a DCM
+function [Y,w,G,units] = alex_tf(P,M,U)
+% linearisation and numerical (Laplace) transfer function for a DCM
 % witten by Alex Shaw
 %
 % takes a dynamical model and observation function;
@@ -13,9 +13,15 @@ function [Y,w] = alex_tf(P,M,U)
 %    y = Cx [+ Du];
 %
 % having computed the linearisation matrices, uses MATLAB's state-space
-% (ss) function to get a SYS object that can be used with Bode plot to get
-% the frequency response at frequencies of interest (vector stored in
-% M.Hz) using essentially the Laplace transform.
+% (ss) function to get a SYS object that can be used with Bode's method to 
+% get the frequency response at frequencies of interest (vector stored in
+% M.Hz) using the Laplace transform.
+%
+% Usage: [Y,w,G,units] = alex_tf(P,M,U); 
+%
+% add sub-structure M.sim with M.sim.pst and M.sim.dt to force the routine
+% to also recronstruct the time-domain simulation and return in the 4th
+% output.
 %
 % AS2023
 
@@ -71,7 +77,7 @@ C = exp(P.J(:));
 G = ss(A, B, diag(C), 0);  % Assuming unity output matrix
 
 % use Bode to get Laplace transform
-[magnitude, phase] = bode(G,w*6.2831853); % convert Hz to radians
+[magnitude, phase] = bode(G,w*6.2831853); % convert radians to Hz
 
 Y = squeeze(magnitude);
 Y = sum(Y,1);
@@ -82,4 +88,69 @@ Y = Y - (exp(P.d(1))*3)*H;
 
 % global scaling / electrode gain
 Y = {exp(P.L(1))*abs(Y)};
+
+
+% if continuous-time simluation was requested, compute series
+if isfield(M,'sim')
+    pst = M.sim.pst;
+    dt  = M.sim.dt;
+    mag = squeeze(magnitude);
+    the = squeeze(phase);
+
+    for i = 1:size(mag,1)
+        for j = 1:size(mag,2)    
+            series(i,j,:) = mag(i,j) * sin(2*pi*w(j)*pst/1000 - the(i,j) );
+        end
+    end
+
+    S = squeeze(sum(series,2));
+    LFP = diag(G.C)'*S;
+
+    units.series = S;
+    units.LFP    = LFP;
+    units.dt     = dt;
+    units.pst    = pst;
+    units.A      = G.A;
+    units.B      = G.B;
+    units.C      = G.C;
+    units.D      = G.D;
+    units.xinit  = M.x(:);
+
+end
+
+return;
+
+% % notes on how to use this model to integrate in the time domain but remove
+% % log-linear trend;
+% %--------------------------------------------------------------------------
+% 
+% A = G.A;
+% B = G.B;
+% C = G.C;
+% 
+% dt = 1/600;
+% 
+% % initial point;
+% x = dt*A*M.x(:) + dt*B;
+% 
+% % Euler
+% for i = 2:1200; 
+%     x(:,i) = x(:,i-1) + dt*A*x(:,i-1) + B; 
+% end
+% 
+% % log-linear trend
+% for i = 1:size(x,1)
+%     proj = log(x(i,:));
+%     Y = fit(t.',proj.','poly1');
+%     xx(i,:) = exp( proj - Y(t)' );
+% end
+% 
+% Yactual = diag(C)'*xx;
+
+
+
+
+
+
+
 
