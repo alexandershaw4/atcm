@@ -297,7 +297,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.updateQ         = 0; 
     M.opts.crit            = [0 0 0 0];
 
-    M.opts.userplotfun = @aodcmplotfun;
+    %M.opts.userplotfun = @aodcmplotfun;
 
     M.opts.isNewton      = 0;
     M.opts.isQuasiNewton = 0;
