@@ -40,7 +40,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'LM_Laplace_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'newLM_Laplace_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -160,10 +160,7 @@ for i = i;%1:length(Data.Datasets)
 
     % Make changes here;
     %-----------------------------------------------------------
-   % pC.H = pC.H*0;
-    
-
-
+   
     DCM.M.pE = pE;
     DCM.M.pC = pC;
 

@@ -515,7 +515,7 @@ switch IntMethod
             if ~WithDelays 
                                 
                 % Use a Euler integration scheme
-                for j = 1;
+                %for j = 1;
                     
                     drive(:,i) = 1;
                     
@@ -525,7 +525,7 @@ switch IntMethod
                     % full update
                     v      = v + dt*dxdt;
                     y(:,i) = v;
-                end
+                %end
                 
             elseif WithDelays == 2
                 
@@ -781,9 +781,9 @@ switch IntMethod
                         % Matrix delays and rate (integration) constants
                         %--------------------------------------------------
                         if i == 2
-                            D   = real(D);
-                            Q   = (1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
-                            QJ  = Q.*J;
+                            %D   = real(D);
+                            %Q   = (1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
+                            %QJ  = Q.*J;
                             ddt = dt;
 
                         end  
@@ -801,18 +801,35 @@ switch IntMethod
                         %v(26) = v(26) + exp(P.a(6));
 
                         % % Neuronal inputs and background activity
-                        % B  = zeros(56,1); B(16) = 455.5465 * dt;
-                        % vx = zeros(56,1) + 1e-3;
-                        % vx(16) = vx(16) + exp(P.a(1));
-                        % vx(12) = vx(12) + exp(P.a(2));
-                        % vx(10) = vx(10) + exp(P.a(3));
-                        % vx(18) = vx(18) + exp(P.a(4));
-                        % vx(19) = vx(19) + exp(P.a(5));
-                        % vx(26) = vx(26) + exp(P.a(6));
-                        % 
-                        % v = v + vx+B;
+                        B  = zeros(56,1); B(16) = 455.5465 * dt;
+                        vx = zeros(56,1) + 1e-3;
+                        vx(16) = vx(16) + exp(P.a(1));
+                        vx(12) = vx(12) + exp(P.a(2));
+                        vx(10) = vx(10) + exp(P.a(3));
+                        vx(18) = vx(18) + exp(P.a(4));
+                        vx(19) = vx(19) + exp(P.a(5));
+                        vx(26) = vx(26) + exp(P.a(6));
+
+                        v = v + vx+B;
 
                         R=P;
+
+                        % State Delays - interpolated
+                        %--------------------------------------------------
+                        d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
+                        d = repmat(d,[1 nk]);
+                        L = (d);
+
+                        for j = 1:length(L)
+                            ti = real(L(j))/dt;
+                            if i > 1 && any(ti)
+                                pt = t(i) - ti;
+                                if pt > 0
+                                    v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
+                                end
+                            end
+                        end
+
                         
                         %dr = exp(P.a(:));
 
@@ -830,21 +847,24 @@ switch IntMethod
                         
                         dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
 
-                        if i > 2
-                            % from the update dx = f(x), can can recover
-                            % which x lead to which change in dx assuming a
-                            % static Jacobian map; 
-                            %     dv = x + dx
-                            %     b  = J \ dx
-                            %     dv = x + J*b
-                            %     dv = x + (Q*J)*b  <-- delays in state flow
+                        
 
-                            g    = dxdt - v;
-                            b    = J'\g;
-                            dxdt = v + QJ'*b ;
 
-                            %dxdt = dt*f(v+dxdt,drive(i),R,M);
-                        end
+                        % if i > 2
+                        %     % from the update dx = f(x), can can recover
+                        %     % which x lead to which change in dx assuming a
+                        %     % static Jacobian map; 
+                        %     %     dv = x + dx
+                        %     %     b  = J \ dx
+                        %     %     dv = x + J*b
+                        %     %     dv = x + (Q*J)*b  <-- delays in state flow
+                        % 
+                        %     g    = dxdt - v;
+                        %     b    = J'\g;
+                        %     dxdt = v + QJ'*b ;
+                        % 
+                        %     %dxdt = dt*f(v+dxdt,drive(i),R,M);
+                        % end
                         
                         v    = v + dxdt;
                                                
@@ -1173,13 +1193,14 @@ for ins = 1:ns
 
     Pf0 = Pf(:,ins,ins);
 
-    PfL = squeeze(layers.iweighted);
-    b   = PfL'\M.y{:}';
-    Pf0 = b'*PfL;
+    %PfL = squeeze(layers.iweighted);
+    %b   = PfL'\M.y{:}';
+    %5Pf0 = b'*PfL;
 
     H   = gradient(gradient(Pf0));
     Pf0 = Pf0 - (exp(P.d(1))*3)*H;
 
+    %Pf0 = atcm.fun.agauss_smooth(Pf0,2);
     
     Pf(:,ins,ins) = abs( Pf0(:));
 
@@ -1193,7 +1214,7 @@ for ins = 1:ns
     %Pf(:,ins,ins) = Pf(:,ins,ins) ./ max(Pf(:,ins,ins) );
     %Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
 
-    %Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+    Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
 
 
 end
