@@ -37,7 +37,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'Rscale_FP_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'nRscale_FP_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 [p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
@@ -168,7 +168,7 @@ for i = i;%1:length(Data.Datasets)
         
     % simulation / integration parameters
     %----------------------------------------------------------------------
-    DCM.M.sim.dt  = 1./600;
+    DCM.M.sim.dt  = 1./1000;
     DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
     DCM.M.burnin  = 640;
     
@@ -210,6 +210,12 @@ for i = i;%1:length(Data.Datasets)
     pC.R = [1 1]./8;
 
     pC = spm_unvec( ~~spm_vec(pC)/8, pC);
+
+    pC.J(1:8)=1/32;
+    pC.ID = pC.ID + 1/8;
+    pC.L = 1/8;
+    pE.L = -1;
+    pC.d(1:2)=1/8;
 
     DCM.M.pE = pE;
     DCM.M.pC = pC;

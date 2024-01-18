@@ -801,22 +801,22 @@ switch IntMethod
                         %v(26) = v(26) + exp(P.a(6));
 
                         % % Neuronal inputs and background activity
-                        B  = zeros(56,1); B(16) = 455.5465 * dt;
-                        vx = zeros(56,1) + 1e-3;
-                        vx(16) = vx(16) + exp(P.a(1));
-                        vx(12) = vx(12) + exp(P.a(2));
-                        vx(10) = vx(10) + exp(P.a(3));
-                        vx(18) = vx(18) + exp(P.a(4));
-                        vx(19) = vx(19) + exp(P.a(5));
-                        vx(26) = vx(26) + exp(P.a(6));
-
-                        v = v + vx+B;
+                        % B  = zeros(56,1); B(16) = 455.5465 * dt;
+                        % vx = zeros(56,1) + 1e-3;
+                        % vx(16) = vx(16) + exp(P.a(1));
+                        % vx(12) = vx(12) + exp(P.a(2));
+                        % vx(10) = vx(10) + exp(P.a(3));
+                        % vx(18) = vx(18) + exp(P.a(4));
+                        % vx(19) = vx(19) + exp(P.a(5));
+                        % vx(26) = vx(26) + exp(P.a(6));
+                        % 
+                        % v = v + vx+B;
 
                         R=P;
 
                         % State Delays - interpolated
                         %--------------------------------------------------
-                        d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
+                        d = 100*[.006 .001 .001 .004 .001 .008 .001 .008].*exp(P.ID);
                         d = repmat(d,[1 nk]);
                         L = (d);
 
@@ -932,6 +932,7 @@ y(isinf(y)) = 0;
 % recompute dfdx now we've propoerly burned in 
 [fx, dfdx] = f(spm_unvec(y(:,end),M.x),0,P,M);
 
+yorig = y;
 y           = reshape(y,[ns npp nk size(y,2)]);
 timeseries  = y;
 firing      = S;
@@ -955,7 +956,11 @@ series.States_both = y;
 
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
-[y,s,g,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+[yb,s,g,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+
+y = yb;
+
+g = exp(P.J(:))'*yorig;
 
 %PP = P;
 %PP.J = [1 1 1 1 1 0 0 0];
@@ -1080,10 +1085,34 @@ for ins = 1:ns
 
             ys  = yx(Ji(ij),:);
             ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)-1]);
+            ys = real(ys);
 
             F   = atcm.fun.asinespectrum(w,t(burn:end));
-            Ppf = abs(F*ys');
-            Ppf = atcm.fun.agauss_smooth(Ppf,2);
+
+            %Ppf = abs(F*ys');
+            
+            b = atcm.fun.lsqnonneg(F',ys');
+            
+            %b = F'\ys';
+
+            Ppf = atcm.fun.VtoGauss(ones(length(b),1),2)*b;
+
+            %Ppf = atcm.fun.agauss_smooth(b,2);
+
+            %[~,I] = sort(abs(b),'descend');
+
+            %nb = atcm.fun.findthenearest( cumsum(abs(b(I)))./sum(abs(b(I))), 0.9 );
+
+            %nb = 3;
+
+            %b0 = b*0;
+            %b0(I(1:nb)) = b(I(1:nb));
+
+            %Ppf = F*(b0'*(F))';
+
+            %Ppf = abs(Ppf);
+
+            %Ppf = atcm.fun.agauss_smooth(Ppf,2);
 
 
             %Ppf = pyulear(ys,18,w,1/dt);
@@ -1193,7 +1222,19 @@ for ins = 1:ns
 
     Pf0 = Pf(:,ins,ins);
 
+
     %PfL = squeeze(layers.iweighted);
+
+    %[eval,evec] = atcm.fun.dmd(PfL',2,1);
+
+    %Pf1 = evec*PfL;
+
+    %[u,s,v] = svd(PfL);
+
+    %Pf1 = u(1:3,:)*s*v';
+
+    %Pf0 = Pf1(1,:) * exp(P.d(2)) + Pf1(2,:) * exp(P.d(3));
+
     %b   = PfL'\M.y{:}';
     %5Pf0 = b'*PfL;
 
