@@ -415,6 +415,14 @@ for i = 1:ns
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
         end
 
+        % CT and TC
+        %xx = reshape( x(:), [1 8 7]);
+        %ff = reshape( f(:), [1 8 7]);
+
+
+        % Thalamo-cortical-thalamo time constant
+        TD = exp(P.TD) * 1000/8;
+        f(:,[7 8],:) = f(:,[7 8],:) - x(:,[7 8],:) * TD;
 
 
 end
