@@ -812,6 +812,15 @@ switch IntMethod
                         % 
                         % v = v + vx+B;
 
+                        % 
+                        
+                        %fg = 50 * exp(P.d(2));
+                        %fb = 13 * exp(P.d(3));
+                        %v(10) = v(10) + sin(2*pi*fg*(t(i)/1000));
+                        %v(12) = v(12) + sin(2*pi*fb*(t(i)/1000));
+
+
+
                         R=P;
 
                         % State Delays - interpolated
