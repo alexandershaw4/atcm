@@ -420,10 +420,11 @@ for i = 1:ns
         %ff = reshape( f(:), [1 8 7]);
 
 
-        % Thalamo-cortical-thalamo time constant
-        TD = exp(P.TD) * 1000/8;
-        f(:,[7 8],:) = f(:,[7 8],:) - x(:,[7 8],:) * TD;
-
+        % % Thalamo-cortical-thalamo time constant
+        % if isfield(P,'TD')
+        %     TD = exp(P.TD) * 1000/8;
+        %     f(:,[7 8],:) = f(:,[7 8],:) - x(:,[7 8],:) * TD;
+        % end
 
 end
 

@@ -156,9 +156,6 @@ for i = i;%1:length(Data.Datasets)
 
     pC.S = pC.S + 1/8;
 
-    pE.TD = 0;
-    pC.TD = 1/8;
-
     pC.J(1:8)=1/8;
     pC.d(1) = 1/8;
     
@@ -198,8 +195,7 @@ for i = i;%1:length(Data.Datasets)
     %Y0 = spm_vec(feval(DCM.M.IS,DCM.M.pE,DCM.M,DCM.xU));
     %DCM.M.Y0 = Y0;
     fprintf('Finished...\n');
-    
-      
+          
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
     %fprintf('iteration %d\n',j);
 
