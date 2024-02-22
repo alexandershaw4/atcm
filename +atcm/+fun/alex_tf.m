@@ -99,6 +99,9 @@ for i = 1:Ns
     
     Y = squeeze(magnitude);
     Y = sum(Y,1);
+
+    MAG{i} = magnitude;
+    PHA{i} = phase;
     
     % Laplace is pretty smooth, parameterise granularity
     H = gradient(gradient(Y));
@@ -128,17 +131,20 @@ units = [];
 if isfield(M,'sim')
     pst = M.sim.pst;
     dt  = M.sim.dt;
-    mag = squeeze(magnitude);
-    the = squeeze(phase);
 
-    for i = 1:size(mag,1)
-        for j = 1:size(mag,2)    
-            series(i,j,:) = mag(i,j) * sin(2*pi*w(j)*pst/1000 - the(i,j) );
+    for k = 1:Ns
+        mag = squeeze(MAG{k});
+        the = squeeze(PHA{k});
+    
+        for i = 1:size(mag,1)
+            for j = 1:size(mag,2)    
+                series{k}(i,j,:) = mag(i,j) * sin(2*pi*w(j)*pst/1000 - the(i,j) );
+            end
         end
+    
+        S{k} = squeeze(sum(series{k},2));
+        LFP(k,:) = diag(G.C)'*S{k};
     end
-
-    S = squeeze(sum(series,2));
-    LFP = diag(G.C)'*S;
 
     units.series = S;
     units.LFP    = LFP;
