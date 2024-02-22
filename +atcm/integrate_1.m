@@ -297,7 +297,7 @@ f    = spm_funcheck(M.f);
 if solvefp; 
     %x    = atcm.fun.solvefixedpoint(P,M);
         %x = atcm.fun.solvefixedpoint(P,M,[],-70);
-        x = spm_unvec(atcm.fun.alexfixed(P,M,1e-6,[],1),M.x);
+        x = spm_unvec(atcm.fun.alexfixed(P,M,1e-6),M.x);
         
 else ;      x    = x;
 end
@@ -517,10 +517,10 @@ switch IntMethod
                 % Use a Euler integration scheme
                 %for j = 1;
                     
-                    drive(:,i) = 1;
-                    
+                    %drive(:,i) = 1;
+
                     % Next step with input
-                    [dxdt] = f(v,drive(:,i),P,M);      
+                    [dxdt] = f(v,drive(i),P,M);      
 
                     % full update
                     v      = v + dt*dxdt;
@@ -781,11 +781,10 @@ switch IntMethod
                         % Matrix delays and rate (integration) constants
                         %--------------------------------------------------
                         if i == 2
-                            %D   = real(D);
-                            %Q   = (1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
-                            %QJ  = Q.*J;
+                            D   = real(D);
+                            Q   = (1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
+                            QJ  = Q.*J;
                             ddt = dt;
-
                         end  
 
                         % Function that implements delays
@@ -793,7 +792,7 @@ switch IntMethod
 
                         % endogenous inputs
                         %--------------------------------------------------
-                        %v(16) = v(16) + exp(P.a(1));
+                      %  v(16) = v(16) + exp(P.a(1));
                         %v(12) = v(12) + exp(P.a(2));
                         %v(10) = v(10) + exp(P.a(3));
                         %v(18) = v(18) + exp(P.a(4));
@@ -811,38 +810,28 @@ switch IntMethod
                         % vx(26) = vx(26) + exp(P.a(6));
                         % 
                         % v = v + vx+B;
-
-                        % 
-                        
-                        %fg = 50 * exp(P.d(2));
-                        %fb = 13 * exp(P.d(3));
-                        %v(10) = v(10) + sin(2*pi*fg*(t(i)/1000));
-                        %v(12) = v(12) + sin(2*pi*fb*(t(i)/1000));
-
-
-
+                    
                         R=P;
 
-                        % State Delays - interpolated
+                        %State Delays - interpolated
                         %--------------------------------------------------
-                        d = 100*[.006 .001 .001 .004 .001 .008 .001 .008].*exp(P.ID);
-                        d = repmat(d,[1 nk]);
-                        L = (d);
-
-                        for j = 1:length(L)
-                            ti = real(L(j))/dt;
-                            if i > 1 && any(ti)
-                                pt = t(i) - ti;
-                                if pt > 0
-                                    v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
-                                end
-                            end
-                        end
+                        %d = 100*[.006 .001 .001 .004 .001 .008 .001 .008].*exp(P.ID);
+                        % d = [1 1 1 1 1 1 1 8];
+                        % d = repmat(d,[1 nk]);
+                        % %L = (d);
+                        % 
+                        % for j = 1:length(d)
+                        %     ti = real(d(j));%/dt;
+                        %     if i > 1 && any(ti)
+                        %         pt = t(i) - ti;
+                        %         if pt > 0
+                        %             v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
+                        %         end
+                        %     end
+                        % end
 
                         
-                        %dr = exp(P.a(:));
 
-                        %drive(i) = 0;%rand/64;
 
                         % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
@@ -856,24 +845,30 @@ switch IntMethod
                         
                         dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
 
+                        %d = exp(P.ID(:)') .* [1 1 1 1 1 1 1 1];
+
+                        %for ii = 1:8
+                        %    dxdt(ii) = v(ii) + ( ( dxdt(ii) - v(ii) ) * d(ii) );
+                        %end
+
                         
 
 
-                        % if i > 2
-                        %     % from the update dx = f(x), can can recover
-                        %     % which x lead to which change in dx assuming a
-                        %     % static Jacobian map; 
-                        %     %     dv = x + dx
-                        %     %     b  = J \ dx
-                        %     %     dv = x + J*b
-                        %     %     dv = x + (Q*J)*b  <-- delays in state flow
-                        % 
-                        %     g    = dxdt - v;
-                        %     b    = J'\g;
-                        %     dxdt = v + QJ'*b ;
-                        % 
-                        %     %dxdt = dt*f(v+dxdt,drive(i),R,M);
-                        % end
+                        if i > 2
+                            % from the update dx = f(x), can can recover
+                            % which x lead to which change in dx assuming a
+                            % static Jacobian map; 
+                            %     dv = x + dx
+                            %     b  = J \ dx
+                            %     dv = x + J*b
+                            %     dv = x + (Q*J)*b  <-- delays in state flow
+
+                            g    = dxdt - v;
+                            b    = J'\g;
+                            dxdt = v + QJ'*b ;
+
+                            %dxdt = dt*f(v+dxdt,drive(i),R,M);
+                        end
                         
                         v    = v + dxdt;
                                                
@@ -962,14 +957,25 @@ series.States_without = yy;
 series.States_with_inp = yys;
 series.States_both = y;
 
+g = exp(P.J(:))'*yorig;
+
+
+% apply weights
+%y = exp(P.J)'*yorig;
+%P.J = 1.1;
+
+PJ = exp(P.J);
+[yb,s,layers] = weight_respond(PJ,P,M,yorig,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+
+%jfun = @(J) weight_respond(J,P,M,yorig,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+%gfun = @(J) sum( (M.y{:}(:) - jfun(J)).^2 );
 
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
-[yb,s,g,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+%[yb,s,~,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
 
 y = yb;
 
-g = exp(P.J(:))'*yorig;
 
 %PP = P;
 %PP.J = [1 1 1 1 1 0 0 0];
@@ -981,6 +987,19 @@ g = exp(P.J(:))'*yorig;
 %y = y + firy;
 
 end
+
+function [y,s,layers] = weight_respond(PJ,P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,type,fso,drive)
+
+% apply weights
+y = (PJ)'*y;
+P.J = 1.1;
+
+[y,s,~,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+
+
+
+end
+
 
 function [y,s,g,layers]=spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,type,fso,drive)
 % Main spectral response function with lots of options.
@@ -1078,6 +1097,23 @@ for ins = 1:ns
         P.J = 1;
     end
 
+    % approx_laplace = 0;
+    % if approx_laplace
+    %     % approximate laplace
+    %     A = yx*yx'; A = A./norm(A);
+    % 
+    %     for j = 1:length(w)
+    % 
+    %         Jm = A - sqrt(-1)*2*pi*w(j)*eye(56);
+    % 
+    %         Ppf(j) = J'*(Jm\M.x(:));
+    % 
+    %     end
+    % 
+    %     P.J=1;
+    %     layers.iweighted(1,1,:) = Ppf;
+    % end
+
 
     % loop spatio-temporal modes (in this region) and weight them
     %----------------------------------------------------------------------
@@ -1093,18 +1129,24 @@ for ins = 1:ns
             clear Ppf  Pfm Ppf1 Ppf2 Ppf3    
 
             ys  = yx(Ji(ij),:);
-            ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)-1]);
-            ys = real(ys);
+            %ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)-1]);
+            ys  = real(ys);
 
             F   = atcm.fun.asinespectrum(w,t(burn:end));
+            b   = atcm.fun.lsqnonneg(F',ys');
+            %b = abs(F'\ys');
 
-            %Ppf = abs(F*ys');
-            
-            b = atcm.fun.lsqnonneg(F',ys');
-            
-            %b = F'\ys';
+            %[~,I] = atcm.fun.maxpoints(abs(b),3);
+            %Pb    = b*0;
+            %Pb(I) = b(I);
 
-            Ppf = atcm.fun.VtoGauss(ones(length(b),1),2)*b;
+
+            %Ppf = atcm.fun.VtoGauss(ones(length(b),1),2.4)*b;
+
+            Ppf = atcm.fun.agauss_smooth(b,2);
+           
+
+            
 
             %Ppf = atcm.fun.agauss_smooth(b,2);
 
@@ -1256,15 +1298,15 @@ for ins = 1:ns
 
     % Electrode gain: rescale to sum of data spectrum
     %----------------------------------------------------------------------
-    %SY = sum(spm_vec(M.y));
-    %Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
-    %Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
+    SY = sum(spm_vec(M.y));
+    Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
+    Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
 
     %SY = max(spm_vec(M.y));
     %Pf(:,ins,ins) = Pf(:,ins,ins) ./ max(Pf(:,ins,ins) );
     %Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
 
-    Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+    %Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
 
 
 end

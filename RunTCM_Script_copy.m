@@ -1,4 +1,4 @@
-function RunTCM_Script(i)
+function RunTCM_Script_copy(i)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
 %
@@ -169,7 +169,7 @@ for i = i;%1:length(Data.Datasets)
     % simulation / integration parameters
     %----------------------------------------------------------------------
     DCM.M.sim.dt  = 1./1000;
-    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
+    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(.5)-DCM.M.sim.dt)');
     DCM.M.burnin  = 0;
     
     % Input is an oscillation
@@ -291,8 +291,8 @@ for i = i;%1:length(Data.Datasets)
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
 
-    %M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
-    M.opts.objective   = 'sse';
+    M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+    %M.opts.objective   = 'sse';
 
     M.opts.criterion   = -inf;
 

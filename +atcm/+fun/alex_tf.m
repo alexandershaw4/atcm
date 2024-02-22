@@ -23,7 +23,14 @@ function [Y,w,G,units] = alex_tf(P,M,U)
 % to also recronstruct the time-domain simulation and return in the 4th
 % output.
 %
+% * Update Feb 2024: AS refactored for multiple node models to compute the
+% Laplace transform of each region, then compute the cross-spectral density
+%
 % AS2023
+
+if isnumeric(P)
+    P = spm_unvec(P,M.P);
+end
 
 f = @(x,u,varargin) M.f(x,u,P,M);
 w = M.Hz;
@@ -36,7 +43,8 @@ delta_x = 1e-6;
 
 % get delay operator
 [f0,A0,D] = f(x0,u0,[]);
-D         = inv(eye(56) - D);
+D         = inv(eye(length(D)) - D);
+
 
 % Compute A matrix numerically
 A = zeros(length(x0), length(x0));
@@ -58,37 +66,63 @@ for i = 1:length(u0)
     B(:, i) = (dx_perturbed - f(x0, u0, [])) / delta_x;
 end
 
-% Inputs - 
-v = zeros(56,1) + 1e-3;
-v(16) = v(16) + exp(P.a(1));
-v(12) = v(12) + exp(P.a(2));
-v(10) = v(10) + exp(P.a(3));
-v(18) = v(18) + exp(P.a(4));
-v(19) = v(19) + exp(P.a(5));
-v(26) = v(26) + exp(P.a(6));
+% separate sources from here to compute sep Laplace for each unit
+Ns = size(M.x,1);
 
-B = B + v;
+% Loop each node (aka region, source, mode, column ..)
+for i = 1:Ns
+    win = i:Ns:(length(A));
 
-% we use a static observer model anyway...
-C = exp(P.J(:));
+    AA = A(win,win);
+    BB = B(win);
 
-% Create a transfer function
-%s = tf('s');
-G = ss(A, B, diag(C), 0);  % Assuming unity output matrix
+    % Inputs - 
+    v = zeros(56,1) + 1e-3;
+    v(16) = v(16) + exp(P.a(1));
+    v(12) = v(12) + exp(P.a(2));
+    v(10) = v(10) + exp(P.a(3));
+    v(18) = v(18) + exp(P.a(4));
+    v(19) = v(19) + exp(P.a(5));
+    v(26) = v(26) + exp(P.a(6));
+    
+    BB = BB + v;
+    
+    % we use a static observer model anyway...
+    C = exp(P.J(:));
+    
+    % Create a transfer function
+    %s = tf('s');
+    G = ss(AA, BB, diag(C), 0);  % Assuming unity output matrix
+    
+    % use Bode to get Laplace transform
+    [magnitude, phase] = bode(G,w*6.2831853); % convert radians to Hz
+    
+    Y = squeeze(magnitude);
+    Y = sum(Y,1);
+    
+    % Laplace is pretty smooth, parameterise granularity
+    H = gradient(gradient(Y));
+    Y = Y - (exp(P.d(1))*3)*H;
 
-% use Bode to get Laplace transform
-[magnitude, phase] = bode(G,w*6.2831853); % convert radians to Hz
+    PSD(i,:) = exp(P.L(i))*(Y);
 
-Y = squeeze(magnitude);
-Y = sum(Y,1);
+end
 
-% Laplace is pretty smooth, parameterise granularity
-H = gradient(gradient(Y));
-Y = Y - (exp(P.d(1))*3)*H;
+CSD = zeros(length(w),Ns,Ns);
+for i = 1:Ns
+    CSD(:,i,i) = PSD(i,:);
+    for j = 1:Ns
+        if i ~= j
+            CSD(:,i,j) = PSD(i,:) .* conj(PSD(j,:));
+        end
+    end
+end
+
 
 % global scaling / electrode gain
-Y = {exp(P.L(1))*abs(Y)};
+Y = {CSD};
 
+units = [];
 
 % if continuous-time simluation was requested, compute series
 if isfield(M,'sim')
@@ -115,6 +149,10 @@ if isfield(M,'sim')
     units.C      = G.C;
     units.D      = G.D;
     units.xinit  = M.x(:);
+    
+    units.mag    = squeeze(mag);
+    units.phase  = squeeze(phase);
+    units.freq   = w(:);
 
 end
 
@@ -124,19 +162,19 @@ return;
 % % log-linear trend;
 % %--------------------------------------------------------------------------
 % 
-% A = G.A;
-% B = G.B;
-% C = G.C;
-% 
-% dt = 1/600;
-% 
-% % initial point;
-% x = dt*A*M.x(:) + dt*B;
-% 
-% % Euler
-% for i = 2:1200; 
-%     x(:,i) = x(:,i-1) + dt*A*x(:,i-1) + B; 
-% end
+A = G.A;
+B = G.B;
+C = G.C;
+
+dt = 1/1000;
+
+% initial point;
+x = dt*A*M.x(:) + dt*B;
+
+% Euler
+for i = 2:100; 
+    x(:,i) = x(:,i-1) + dt*A*x(:,i-1) + B; 
+end
 % 
 % % log-linear trend
 % for i = 1:size(x,1)

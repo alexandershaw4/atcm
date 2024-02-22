@@ -165,11 +165,15 @@ else
     pE.d = pr.pE.d;
     pC.d = pr.pC.d;
        
-    pE.h = repmat(pr.pE.h,  [ns 1]);
-    pC.h = repmat(pr.pC.h,  [ns 1]);
-    
-    pE.m = repmat(pr.pE.m,  [ns 1]);
-    pC.m = repmat(pr.pC.m,  [ns,1]);
+    try
+        pE.h = repmat(pr.pE.h,  [ns 1]);
+        pC.h = repmat(pr.pC.h,  [ns 1]);
+    end
+
+    try
+        pE.m = repmat(pr.pE.m,  [ns 1]);
+        pC.m = repmat(pr.pC.m,  [ns,1]);
+    end
     
     try
         pE.TV = pr.pE.TV;
@@ -217,6 +221,19 @@ else
         %pE.Gsc = zeros(1,8);
         %pC.Gsc = zeros(1,8);
     end
+
+    try
+        pE.scale_NMDA = pr.pE.scale_NMDA;
+        pC.scale_NMDA = pr.pC.scale_NMDA;
+    end
+
+    try
+        pE.CT = pr.pE.CT;
+        pC.CT = pr.pC.CT;
+        pE.TC = pr.pE.TC;
+        pC.TC = pr.pC.TC;
+    end
+
     
     % Pack pE & pC into M
     DCM.M.pE = pE;

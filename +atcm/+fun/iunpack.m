@@ -9,7 +9,7 @@ if nargin < 2 || isempty(pE)
 end
 
 % integrate
-[y,w,s,g,t,pst,l,n,f] = feval(DCM.M.IS,pE,DCM.M,DCM.xU);
+[y,w,s,g,t,pst,layers,other] = feval(DCM.M.IS,pE,DCM.M,DCM.xU);
 
 c.cells = {'ss' 'sp' 'si' 'dp' 'di' 'tp' 'rt' 'rl'};
 
@@ -24,7 +24,7 @@ fc = atcm.fun.computefc(s0);
 for i = 1:length(y)
 
     % convert firing to Hz/s for this trial
-    c(i).fire = atcm.fun.f2sr(f{i},DCM.M.dt);
+    c(i).fire = atcm.fun.f2sr(other.firing{i},DCM.M.dt);
     
     % extract membrane potentials
     c(i).mV   = squeeze(s{i}(:,:,1,:));
@@ -42,7 +42,7 @@ for i = 1:length(y)
     c(i).w       = w;
     
     % layer data is already appropriately stored
-    c(i).l = l{i};
+    c(i).l = layers{i};
     
     % add amplitude (FC) and phase-coupling 
     c(i).phase = ph{i};

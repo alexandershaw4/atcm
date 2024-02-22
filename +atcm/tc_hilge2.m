@@ -72,6 +72,9 @@ function [f,J,D] = tc_hilge2(x,u,P,M)
 %--------------------------------------------------------------------------
 IncludeMH = 1;
 
+if isnumeric(P)
+    P = spm_unvec(P,M.P);
+end
 
 inputu = u;
  
@@ -405,10 +408,10 @@ for i = 1:ns
         % Conductance equations
         %==================================================================           
         
-        f(i,:,2) = (E'     - x(i,:,2)).* (KE(:,:)');%*pop_rates);
-        f(i,:,3) = (I'     - x(i,:,3)).* (KI(:,:)');%*gabaa_rate);
-        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(:,:)');%*pop_rates);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(:,:)');%*nmdat);
+        f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)');%*pop_rates);
+        f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)');%*gabaa_rate);
+        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)');%*pop_rates);
+        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)');%*nmdat);
         
         if IncludeMH
             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );%*pop_rates );
@@ -477,7 +480,7 @@ Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal
 Tc([1:6],[7 8]) = TC  * exp(P.TC); % thal->ss
 
 Tc = Tc / 1000;
-Tc = kron(ones(nk,nk),kron(Tc,eye(ns,ns)));
+Tc = kron(ones(nk,nk),kron(Tc,ones(ns,ns)));
 
 
 %kd = exp(P.a(1)) * 8;
@@ -487,7 +490,7 @@ ID = ID.*exp(P.ID)/1000;
 ID = repmat(ID,[1 nk]);
 
 ID = repmat(ID(:)',[np*nk,1]);
-
+ID = kron(ID,ones(ns,ns));
 
 %ID = ID - ID(:);
 

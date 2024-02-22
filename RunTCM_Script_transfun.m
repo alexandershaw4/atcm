@@ -181,7 +181,6 @@ for i = i;%1:length(Data.Datasets)
     fprintf('Search for a stable fixed point\n');
 
     xx = load([p '/newx.mat']); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
-    %x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
     load('init_14dec','x');
     DCM.M.x = spm_unvec(x,DCM.M.x);
 
@@ -190,10 +189,6 @@ for i = i;%1:length(Data.Datasets)
 
     norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
 
-
-    %DCM.M.x = FindSteadyState(DCM,20,1/1200); close;drawnow;
-    %Y0 = spm_vec(feval(DCM.M.IS,DCM.M.pE,DCM.M,DCM.xU));
-    %DCM.M.Y0 = Y0;
     fprintf('Finished...\n');
           
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
@@ -204,11 +199,10 @@ for i = i;%1:length(Data.Datasets)
 
     M.alex_lm;
 
+    M.compute_free_energy(M.Ep);
+
     %DCM.M.nograph = 0;
-
     %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
-
-
 
     % save in DCM structures after optim 
     %----------------------------------------------------------------------
@@ -228,7 +222,8 @@ for i = i;%1:length(Data.Datasets)
     
     %DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
     %DCM.Cp = makeposdef(DCM.Cp);
-    DCM.F = M.F;
+    DCM.F  = M.FreeEnergyF;
+    DCM.Cp = M.CP;
     save(DCM.name); close all; clear global;
     
 end
