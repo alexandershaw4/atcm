@@ -19,7 +19,7 @@ if s(x) ~= 8 ; x = repmat(x,[8,1]); end
 if s(y) ~= 8 ; x = repmat(y,[8,1]); end
 if s(z) ~= 8 ; x = repmat(z,[8,1]); end
 
-DoColor = 0;
+DoColor = 1;
 
 for i = 1:8
     subplot(2,4,i);

@@ -194,7 +194,7 @@ for i = i;%1:length(Data.Datasets)
     %pE.J([1 2 4]) = log([.4 .8 .6]);
     
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
-%    pC.J(1:8) = 1/32;
+    pC.J(1:8) = 1/8;
     
 %    pC.d(1) = 1/8;
           
@@ -212,7 +212,7 @@ for i = i;%1:length(Data.Datasets)
     %pC = spm_unvec( ~~spm_vec(pC)/64, pC);
 
     %pC.J(1:8)=1/32;
-%    pC.ID = pC.ID + 1/8;
+    pC.ID = pC.ID + 1/8;
  %   pC.L = 1/8;
     pE.L = -1;
 %    pC.d(1)=1/8;
@@ -276,6 +276,10 @@ for i = i;%1:length(Data.Datasets)
 
     %M.opts.Q = atcm.fun.VtoGauss(1+hamming(length(w)));
 
+    [parts,moments]=iterate_gauss(DCM.xY.y{:},2);
+    for i = 1:size(parts,1); QQ{i} = diag(parts(i,:)); end
+    M.opts.Q = QQ;
+
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
     M.opts.WeightByProbability = 0;
@@ -291,8 +295,8 @@ for i = i;%1:length(Data.Datasets)
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
 
-    %M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
-    M.opts.objective   = 'sse';
+    M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+    %M.opts.objective   = 'sse';
 
     M.opts.criterion   = -inf;
 
@@ -306,7 +310,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.wolfelinesearch = 0;
     M.opts.bayesoptls      = 0;
     M.opts.agproptls       = 0;
-    M.opts.updateQ         = 0; 
+    M.opts.updateQ         = 1; 
     M.opts.crit            = [0 0 0 0];
 
     %M.opts.userplotfun = @aodcmplotfun;

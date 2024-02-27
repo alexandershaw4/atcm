@@ -1,4 +1,4 @@
-function [Y,w,G,units] = alex_tf(P,M,U)
+function [Y,w,G,units,MAG,PHA] = alex_tf(P,M,U)
 % linearisation and numerical (Laplace) transfer function for a DCM
 % witten by Alex Shaw
 %
@@ -131,8 +131,14 @@ units = [];
 if isfield(M,'sim')
     pst = M.sim.pst;
     dt  = M.sim.dt;
+    
+    % remove sim struct and recall top func
+    M = rmfield(M,'sim');
+    P.J(P.J==-1000)=0;
+    [Y,w,G,~,MAG,PHA] = atcm.fun.alex_tf(P,M,U);
 
     for k = 1:Ns
+        
         mag = squeeze(MAG{k});
         the = squeeze(PHA{k});
     
