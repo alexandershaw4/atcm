@@ -290,7 +290,7 @@ GL   = 1 ;
 
 % neural-mass approximation to covariance of states: trial specific
 %----------------------------------------------------------------------
-R  = 2/3 * exp(P.S);
+R  = 2/3 * exp(P.S); % P.S is the slope pf the sigmoid for each pop firing rate
 FF = 1./(1 + exp(-R.*(x(:,:,1)-VR)));
 
 RS = 30 ;

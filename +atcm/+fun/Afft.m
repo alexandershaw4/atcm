@@ -52,6 +52,7 @@ if size(signal,1) == 1
 else
 
 
+
 for s1 = 1:size(signal,1)
     for s2 = 1:size(signal,1)
         

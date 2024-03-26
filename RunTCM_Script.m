@@ -31,14 +31,16 @@ function RunTCM_Script(i)
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'NewMeansSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'NewSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'RedmsRscale_FP_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'newTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
+
+%Data.Datasets     = {'NEW_MeanDataset.mat'};
 
 [p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
 
@@ -121,7 +123,7 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = 1;
+    DCM.options.FrequencyStep = 1/4;
     
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
@@ -198,7 +200,7 @@ for i = i;%1:length(Data.Datasets)
     
 %    pC.d(1) = 1/8;
           
-    pE.L = 0;
+    pE.L = -4;
     pC.L=0;
 
 %    pC.C = 1/8;
@@ -214,7 +216,6 @@ for i = i;%1:length(Data.Datasets)
     %pC.J(1:8)=1/32;
     pC.ID = pC.ID + 1/8;
  %   pC.L = 1/8;
-    pE.L = -1;
 %    pC.d(1)=1/8;
 
 %    pC.S = pC.S + 1/8;
@@ -225,6 +226,8 @@ for i = i;%1:length(Data.Datasets)
 
     DCM.M.pE = pE;
     DCM.M.pC = pC;
+
+    
 
     %load('REDUCED_SET_JAN24','NewpC')
 
@@ -264,6 +267,9 @@ for i = i;%1:length(Data.Datasets)
     
     fprintf('Finished...\n');
 
+    %E = load('MeanFit_Surrogate.mat','Ep');
+   % DCM.M.pE = E.Ep;
+
     %load('GausFFTMat2','Mt');
     %DCM.M.GFFTM = Mt;
       
@@ -276,9 +282,9 @@ for i = i;%1:length(Data.Datasets)
 
     %M.opts.Q = atcm.fun.VtoGauss(1+hamming(length(w)));
 
-    [parts,moments]=iterate_gauss(DCM.xY.y{:},2);
-    for i = 1:size(parts,1); QQ{i} = diag(parts(i,:)); end
-    M.opts.Q = QQ;
+    %[parts,moments]=iterate_gauss(DCM.xY.y{:},2);
+    %for ii = 1:size(parts,1); QQ{ii} = diag(parts(ii,:)); end
+    %M.opts.Q = QQ;
 
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 
@@ -310,7 +316,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.wolfelinesearch = 0;
     M.opts.bayesoptls      = 0;
     M.opts.agproptls       = 0;
-    M.opts.updateQ         = 1; 
+    M.opts.updateQ         = 0; 
     M.opts.crit            = [0 0 0 0];
 
     %M.opts.userplotfun = @aodcmplotfun;

@@ -773,6 +773,19 @@ switch IntMethod
                 end
                 y(:,i)   = (del.*Q)*v;    
             
+            elseif WithDelays == 100
+
+                if i == 1
+                    [fx,J,D] = f(v,0*drive(:,i),P,M);
+                    D        = real(D);
+                else
+                    fx       = f(v,drive(:,i),P,M);
+                end
+
+                % Jacobian integration;
+                v      = v + dt*atcm.fun.aregress(D*J,D*fx,'MAP');   
+                y(:,i) = v;
+    
             elseif WithDelays == 45 % RK45 with delayed states
                     
                     % RK45 with delays
@@ -792,12 +805,12 @@ switch IntMethod
 
                         % endogenous inputs
                         %--------------------------------------------------
-                      %  v(16) = v(16) + exp(P.a(1));
-                        %v(12) = v(12) + exp(P.a(2));
-                        %v(10) = v(10) + exp(P.a(3));
-                        %v(18) = v(18) + exp(P.a(4));
-                        %v(19) = v(19) + exp(P.a(5));
-                        %v(26) = v(26) + exp(P.a(6));
+                       v(16) = v(16) + exp(P.a(1));
+                        v(12) = v(12) + exp(P.a(2));
+                        v(10) = v(10) + exp(P.a(3));
+                        v(18) = v(18) + exp(P.a(4));
+                        v(19) = v(19) + exp(P.a(5));
+                        v(26) = v(26) + exp(P.a(6));
 
                         % % Neuronal inputs and background activity
                         % B  = zeros(56,1); B(16) = 455.5465 * dt;
@@ -1143,7 +1156,7 @@ for ins = 1:ns
 
             %Ppf = atcm.fun.VtoGauss(ones(length(b),1),2.4)*b;
 
-            Ppf = atcm.fun.agauss_smooth(b,2);
+            Ppf = atcm.fun.agauss_smooth(b,4);
            
 
             
@@ -1289,8 +1302,8 @@ for ins = 1:ns
     %b   = PfL'\M.y{:}';
     %5Pf0 = b'*PfL;
 
-    H   = gradient(gradient(Pf0));
-    Pf0 = Pf0 - (exp(P.d(1))*3)*H;
+    %H   = gradient(gradient(Pf0));
+    %Pf0 = Pf0 - (exp(P.d(1))*3)*H;
 
     %Pf0 = atcm.fun.agauss_smooth(Pf0,2);
     
@@ -1298,15 +1311,15 @@ for ins = 1:ns
 
     % Electrode gain: rescale to sum of data spectrum
     %----------------------------------------------------------------------
-    SY = sum(spm_vec(M.y));
-    Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
-    Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
+    %SY = sum(spm_vec(M.y));
+    %Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
+    %Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
 
     %SY = max(spm_vec(M.y));
     %Pf(:,ins,ins) = Pf(:,ins,ins) ./ max(Pf(:,ins,ins) );
     %Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
 
-    %Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
+    Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
 
 
 end
