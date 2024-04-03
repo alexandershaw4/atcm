@@ -339,6 +339,14 @@ for i = 1:Ne;
                     else
                         [Pf, F] = SpecFun(Ymod',  1/DCM.xY.dt, DCM.xY.Hz) ;
 
+                        if j == 1
+                            FMAT   = atcm.fun.asinespectrum(DCM.xY.Hz,D.time(It)*1000);
+                        end
+
+                        %b   = atcm.fun.lsqnonneg(F',Ymod);
+                        %b = abs(F'\Ymod);
+                        %Pf  = atcm.fun.agauss_smooth(b,1);
+
                         %[Pf,F] = atcm.fun.afftg(Ymod,DCM.xY.dt,DCM.xY.Hz);
 
                         %[Pf,F] = atcm.fun.fftgc(Ymod',DCM.xY.dt,DCM.xY.Hz,10);
@@ -347,10 +355,10 @@ for i = 1:Ne;
                         %Pf = atcm.fun.tfdecomp(Ymod,DCM.xY.dt,F,2,3,@max);
                         %Pf = atcm.fun.approxlinfitgaussian(Pf,[],[],4);
                         
-                        if isfield(DCM.options,'fooof') && DCM.options.fooof
-                            if j == Nt;fprintf('Fitting FOOOF %d times\n',j);end
-                            Pf = atcm.fun.component_spectrum(F,Pf,12);
-                        end
+                        % if isfield(DCM.options,'fooof') && DCM.options.fooof
+                        %     if j == Nt;fprintf('Fitting FOOOF %d times\n',j);end
+                        %     Pf = atcm.fun.component_spectrum(F,Pf,12);
+                        % end
                         
                         if size(Pf,1) == 1;
                             Pf = Pf';
@@ -367,14 +375,14 @@ for i = 1:Ne;
 %                             end
 %                         end
 %                     end
-                    if isfield(DCM.options,'envelope') && ~isempty(DCM.options.envelope) && DCM.options.envelope>0
-                       for nchanx = 1:size(Pf,2)
-                           for nchany = 1:size(Pf,3)
-                               Pf(:,nchanx,nchany) = atcm.fun.aenv(Pf(:,nchanx,nchany),DCM.options.envelope,[],1);
-                               %Pf(:,nchanx,nchany) = atcm.fun.aenvelope(Pf(:,nchanx,nchany),DCM.options.envelope);
-                           end
-                       end
-                    end
+                    % if isfield(DCM.options,'envelope') && ~isempty(DCM.options.envelope) && DCM.options.envelope>0
+                    %    for nchanx = 1:size(Pf,2)
+                    %        for nchany = 1:size(Pf,3)
+                    %            Pf(:,nchanx,nchany) = atcm.fun.aenv(Pf(:,nchanx,nchany),DCM.options.envelope,[],1);
+                    %            %Pf(:,nchanx,nchany) = atcm.fun.aenvelope(Pf(:,nchanx,nchany),DCM.options.envelope);
+                    %        end
+                    %    end
+                    % end
 
                     Pfull(j,:,:,:) = full(Pf);
                 end
@@ -520,3 +528,7 @@ DCM.xY.series = series;
  
 DCM.xY.U    = DCM.M.U;
 DCM.xY.code = condlabels(trial);
+
+try
+    DCM.xY.FMAT = FMAT;
+end

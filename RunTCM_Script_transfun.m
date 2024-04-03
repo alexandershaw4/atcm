@@ -34,13 +34,13 @@ function RunTCM_Script_transfun(i)
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'NewMeansSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'NewSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'LM_Laplace_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'aLM_Laplace_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -154,7 +154,7 @@ for i = i;%1:length(Data.Datasets)
     %pC.ID = pC.ID + 1/8;
     pE.L = 0;
 
-    pC.S = pC.S + 1/8;
+   % pC.S = pC.S + 1/8;
 
     pC.J(1:8)=1/8;
     pC.d(1) = 1/8;

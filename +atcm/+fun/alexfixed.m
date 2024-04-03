@@ -41,7 +41,7 @@ for i = 1:3e10
 
     e(i) = norm(x1 - x0);
     
-    norm(x1 - x0)
+    norm(x1 - x0);
 
     if norm(x1 - x0) < tol
         %fprintf('Converged at iteration %d\n', i);

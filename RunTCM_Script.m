@@ -37,10 +37,10 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'newTCM_';      % outputted DCM prefix
+Data.Prefix       = 'MTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
-%Data.Datasets     = {'NEW_MeanDataset.mat'};
+Data.Datasets     = {'NEW_MeanDataset.mat'};
 
 [p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
 
@@ -107,8 +107,8 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.Tdcm   = [300 1300];                   %... peristimulus time
     DCM.options.Fdcm   = fq;                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
-    DCM.options.han    = 1;                         %... apply hanning window
-    DCM.options.h      = 4;                         %... number of confounds (DCT)
+    DCM.options.han    = 0;                         %... apply hanning window
+    DCM.options.h      = 1;                         %... number of confounds (DCT)
     DCM.options.DoData = 1;                         %... leave on [custom]
     %DCM.options.baseTdcm   = [-200 0];             %... baseline times [new!]
     DCM.options.Fltdcm = fq;                    %... bp filter [new!]
@@ -123,7 +123,7 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = 1/4;
+    DCM.options.FrequencyStep = 1/2;
     
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
@@ -227,13 +227,18 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE = pE;
     DCM.M.pC = pC;
 
-    
+    DCM.M.pC.CV = zeros(1,8) + 1/8;
+    DCM.M.pC.a = DCM.M.pC.a + 1/8;
 
     %load('REDUCED_SET_JAN24','NewpC')
 
     %DCM.M.pC = NewpC;
     
     %DCM.M.dmd=1;
+
+     %load('mean_global_search','M');
+     %pE = spm_unvec(M.Ep,DCM.M.pE);
+     %DCM.M.pE = pE;
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -267,6 +272,10 @@ for i = i;%1:length(Data.Datasets)
     
     fprintf('Finished...\n');
 
+    %load('mean_global_search','M');
+    %pE = spm_unvec(M.Ep,DCM.M.pE);
+    %DCM.M.pE = pE;
+
     %E = load('MeanFit_Surrogate.mat','Ep');
    % DCM.M.pE = E.Ep;
 
@@ -280,6 +289,8 @@ for i = i;%1:length(Data.Datasets)
     % Construct an AO optimisation object
     M = AODCM(DCM);
 
+    %M.ga;
+   % M.alex_lm
     %M.opts.Q = atcm.fun.VtoGauss(1+hamming(length(w)));
 
     %[parts,moments]=iterate_gauss(DCM.xY.y{:},2);
@@ -316,7 +327,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.wolfelinesearch = 0;
     M.opts.bayesoptls      = 0;
     M.opts.agproptls       = 0;
-    M.opts.updateQ         = 0; 
+    M.opts.updateQ         = 1; 
     M.opts.crit            = [0 0 0 0];
 
     %M.opts.userplotfun = @aodcmplotfun;

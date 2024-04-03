@@ -516,14 +516,35 @@ switch IntMethod
                                 
                 % Use a Euler integration scheme
                 %for j = 1;
+
+                if i == 1
+                    % compute delay operator, 
+                    [dxdt,dfdx,D] = f(v,drive(i),P,M);  
+                    dfdx = full(dfdx) + eye(length(dfdx))*1e-3;
+                else
+                    [dxdt] = f(v,drive(i),P,M); 
+                end
                     
-                    %drive(:,i) = 1;
+                    b = pinv(full(dfdx)'.*v).*dxdt;
+
+                    % now dxdt = f(x) == (J.*b)*v
+
+                    % we can apply delays to matrix dfdx;
+                    D  = real(1-D);
+                    Q  = (dfdx).*(D.*b);
+
+                    dxdt = Q*v;
+                    
+
+               % end
+
 
                     % Next step with input
-                    [dxdt] = f(v,drive(i),P,M);      
-
+                 %   [dxdt] = Q*f(v,drive(i),P,M); 
+                    
                     % full update
                     v      = v + dt*dxdt;
+                    
                     y(:,i) = v;
                 %end
                 
@@ -560,22 +581,23 @@ switch IntMethod
                 %--------------------------------------------------
                 if i == 1
                     [k1,J,D] = f(v,0*drive(:,i),P,M);
+                    D   = real(D);
+                    Q   = (1 - D).*(~~real(J));
+                    QJ  = Q.*J;
+                    ddt = dt;
                 end
 
-                D   = real(D);
-                Q   = (1 - D).*(~~real(J));
-                QJ  = Q.*J;
-                ddt = dt;
+                
 
                 % Neuronal inputs and background activity
-                B  = zeros(56,1); B(16) = 455.5465 * dt;
-                vx = zeros(56,1) + 1e-3;
-                vx(16) = vx(16) + exp(P.a(1));
-                vx(12) = vx(12) + exp(P.a(2));
-                vx(10) = vx(10) + exp(P.a(3));
-                vx(18) = vx(18) + exp(P.a(4));
-                vx(19) = vx(19) + exp(P.a(5));
-                vx(26) = vx(26) + exp(P.a(6));
+                % B  = zeros(56,1); B(16) = 455.5465 * dt;
+                % vx = zeros(56,1) + 1e-3;
+                % vx(16) = vx(16) + exp(P.a(1));
+                % vx(12) = vx(12) + exp(P.a(2));
+                % vx(10) = vx(10) + exp(P.a(3));
+                % vx(18) = vx(18) + exp(P.a(4));
+                % vx(19) = vx(19) + exp(P.a(5));
+                % vx(26) = vx(26) + exp(P.a(6));
 
                 %v = v + vx+B;
 
@@ -591,11 +613,11 @@ switch IntMethod
                 dxdt = QJ*b ;
                 %dxdt = spm_dx(dt*QJ,g);
 
-                v    = v + dxdt + vx+B;
+                v    = v + dxdt ;%+ vx+B;
 
                 % Full update
                 %--------------------------------------------------
-                y(:,i) =   (v - xb);
+                y(:,i) =   v ;%- xb;
 
                      
                 
@@ -732,7 +754,7 @@ switch IntMethod
                 
                 % update dx = (expm(dt*J) - I)*inv(J)*fx
                 %----------------------------------------------------------------------
-                v      = spm_unvec(spm_vec(v) + spm_dx(D*dfdx,D*fx,dt),v);
+                v      = spm_vec(v) + spm_dx(D*dfdx,D*fx,dt);
                 y(:,i) = v - spm_vec(M.x);
                 
             elseif WithDelays == 24
@@ -775,15 +797,29 @@ switch IntMethod
             
             elseif WithDelays == 100
 
+                %v(10) = v(10) +  exp(P.a(1));
+                %v(12) = v(12) +  exp(P.a(2));
+
                 if i == 1
-                    [fx,J,D] = f(v,0*drive(:,i),P,M);
-                    D        = real(D);
+                    [fx,J,D] = f(v,0*drive(i),P,M);
+                    D        = real(1-D*dt);
+                    Q = D;
+                    QJ  = Q.*J;
                 else
-                    fx       = f(v,drive(:,i),P,M);
+                    fx       = f(v,abs(drive(i)),P,M);
                 end
 
+                
+
                 % Jacobian integration;
-                v      = v + dt*atcm.fun.aregress(D*J,D*fx,'MAP');   
+                dxdt   = dt*atcm.fun.aregress(J,fx,'MAP');
+
+                g    = dxdt - v;
+                b    = J'\g;
+                dxdt = v + QJ'*b ;
+
+                v = v + dxdt;
+
                 y(:,i) = v;
     
             elseif WithDelays == 45 % RK45 with delayed states
@@ -795,9 +831,16 @@ switch IntMethod
                         %--------------------------------------------------
                         if i == 2
                             D   = real(D);
-                            Q   = (1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
-                            QJ  = Q.*J;
+                            Q   = D/dt;%(1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
+                            
+                            QJ  = (Q*J);
+
                             ddt = dt;
+
+                            % Implement: dx(t)/dt = f(x(t - d)) = inv(1 - D.*dfdx)*f(x(t))
+                            %                     = Q*f = Q*J*x(t)
+                            %--------------------------------------------------------------------------
+                            %Q  = spm_inv(speye(length(J)) - D.*J);
                         end  
 
                         % Function that implements delays
@@ -805,12 +848,12 @@ switch IntMethod
 
                         % endogenous inputs
                         %--------------------------------------------------
-                       v(16) = v(16) + exp(P.a(1));
-                        v(12) = v(12) + exp(P.a(2));
-                        v(10) = v(10) + exp(P.a(3));
-                        v(18) = v(18) + exp(P.a(4));
-                        v(19) = v(19) + exp(P.a(5));
-                        v(26) = v(26) + exp(P.a(6));
+                       % v(16) = v(16) + exp(P.a(1));
+                       %  v(12) = v(12) + exp(P.a(2));
+                       %  v(10) = v(10) + exp(P.a(3));
+                       %  v(18) = v(18) + exp(P.a(4));
+                       %  v(19) = v(19) + exp(P.a(5));
+                       %  v(26) = v(26) + exp(P.a(6));
 
                         % % Neuronal inputs and background activity
                         % B  = zeros(56,1); B(16) = 455.5465 * dt;
@@ -823,7 +866,17 @@ switch IntMethod
                         % vx(26) = vx(26) + exp(P.a(6));
                         % 
                         % v = v + vx+B;
-                    
+
+                        % Inputs -
+                        vx = zeros(56,1) + 1e-3;
+                        vx(16) = vx(16) + exp(P.a(1));
+                        vx(12) = vx(12) + exp(P.a(2));
+                        vx(10) = vx(10) + exp(P.a(3));
+                        vx(18) = vx(18) + exp(P.a(4));
+                        vx(19) = vx(19) + exp(P.a(5));
+                        vx(26) = vx(26) + exp(P.a(6));
+
+                        v = v + vx;
                         R=P;
 
                         %State Delays - interpolated
@@ -848,13 +901,13 @@ switch IntMethod
 
                         % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
-                        k1 = f(v             ,drive(i),R,M);
+                        k1 = f(v             ,0*drive(i),R,M);
 
-                        k2 = f(v+0.5.*ddt.*k1,drive(i),R,M);
+                        k2 = f(v+0.5.*ddt.*k1,0*drive(i),R,M);
 
-                        k3 = f(v+0.5.*ddt.*k2,drive(i),R,M);
+                        k3 = f(v+0.5.*ddt.*k2,0*drive(i),R,M);
 
-                        k4 = f(v+     ddt.*k3,drive(i),R,M);
+                        k4 = f(v+     ddt.*k3,0*drive(i),R,M);
                         
                         dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
 
@@ -876,9 +929,15 @@ switch IntMethod
                             %     dv = x + J*b
                             %     dv = x + (Q*J)*b  <-- delays in state flow
 
-                            g    = dxdt - v;
-                            b    = J'\g;
-                            dxdt = v + QJ'*b ;
+                            %g    = dxdt - v;
+                            %b = pinv(J').*g;
+                            %dxdt = v + sum(QJ'.*b')';
+
+                            b = pinv(full(J)'.*v).*dxdt;
+                            Q = J.*b;
+
+                            % dxdt = Q*v
+                            dxdt = (Q-(D*dt))*v;
 
                             %dxdt = dt*f(v+dxdt,drive(i),R,M);
                         end
@@ -894,6 +953,11 @@ switch IntMethod
                         % 4-th order Runge-Kutta method
                         %--------------------------------------------------
                         [k1,J,D] = f(v    ,0*drive(:,i),P,M);
+                        
+                        J = full(J) + 1;
+                        %J = sign(full(J));
+                        %J = J + 2*eye(length(J));
+                        
                         k2 = f(v+0.5*dt*k1,0*drive(:,i),P,M);
                         k3 = f(v-0.5*dt*k2,0*drive(:,i),P,M);
                         k4 = f(v+    dt*k3,0*drive(:,i),P,M);
@@ -1146,19 +1210,24 @@ for ins = 1:ns
             ys  = real(ys);
 
             F   = atcm.fun.asinespectrum(w,t(burn:end));
-            b   = atcm.fun.lsqnonneg(F',ys');
-            %b = abs(F'\ys');
+            %b   = atcm.fun.lsqnonneg(F',ys');
+
+            %Ppf = b;
+
+            b = abs(F'\ys');
 
             %[~,I] = atcm.fun.maxpoints(abs(b),3);
             %Pb    = b*0;
             %Pb(I) = b(I);
 
-
             %Ppf = atcm.fun.VtoGauss(ones(length(b),1),2.4)*b;
 
-            Ppf = atcm.fun.agauss_smooth(b,4);
+            Ppf = atcm.fun.agauss_smooth(b,2);
            
-
+            % suppress unnecessary modes
+            %[parts,moments]=iterate_gauss(Ppf,2);
+            %weight = parts'\M.y{:}';
+            %Ppf = weight'*parts;
             
 
             %Ppf = atcm.fun.agauss_smooth(b,2);

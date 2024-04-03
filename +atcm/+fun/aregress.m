@@ -7,6 +7,9 @@ function [W,C] = aregress(X,Y,method,p1,p2)
 %  method can be 'ML','MAP' or 'Bayesian'
 %  p1 is regulariser on I; p2 for Bayesian method
 %
+%  Used in the context of gradient descent, where X = partial gradients,
+%  the MAP solution is equivalent to a Levenberg-Marquart step.
+%
 % adapted from github
 % AS2024
 
@@ -23,9 +26,9 @@ elseif strcmp(method,'MAP')==1
     W=(p1*I+PHI'*PHI)\(PHI'*Y); 
 else
     I=eye(D);
-    lambda=(p1^2)/(p2.^2);
+    lambda=(p1.^2)./(p2.^2);
     W=(lambda*I+PHI'*PHI)\(PHI'*Y);
-    C=inv(p1^(-2)*(PHI'*PHI)+p2.^(-2).*I);
+    C=inv(p1.^(-2)*(PHI'*PHI)+p2.^(-2).*I);
 end
 
 end

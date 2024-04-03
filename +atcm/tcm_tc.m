@@ -1,4 +1,4 @@
-function [f,J,D] = tc_hilge2(x,u,P,M)
+function [f,J,D] = tcm_tc(x,u,P,M)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -258,7 +258,7 @@ if IncludeMH
     % M- & H- channel conductances (np x np) {L6 & Thal Relay cells only}
     %----------------------------------------------------------------------
     % https://www.sciencedirect.com/science/article/pii/S0006349599769250
-    VM   = -52;                            % reversal potential m-channels          
+    VM   = VR;%-70;                            % reversal potential m-channels          
     VH   = -30;                            % reversal potential h-channels 
 
     GIm = diag(4*[1 1 1 1 1 1 1 1].*exp(P.Mh(:)'));
@@ -289,11 +289,9 @@ GL   = 1 ;
 % mean-field effects:
 %==========================================================================
 
-VR = VR * exp(P.S);
-
 % neural-mass approximation to covariance of states: trial specific
 %----------------------------------------------------------------------
-R  = 2/3 ;%* exp(P.S); % P.S is the slope pf the sigmoid for each pop firing rate
+R  = 2/3 * exp(P.S); % P.S is the slope pf the sigmoid for each pop firing rate
 FF = 1./(1 + exp(-R.*(x(:,:,1)-VR)));
 
 RS = 30 ;
@@ -475,8 +473,8 @@ Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
 %Thalamocortical System. I. Layers, Loops and the Emergence of Fast Synchronous Rhythms
 % Lumer et al 1997
 
-CT = 8; %60;
-TC = 3; %20;
+CT = 60;8; %60;
+TC = 20;3; %20;
 
 Tc              = zeros(np,np);
 Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal

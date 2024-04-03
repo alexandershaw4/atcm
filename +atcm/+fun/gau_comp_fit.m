@@ -1,6 +1,6 @@
 function chunk = gau_comp_fit(Pf0,pct)
 
-if naergin < 2 || isempty(pct)
+if nargin < 2 || isempty(pct)
     pct = .9;
 end
 
