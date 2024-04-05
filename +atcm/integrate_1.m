@@ -831,9 +831,14 @@ switch IntMethod
                         %--------------------------------------------------
                         if i == 2
                             D   = real(D);
-                            Q   = D/dt;%(1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
+
+                            D_dt = (D*1000)*dt;
+
+                            Dstep = dt - D_dt;
                             
-                            QJ  = (Q*J);
+                            %Q   = D/dt;%(1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
+                            
+                            %QJ  = (Q*J);
 
                             ddt = dt;
 
@@ -868,15 +873,15 @@ switch IntMethod
                         % v = v + vx+B;
 
                         % Inputs -
-                        vx = zeros(56,1) + 1e-3;
-                        vx(16) = vx(16) + exp(P.a(1));
-                        vx(12) = vx(12) + exp(P.a(2));
-                        vx(10) = vx(10) + exp(P.a(3));
-                        vx(18) = vx(18) + exp(P.a(4));
-                        vx(19) = vx(19) + exp(P.a(5));
-                        vx(26) = vx(26) + exp(P.a(6));
-
-                        v = v + vx;
+                        % vx = zeros(56,1) + 1e-3;
+                        % vx(16) = vx(16) + exp(P.a(1));
+                        % vx(12) = vx(12) + exp(P.a(2));
+                        % vx(10) = vx(10) + exp(P.a(3));
+                        % vx(18) = vx(18) + exp(P.a(4));
+                        % vx(19) = vx(19) + exp(P.a(5));
+                        % vx(26) = vx(26) + exp(P.a(6));
+                        % 
+                        % v = v + vx;
                         R=P;
 
                         %State Delays - interpolated
@@ -901,13 +906,13 @@ switch IntMethod
 
                         % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
-                        k1 = f(v             ,0*drive(i),R,M);
+                        k1 = f(v             ,drive(i),R,M);
 
-                        k2 = f(v+0.5.*ddt.*k1,0*drive(i),R,M);
+                        k2 = f(v+0.5.*ddt.*k1,drive(i)+0.5*dt,R,M);
 
-                        k3 = f(v+0.5.*ddt.*k2,0*drive(i),R,M);
+                        k3 = f(v+0.5.*ddt.*k2,drive(i)+0.5*dt,R,M);
 
-                        k4 = f(v+     ddt.*k3,0*drive(i),R,M);
+                        k4 = f(v+     ddt.*k3,drive(i)+dt,R,M);
                         
                         dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
 
@@ -937,7 +942,7 @@ switch IntMethod
                             Q = J.*b;
 
                             % dxdt = Q*v
-                            dxdt = (Q-(D*dt))*v;
+                            dxdt = (Q-Q*Dstep)*v;
 
                             %dxdt = dt*f(v+dxdt,drive(i),R,M);
                         end
@@ -1041,15 +1046,15 @@ g = exp(P.J(:))'*yorig;
 %y = exp(P.J)'*yorig;
 %P.J = 1.1;
 
-PJ = exp(P.J);
-[yb,s,layers] = weight_respond(PJ,P,M,yorig,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+%PJ = exp(P.J);
+%[yb,s,layers] = weight_respond(PJ,P,M,yorig,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
 
 %jfun = @(J) weight_respond(J,P,M,yorig,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
 %gfun = @(J) sum( (M.y{:}(:) - jfun(J)).^2 );
 
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
-%[yb,s,~,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
+[yb,s,~,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,dfdx,ci,1,fso,drive);
 
 y = yb;
 
@@ -1194,9 +1199,9 @@ for ins = 1:ns
 
     % loop spatio-temporal modes (in this region) and weight them
     %----------------------------------------------------------------------
-    for ij = 1:length(Ji)
-        
-        y0 = yx(Ji(ij),:) ;
+    %for ij = 1:length(Ji)
+        ij=1;
+     %   y0 = yx(Ji(ij),:) ;
         Hz = w;
         
         % Spectral responses of (observable) states
@@ -1205,16 +1210,24 @@ for ins = 1:ns
             
             clear Ppf  Pfm Ppf1 Ppf2 Ppf3    
 
-            ys  = yx(Ji(ij),:);
-            %ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)-1]);
-            ys  = real(ys);
+            % ys  = yx(Ji(ij),:);
+            % %ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)-1]);
+            % ys  = real(ys);
 
             F   = atcm.fun.asinespectrum(w,t(burn:end));
             %b   = atcm.fun.lsqnonneg(F',ys');
 
             %Ppf = b;
 
-            b = abs(F'\ys');
+            %b = abs(F'\ys');
+
+            bx = abs(F'\yx(Ji,:)');
+
+            bx = bx.*exp(J(Ji))';
+
+            [eval,evec] = atcm.fun.dmd(bx,1,1);
+
+            b = abs(bx*evec');
 
             %[~,I] = atcm.fun.maxpoints(abs(b),3);
             %Pb    = b*0;
@@ -1222,8 +1235,9 @@ for ins = 1:ns
 
             %Ppf = atcm.fun.VtoGauss(ones(length(b),1),2.4)*b;
 
-            Ppf = atcm.fun.agauss_smooth(b,2);
-           
+            Ppf = atcm.fun.agauss_smooth(b,1);
+           %Ppf = [];
+
             % suppress unnecessary modes
             %[parts,moments]=iterate_gauss(Ppf,2);
             %weight = parts'\M.y{:}';
@@ -1320,32 +1334,36 @@ for ins = 1:ns
         
         % store the weighted and unweighted population outputs
         %------------------------------------------------------------------
-        layers.unweighted(ins,ij,:) = ( Pf             )     ;% * exp(real(P.L(ins)));
-        layers.weighted  (ins,ij,:) = ( Pf * (J(Ji(ij))) );% * exp(real(P.L(ins)));
-        layers.iweighted (ins,ij,:) = ( Pf * (J(Ji(ij))) );% * exp(real(P.L(ins)));
-        
-    end   
+        %layers.unweighted(ins,ij,:) = ( Pf             )     ;% * exp(real(P.L(ins)));
+        %layers.weighted  (ins,ij,:) = ( Pf * (J(Ji(ij))) );% * exp(real(P.L(ins)));
+        %layers.iweighted (ins,ij,:) = ( Pf * (J(Ji(ij))) );% * exp(real(P.L(ins)));
+
+        layers.unweighted(ins,:,:) = (bx');
+        layers.iweighted (ins,:,:) = bx';
+    %end   
 end   
 
 %end
 
-clear Pf
+%clear Pf
 
 % Now compute node proper CSDs from sum of states spectral responses
 %--------------------------------------------------------------------------
-for inx = 1:ns
-    for iny = 1:ns
-        if inx ~= iny
-            Pf(:,inx,iny) = sum(layers.iweighted(inx,:,:),2) .* conj( ...
-                sum(layers.iweighted(iny,:,:),2) );
-        else
-            if length(Ji) > 1
-                Pf(:,inx,iny) = sum((squeeze(layers.iweighted(ins,:,:))),1);%sum(layers.iweighted(inx,:,:),2);
+if ns > 1
+    for inx = 1:ns
+        for iny = 1:ns
+            if inx ~= iny
+                Pf(:,inx,iny) = sum(layers.iweighted(inx,:,:),2) .* conj( ...
+                    sum(layers.iweighted(iny,:,:),2) );
             else
-                Pf(:,inx,iny)=squeeze(sum(layers.iweighted(inx,:,:),2));
+                if length(Ji) > 1
+                    Pf(:,inx,iny) = sum((squeeze(layers.iweighted(ins,:,:))),1);%sum(layers.iweighted(inx,:,:),2);
+                else
+                    Pf(:,inx,iny)=squeeze(sum(layers.iweighted(inx,:,:),2));
+                end
             end
+    
         end
-
     end
 end
 
@@ -1358,9 +1376,9 @@ for ins = 1:ns
 
     %PfL = squeeze(layers.iweighted);
 
-    %[eval,evec] = atcm.fun.dmd(PfL',2,1);
+    %[eval,evec] = atcm.fun.dmd(PfL',1,1);
 
-    %Pf1 = evec*PfL;
+    %Pf0 = evec*PfL;
 
     %[u,s,v] = svd(PfL);
 
@@ -1374,7 +1392,7 @@ for ins = 1:ns
     %H   = gradient(gradient(Pf0));
     %Pf0 = Pf0 - (exp(P.d(1))*3)*H;
 
-    %Pf0 = atcm.fun.agauss_smooth(Pf0,2);
+    %Pf0 = atcm.fun.agauss_smooth(Pf0,1);
     
     Pf(:,ins,ins) = abs( Pf0(:));
 
@@ -1387,6 +1405,8 @@ for ins = 1:ns
     %SY = max(spm_vec(M.y));
     %Pf(:,ins,ins) = Pf(:,ins,ins) ./ max(Pf(:,ins,ins) );
     %Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
+
+    % noise;
 
     Pf(:,ins,ins) = exp(P.L(ins))*Pf(:,ins,ins);
 

@@ -22,8 +22,8 @@ if nargin < 5; p2 = 1/8; end
 if strcmp(method,'ML')==1
     W=(PHI'*PHI)\(PHI'*Y); 
 elseif strcmp(method,'MAP')==1
-    I=eye(D);
-    W=(p1*I+PHI'*PHI)\(PHI'*Y); 
+    I=p1.*eye(D);
+    W=(I+PHI'*PHI)\(PHI'*Y); 
 else
     I=eye(D);
     lambda=(p1.^2)./(p2.^2);

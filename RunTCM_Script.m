@@ -40,7 +40,7 @@ Data.Design.Sname = {'V1'};            % channel (node) names
 Data.Prefix       = 'MTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
-Data.Datasets     = {'NEW_MeanDataset.mat'};
+%Data.Datasets     = {'NEW_MeanDataset.mat'};
 
 [p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
 
@@ -123,7 +123,7 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = 1/2;
+    DCM.options.FrequencyStep = 1;
     
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
@@ -201,7 +201,7 @@ for i = i;%1:length(Data.Datasets)
 %    pC.d(1) = 1/8;
           
     pE.L = -4;
-    pC.L=0;
+    pC.L=1/8;
 
 %    pC.C = 1/8;
 
@@ -227,8 +227,10 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pE = pE;
     DCM.M.pC = pC;
 
-    DCM.M.pC.CV = zeros(1,8) + 1/8;
-    DCM.M.pC.a = DCM.M.pC.a + 1/8;
+    DCM.M.pC.CV = zeros(1,8) ;
+    %DCM.M.pC.a = DCM.M.pC.a + 1/8;
+
+    DCM.M.pC.S = DCM.M.pC.S + 1/32;
 
     %load('REDUCED_SET_JAN24','NewpC')
 
@@ -312,8 +314,8 @@ for i = i;%1:length(Data.Datasets)
     M.opts.fsd         = 0;        
     M.opts.inner_loop  = 1;
 
-    M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
-    %M.opts.objective   = 'sse';
+    %M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+    M.opts.objective   = 'sse';
 
     M.opts.criterion   = -inf;
 
@@ -327,10 +329,10 @@ for i = i;%1:length(Data.Datasets)
     M.opts.wolfelinesearch = 0;
     M.opts.bayesoptls      = 0;
     M.opts.agproptls       = 0;
-    M.opts.updateQ         = 1; 
+    M.opts.updateQ         = 0; 
     M.opts.crit            = [0 0 0 0];
 
-    %M.opts.userplotfun = @aodcmplotfun;
+    M.opts.userplotfun = @aodcmplotfun;
 
     M.opts.isNewton      = 0;
     M.opts.isQuasiNewton = 0;
@@ -346,6 +348,10 @@ for i = i;%1:length(Data.Datasets)
     M.default_optimise([1],[20]);
      
      M.update_parameters(M.Ep);
+
+     %M.rungekutteopt(32)
+
+     %M.update_parameters(M.Ep);
      
      M.default_optimise(1,20);
 
