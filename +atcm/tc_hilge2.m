@@ -1,4 +1,4 @@
-function [f,J,D] = tc_hilge2(x,u,P,M)
+function [f,J,D] = tc_hilge2(x,u,P,M,dt)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -72,9 +72,6 @@ function [f,J,D] = tc_hilge2(x,u,P,M)
 %--------------------------------------------------------------------------
 IncludeMH = 1;
 
-if isnumeric(P)
-    P = spm_unvec(P,M.P);
-end
 
 inputu = u;
  
@@ -442,13 +439,13 @@ pE = P;
  
 [J,Q,D]=deal([]);
 
-if nargout < 2 || nargout == 5, return, end
+if (nargout < 2 || nargout == 50) && nargin < 5, return, end
 
 % Only compute Jacobian (gradients) if requested
 %==========================================================================
 J = spm_cat(spm_diff(M.f,x,u,P,M,1));
 
-if nargout < 3, return, end
+if nargout < 3 && nargin < 5, return, end
 
 % Only compute Delays if requested
 %==========================================================================
@@ -506,6 +503,18 @@ Ds = ~Sp & Ss;                       % states: same source different pop.
 D = d(1)*Ds + Tc + (ID) ;
 
 D =  Tc + (ID) ;
+
+
+% Compute delays if dt provided, including on output vector;
+if nargin == 5
+    D_dt  = (D*1000)*dt;
+    Dstep = dt - D_dt;
+
+    b = pinv(full(J)'.*x(:)).*f;
+    Q = J.*b;
+    f = (Q-Q*Dstep)*x(:);
+end
+
 
 %if ~isfield(P,'delays')
  %   D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;

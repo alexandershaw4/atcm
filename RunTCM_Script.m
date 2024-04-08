@@ -172,10 +172,10 @@ for i = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     DCM.M.sim.dt  = 1./1000;
     DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
-    DCM.M.burnin  = 0;
+    DCM.M.burnin  = 300;
     
     % Input is an oscillation
-    DCM.M.InputType = 1;
+    DCM.M.InputType = 0;
 
     % Use a 2-point RK method for integration
     DCM.M.intmethod = 45;%45;
@@ -193,14 +193,14 @@ for i = i;%1:length(Data.Datasets)
     pC.CV = (pC.CV * 0);
     
     pE.J = pE.J-1000;
-    %pE.J([1 2 4]) = log([.4 .8 .6]);
+    pE.J([1 2 4]) = log([.4 .8 .6]);
     
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
     pC.J(1:8) = 1/8;
     
 %    pC.d(1) = 1/8;
           
-    pE.L = -4;
+    pE.L = 0;
     pC.L=1/8;
 
 %    pC.C = 1/8;
@@ -228,9 +228,9 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.pC = pC;
 
     DCM.M.pC.CV = zeros(1,8) ;
-    %DCM.M.pC.a = DCM.M.pC.a + 1/8;
+    DCM.M.pC.a = DCM.M.pC.a + 1/8;
 
-    DCM.M.pC.S = DCM.M.pC.S + 1/32;
+    %DCM.M.pC.S = DCM.M.pC.S + 1/32;
 
     %load('REDUCED_SET_JAN24','NewpC')
 
@@ -261,7 +261,7 @@ for i = i;%1:length(Data.Datasets)
     load('init_14dec','x');
     DCM.M.x = spm_unvec(x,DCM.M.x);
 
-    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
+    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10,[],[]); % (P,M,tol,a,input,dt)
     DCM.M.x = spm_unvec(x,DCM.M.x);
 
     norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
@@ -271,7 +271,7 @@ for i = i;%1:length(Data.Datasets)
 
     %Y0 = spm_vec(feval(DCM.M.IS,DCM.M.pE,DCM.M,DCM.xU));
     %DCM.M.Y0 = Y0;
-    
+
     fprintf('Finished...\n');
 
     %load('mean_global_search','M');
@@ -289,15 +289,15 @@ for i = i;%1:length(Data.Datasets)
 
     
     % Construct an AO optimisation object
-    M = AODCM(DCM);
+   M = AODCM(DCM);
 
     %M.ga;
    % M.alex_lm
     %M.opts.Q = atcm.fun.VtoGauss(1+hamming(length(w)));
 
-    %[parts,moments]=iterate_gauss(DCM.xY.y{:},2);
-    %for ii = 1:size(parts,1); QQ{ii} = diag(parts(ii,:)); end
-    %M.opts.Q = QQ;
+    [parts,moments]=iterate_gauss(DCM.xY.y{:},2);
+    for ii = 1:size(parts,1); QQ{ii} = diag(parts(ii,:)); end
+    M.opts.Q = QQ;
 
     % Optimisation option set 1.
     M.opts.EnforcePriorProb    = 0; 

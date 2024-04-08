@@ -41,7 +41,7 @@ if size(signal,1) == 1
         Hz  = varargin{1};
         warning off
         try
-            SPf = interp1(f,data1(1:L2+1),Hz);
+            SPf = interp1(f,data1(1:L2+1),Hz,'spline');
             i   = SPf < 0;
             SPf(i) = -SPf(i);
         catch
