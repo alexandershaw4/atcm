@@ -14,18 +14,18 @@ function x0 = alexfixed(P,M,tol,a,input,dt)
 % AS
 
 if nargin < 6 || dt == 0
-    dt = 1;
+    dt = 0;
 end
 
 if nargin < 5 || isempty(input)
     input = 0;
 end
 
-%if dt > 0
- %   f  = @(x,varargin) M.f(x,input,P,M,dt);
-%else
+if dt > 0
+    f  = @(x,varargin) M.f(x,input,P,M,dt);
+else
     f  = @(x,varargin) M.f(x,input,P,M);
-%end
+end
 
 x0 = M.x(:);
 
@@ -37,7 +37,6 @@ if nargin < 4 || isempty(a)
     a = 2;
 end
 
-
 %rf = 0.2; 
 
 for i = 1:3e10
@@ -46,8 +45,6 @@ for i = 1:3e10
 
     
     x1 = x0 - exp(-a) * pinv(full(A)) * dx;
-
-    % x1 = x0 - dt * pinv(full(A)) * dx;
 
     %x1 = ( (1 - rf) * x0 ) - ( rf * exp(-a) * pinv(full(A)) * dx );
 

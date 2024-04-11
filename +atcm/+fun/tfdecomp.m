@@ -29,12 +29,13 @@ for i = 1:length(w)
     fx = filtfilt(B,A,xpad(:));
     
     % get hilbert envelope
-    hx(i,:) = hilbert(abs(fx));
+    hx(i,:) = abs(hilbert(fx));
+    %hx(i,:) = hx(i,:) ./ mean(hx(i,:));
     
     % extract amplitude for this frequency step
     y(i) = method(hx(i,ind));
     
-    yda(i,:) = (fx);
+    yda(i,:) = (fx)./mean(fx);
     
 end
 

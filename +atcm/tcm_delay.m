@@ -5,10 +5,10 @@ M.f = @atcm.tc_hilge2;
 
 dt = M.sim.dt;
 
-D   = real(D);
-Q   = (1 - D*dt);%.*(~~real(J));%inv(eye(npp*nk) - D);
-QJ  = Q.*J;
+D     = real(D);
+D_dt  = (D*1000)*dt;
 
-g    = v(:) - x(:);
-b    = J'\g;
-f    = x(:) + QJ'*b ;
+b    = pinv(full(J)'.*x(:)).*v(:);
+Q    = J.*b; % dxdt = Q*x; Q is linear operator
+f    = (Q + (Q.*D_dt) )*v;
+

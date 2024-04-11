@@ -45,26 +45,43 @@ delta_x = 1e-6;
 [f0,A0,D] = f(x0,u0,[]);
 D         = inv(eye(length(D)) - D);
 
+% % Compute A matrix numerically
+% A = zeros(length(x0), length(x0));
+% for i = 1:length(x0)
+%     x_perturbed = x0;
+%     x_perturbed(i) = x_perturbed(i) + delta_x;
+%     dx_perturbed = f(x_perturbed, u0, []);
+%     A(:, i) = (dx_perturbed - f0) / delta_x;
+% end
+% 
+% A = D*A;
+% 
+% % Compute B matrix numerically
+% B = zeros(length(x0), 1);
+% for i = 1:length(u0)
+%     u_perturbed = u0;
+%     u_perturbed(i) = u_perturbed(i) + delta_x;
+%     dx_perturbed = f(x0, u_perturbed, []);
+%     B(:, i) = (dx_perturbed - f0) / delta_x;
+% end
 
-% Compute A matrix numerically
-A = zeros(length(x0), length(x0));
-for i = 1:length(x0)
-    x_perturbed = x0;
-    x_perturbed(i) = x_perturbed(i) + delta_x;
-    dx_perturbed = f(x_perturbed, u0, []);
-    A(:, i) = (dx_perturbed - f(x0, u0, [])) / delta_x;
-end
 
-A = D*A;
+% dynamics linearisation; numerical Jacobian - dfdx
+%--------------------------------------------------------------------------
+[f,A,D]  = feval(M.f,M.x,0,P,M);
+J        = A;
+D        = inv(eye(length(D)) - D);
+A        = D*A;
 
-% Compute B matrix numerically
-B = zeros(length(x0), 1);
-for i = 1:length(u0)
-    u_perturbed = u0;
-    u_perturbed(i) = u_perturbed(i) + delta_x;
-    dx_perturbed = f(x0, u_perturbed, []);
-    B(:, i) = (dx_perturbed - f(x0, u0, [])) / delta_x;
-end
+% input linearisation, e.g. dfdu
+%--------------------------------------------------------------------------
+B = spm_diff(M.f,M.x,1,P,M,2);
+n = length(f);
+
+% observation linearisation (static)
+%--------------------------------------------------------------------------
+C = exp(P.J);
+
 
 % separate sources from here to compute sep Laplace for each unit
 Ns = size(M.x,1);
@@ -76,32 +93,45 @@ for i = 1:Ns
     AA = A(win,win);
     BB = B(win);
 
-    % Inputs - 
-    v = zeros(56,1) + 1e-3;
-    v(16) = v(16) + exp(P.a(1));
-    v(12) = v(12) + exp(P.a(2));
-    v(10) = v(10) + exp(P.a(3));
-    v(18) = v(18) + exp(P.a(4));
-    v(19) = v(19) + exp(P.a(5));
-    v(26) = v(26) + exp(P.a(6));
+    % % Inputs - 
+    % v = zeros(56,1) + 1e-3;
+    % v(16) = v(16) + exp(P.a(1));
+    % v(12) = v(12) + exp(P.a(2));
+    % v(10) = v(10) + exp(P.a(3));
+    % v(18) = v(18) + exp(P.a(4));
+    % v(19) = v(19) + exp(P.a(5));
+    % v(26) = v(26) + exp(P.a(6));
     
-    BB = BB + v;
+    BB;% = BB + v;
     
     % we use a static observer model anyway...
     C = exp(P.J(:));
     
-    % Create a transfer function
-    %s = tf('s');
+
+    % The Laplace transfer - this replaces the MATLAB built-in version using
+    % 'ss' and 'bode' with a from-scratch numerical routine;
+    for j = 1:length(w)
+        Jm  = AA - 1i*2*pi*w(j)*eye(length(AA));
+        Ym  = Jm\BB;
+        MG(:,j) = Ym;
+        Y   = C'*Ym;
+        y(j) =  Y;
+    end
+
+    Y = y;
+
+    % the matlab way (not in use now)
     G = ss(AA, BB, diag(C), 0);  % Assuming unity output matrix
     
     % use Bode to get Laplace transform
-    [magnitude, phase] = bode(G,w*6.2831853); % convert radians to Hz
+    %[magnitude, phase] = bode(G,w*6.2831853); % convert radians to Hz
     
-    Y = squeeze(magnitude);
-    Y = sum(Y,1);
+    %Y = squeeze(magnitude);
+    %Y = sum(Y,1);
+    Y = abs(Y);
 
-    MAG{i} = magnitude;
-    PHA{i} = phase;
+    MAG{i} = (MG);%magnitude;
+    PHA{i} = angle(MG)*180/pi;%phase;
     
     % Laplace is pretty smooth, parameterise granularity
     H = gradient(gradient(Y));
@@ -128,14 +158,14 @@ Y = {CSD};
 units = [];
 
 % if continuous-time simluation was requested, compute series
-if isfield(M,'sim')
+if isfield(M,'sim') && nargout > 3
     pst = M.sim.pst;
     dt  = M.sim.dt;
     
     % remove sim struct and recall top func
     M = rmfield(M,'sim');
     P.J(P.J==-1000)=0;
-    [Y,w,G,~,MAG,PHA] = atcm.fun.alex_tf(P,M,U);
+    [~,~,~,~,MAG,PHA] = atcm.fun.alex_tf(P,M,U);
 
     for k = 1:Ns
         
@@ -163,7 +193,7 @@ if isfield(M,'sim')
     units.xinit  = M.x(:);
     
     units.mag    = squeeze(mag);
-    units.phase  = squeeze(phase);
+    units.phase  = squeeze(the);
     units.freq   = w(:);
 
 end

@@ -153,8 +153,7 @@ for i = i;%1:length(Data.Datasets)
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
     %pC.ID = pC.ID + 1/8;
     pE.L = 0;
-
-   % pC.S = pC.S + 1/8;
+    pC.a = pC.a*0;
 
     pC.J(1:8)=1/8;
     pC.d(1) = 1/8;
@@ -195,11 +194,13 @@ for i = i;%1:length(Data.Datasets)
     %fprintf('iteration %d\n',j);
 
     % Alex's version of the Levenberg-Marquard routine
-    M = AODCM(DCM);
+    %M = AODCM(DCM);
 
-    M.alex_lm;
+    [Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
 
-    M.compute_free_energy(M.Ep);
+    %M.alex_lm;
+
+    %M.compute_free_energy(M.Ep);
 
     %DCM.M.nograph = 0;
     %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
@@ -207,8 +208,8 @@ for i = i;%1:length(Data.Datasets)
     % save in DCM structures after optim 
     %----------------------------------------------------------------------
     DCM.M.pE = ppE;
-    DCM.Ep = spm_unvec(M.Ep,DCM.M.pE);
-    DCM.Cp = [];
+    DCM.Ep = Qp;%spm_unvec(M.Ep,DCM.M.pE);
+    DCM.Cp = Cp;
 
     DCM.M.sim.dt  = 1./600;
     DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
@@ -222,8 +223,8 @@ for i = i;%1:length(Data.Datasets)
     
     %DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
     %DCM.Cp = makeposdef(DCM.Cp);
-    DCM.F  = M.FreeEnergyF;
-    DCM.Cp = M.CP;
+    DCM.F  = F;%M.FreeEnergyF;
+    %DCM.Cp = M.CP;
     save(DCM.name); close all; clear global;
     
 end

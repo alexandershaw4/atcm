@@ -383,6 +383,8 @@ try; N = min(N,14); end
 %--------------------------------------------------------------------------
 M.pst = t;
 v     = spm_vec(M.x);
+[v,J]     = (M.f(M.x,0,P,M));
+%v=M.x(:)+v(:);
 v0    = v;
 
 if WithDelays == 21
@@ -555,21 +557,28 @@ switch IntMethod
                  
                 % Precompute (matrix) operators for delays;
                 %--------------------------------------------------
+                % inputs
+                v(9)  = v(9)  + 1e-2 * exp(P.a(1));%*drive(i);
+                v(10) = v(10) + 1e-2 * exp(P.a(2));%*drive(i);
+                v(12) = v(12) + 1e-2 * exp(P.a(3));%*drive(i);
+                v(14) = v(14) + 1e-2 * exp(P.a(4));%*drive(i);
+                v(16) = v(16) + 1e-2 * exp(P.a(5));%*drive(i);
+
+
                 if i == 1
-                    [dxdt,J,D] = f(v,0*drive(i),P,M);
+                    [dxdt,~,D] = f(v,0*drive(i),P,M);
                     
                     D     = real(D);
                     D_dt  = (D*1000)*dt;
-                    Dstep = dt - D_dt;
+
                 else
                     dxdt  = f(v,0*drive(i),P,M);
                 end
 
                 b    = pinv(full(J)'.*v).*dxdt;
-                Q    = J.*b;
-                dxdt = (Q-Q*Dstep)*v;
-
-                v    = v + dt*dxdt ;
+                Q    =  J.*b; % dxdt = Q*x; Q is linear operator
+                dxdt = (Q + (Q.*D_dt) )*v;
+                v    = v + dt*dxdt;
 
                 % update
                 %--------------------------------------------------
@@ -790,14 +799,17 @@ switch IntMethod
                             D_dt  = (D*1000)*dt;
                             Dstep = dt - D_dt;
                             ddt   = dt;
+
+                            %X  = spm_dctmtx(length(v),8 + 1);
+                            %Mu = exp(X(:,2:end)*P.d);
                         end  
 
                         % inputs
-                        v(9)  = v(9)  + 1e-2 * exp(P.a(1));
-                        v(10) = v(10) + 1e-2 * exp(P.a(2));
-                        v(12) = v(12) + 1e-2 * exp(P.a(3));
-                        v(14) = v(14) + 1e-2 * exp(P.a(4));
-                        v(16) = v(16) + 1e-2 * exp(P.a(5));
+                        %v(9)  = v(9)  + 1e-2 * exp(P.a(1));%*drive(i);
+                        %v(10) = v(10) + 1e-2 * exp(P.a(2));%*drive(i);
+                        %v(12) = v(12) + 1e-2 * exp(P.a(3));%*drive(i);
+                        %v(14) = v(14) + 1e-2 * exp(P.a(4));%*drive(i);
+                        %v(16) = v(16) + 1e-2 * exp(P.a(5));%*drive(i);
 
                         % integrate w 4-th order Runge-Kutta method.
                         %--------------------------------------------------
@@ -805,11 +817,12 @@ switch IntMethod
                         k2   = f(v+0.5.*ddt.*k1,0*drive(i)+0.5*dt,P,M);
                         k3   = f(v+0.5.*ddt.*k2,0*drive(i)+0.5*dt,P,M);
                         k4   = f(v+     ddt.*k3,0*drive(i)+dt,P,M);
+                        
                         dxdt = (ddt/6).*(k1 + 2*k2 + 2*k3 + k4);
 
                         b    = pinv(full(J)'.*v).*dxdt;
-                        Q    = J.*b; % dxdt = Qx, Q is linear operator
-                        dxdt = (Q+ (Q.*D_dt) )*v;
+                        Q    = J.*b; % dxdt = Q*x; Q is linear operator
+                        dxdt = (Q + (Q.*D_dt) )*v;
 
                         v    = v + dxdt;
                                                
@@ -1081,94 +1094,72 @@ for ins = 1:ns
 
              ys  = yx(Ji(ij),:);
              %ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)-1]);
-             ys  = real(ys);
+             ys = real(ys);
 
-            %F   = atcm.fun.asinespectrum(w,t(burn:end));
-            %b   = atcm.fun.lsqnonneg(F',ys');
+             % DFT matrix and natural freqs 
+             %if ij == 1
+             %    [~,DFT,f] = adft(ys,1/dt,w);
+             %end
 
-            %Ppf = b;
+             %b = DFT\ys';
 
-            %bx = abs(F'\ys');
-
-            %bx = pinv(F)'*yx(Ji,:)';
-
-            % for i = 1:length(Ji)
-            %     bx(:,i) = abs(atcm.fun.aregress(F',yx(Ji(i),:)','MAP'));
-            % %    bx(:,i) = adft(yx(Ji(i),:),1/dt,w)/1000;
-            % end
-            
-            %b = abs(F'\ys');
+             %[u,s,v] = svd(b);
 
             b = atcm.fun.Afft(ys,1/dt,w);
 
+            Ppf = atcm.fun.agauss_smooth(abs(b),.6);%u(:,1)'*b);
+
+
+             %Fs = atcm.fun.asinespectrum(w,t(burn:end),[],@sin);
+             %Fc = atcm.fun.asinespectrum(w,t(burn:end),[],@cos);
+
+             %X   = [ones(1,size(Fs,2)); Fs; Fc; ];
+             %b   = X'\ys';
+             %c   = b(1);
+
+             %Ss  = b(2:2+length(w)-1);
+             %Sc  = b(2+length(w):end);
+
+             %Ppf = atcm.fun.agauss_smooth((Ss.^2+Sc.^2),1);
+
+
+             %Ppf = atcm.fun.agauss_smooth((Ss.^2+Sc.^2),1);
+
+            %b   = atcm.fun.lsqnonneg(F',ys');
+             %b = (pinv(F)'*ys').^2;
+
+             % response and filter shape
+             %F = F ./ norm(F);
+             %b = ( (F*F'))\(F*ys');
+
+
+             %[S,HTF,TFD] = atcm.fun.tfdecomp(ys,dt,w);
+
+             %Xf = [ones(1,size(TFD,2)); HTF];
+             %Xt = [ones(1,size(TFD,2)); TFD];
+             %b  = Xf'\ys';
+
+             %[u,s,v] = svd(bf);
+
+             %Z = u(:,1:8)*s(1:8,1:8)*v(:,1:8)';
+
+
+             %[u,s,v] = svd(TFD);
+
+             %[U,V] = aconnectivity.orthopca(abs(TFD)',12);
+
+             %Ppf = atcm.fun.agauss_smooth(sum(abs(V),2),1);
+
+            %Ppf = abs( G\TFD*mean(v)' ) ./ prod(size(TFD))*dt;
+
+            %b = atcm.fun.Afft(ys,1/dt,w);
             %b = adft(ys,1/dt,w)/1000;
 
-            Ppf = atcm.fun.agauss_smooth(b,1);
-           %Ppf = [];
+            %Ppf = atcm.fun.agauss_smooth(Ppf,1);
 
-            % suppress unnecessary modes
-            %[parts,moments]=iterate_gauss(Ppf,2);
-            %weight = parts'\M.y{:}';
-            %Ppf = weight'*parts;
             
-
-            %Ppf = atcm.fun.agauss_smooth(b,2);
-
-            %[~,I] = sort(abs(b),'descend');
-
-            %nb = atcm.fun.findthenearest( cumsum(abs(b(I)))./sum(abs(b(I))), 0.9 );
-
-            %nb = 3;
-
-            %b0 = b*0;
-            %b0(I(1:nb)) = b(I(1:nb));
-
-            %Ppf = F*(b0'*(F))';
-
-            %Ppf = abs(Ppf);
-
-            %Ppf = atcm.fun.agauss_smooth(Ppf,2);
-
-
             %Ppf = pyulear(ys,18,w,1/dt);
          
-            % if ij == 1
-            %     %F   = dftmtx(size(ys,2));   
-            %     F = atcm.fun.asinespectrum(w,t(burn:end));
-            % 
-            %     N   = length(F);
-            %     f   = (1/dt) * (0:(N/2))/N;
-            %     Mt  = pinv(atcm.fun.cdist(f',w'))';
-            %     Mt  = abs(Mt);
-            % 
-            %     if isfield(M,'GFFTM') && ~isempty(M.GFFTM)
-            %         Mt0 = M.GFFTM;
-            %     else
-            %         % generate the interpolation matrix s.t. Gauss Kernel
-            %         Mt0 = Mt*0;
-            %         for i = 1:size(Mt,2)
-            %             Mt0(:,i) = atcm.fun.agauss_smooth(Mt(:,i),3);
-            %             Mt0(:,i) = Mt0(:,i)./max(Mt0(:,i));
-            %         end
-            %     end
-            % 
-            %     % filtering
-            %     H   = .5+hamming(nf,'periodic');
-            %     Mt0 = Mt0.*H';
-            % 
-            %     Fr   = F(:,1:length(f));
-            %     FrMt = Fr*Mt0;
-            % end          
-            % 
-            % 
-            % yF  = ys*FrMt;
-            % 
-            % Ppf = yF;
-            % Ppf = abs(Ppf);
-
-            %Ppf = envelope((Ppf),1,'peak');
-            %Ppf = atcm.fun.agauss_smooth(Ppf,1); %  kernel smoothing
-            %Ppf = gau_signal_decomp(Ppf,4);
            
             % De-NaN/inf the spectrum
             %--------------------------------------------------------------
@@ -1241,6 +1232,14 @@ for ins = 1:ns
 
     Pf0 = Pf(:,ins,ins);
 
+    %X  = spm_dctmtx(length(w),8 + 1);
+    %Mu = exp(X(:,2:end)*P.d);
+
+    %Pf0 = Mu.*Pf0;
+
+    %Pf0 = atcm.fun.agauss_smooth(Pf0,1);
+
+    %[parts,moments]=iterate_gauss(Pf0,2);
 
     %PfL = squeeze(layers.iweighted);
 
@@ -1270,9 +1269,9 @@ for ins = 1:ns
 
     % Electrode gain: rescale to sum of data spectrum
     %----------------------------------------------------------------------
-    %SY = sum(spm_vec(M.y));
-    %Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
-    %Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
+   % SY = sum(spm_vec(M.y));
+   % Pf(:,ins,ins) = Pf(:,ins,ins) ./ sum(Pf(:,ins,ins) );
+   % Pf(:,ins,ins) = Pf(:,ins,ins) * SY;
 
     %SY = max(spm_vec(M.y));
     %Pf(:,ins,ins) = Pf(:,ins,ins) ./ max(Pf(:,ins,ins) );

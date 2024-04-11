@@ -24,6 +24,13 @@ if strcmp(method,'ML')==1
 elseif strcmp(method,'MAP')==1
     I=p1.*eye(D);
     W=(I+PHI'*PHI)\(PHI'*Y); 
+
+    % H = I+PHI'*PHI;
+    %[E,D] = eig(H);
+    %D     = diag(D);
+    %H = E*diag(D.*(D < 0))*E';
+    % W = H\(PHI'*Y); 
+
 else
     I=eye(D);
     lambda=(p1.^2)./(p2.^2);

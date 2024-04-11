@@ -199,6 +199,16 @@ GIa =[8     0     10    0     0     0     0     0;
       0     0     0     0     0     0     8     0;
       0     0     0     0     0     0     8     8];
 
+% GIa =[8     0     10    0     0     0     0     0;
+%       0    18     10    0     0     0     0     0;
+%       0     0     10    0     0     0     0     0;
+%       0     0     0     8     2     0     0     0;
+%       0     0     0     0     2     0     0     0;
+%       0     0     0     0     2     8     0     0;
+%       0     0     0     0     0     0     8     0;
+%       0     0     0     0     0     0     8     8];
+
+%GIa = GIa * exp(P.I);
 
 % GIa =[8     0     10    0     0     0     0     0;
 %       0    18     10    0     0     0     0     0;
@@ -286,11 +296,11 @@ GL   = 1 ;
 % mean-field effects:
 %==========================================================================
 
-VR = VR * exp(P.S);
+VR = VR + exp(P.S);
 
 % neural-mass approximation to covariance of states: trial specific
 %----------------------------------------------------------------------
-R  = 2/3 ;%* exp(P.S); % P.S is the slope pf the sigmoid for each pop firing rate
+R  = 2/3; %* exp(P.S); % P.S is the slope pf the sigmoid for each pop firing rate
 FF = 1./(1 + exp(-R.*(x(:,:,1)-VR)));
 
 RS = 30 ;
@@ -485,7 +495,7 @@ Tc = kron(ones(nk,nk),kron(Tc,ones(ns,ns)));
 
 %kd = exp(P.a(1)) * 8;
 %ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
-ID = [1 1 1 1 1 1 1 1];
+ID = [2 1 1 1 1 2 1 2];
 ID = ID.*exp(P.ID)/1000; 
 ID = repmat(ID,[1 nk]);
 
@@ -506,14 +516,14 @@ D =  Tc + (ID) ;
 
 
 % Compute delays if dt provided, including on output vector;
-if nargin == 5
-    D_dt  = (D*1000)*dt;
-    Dstep = dt - D_dt;
-
-    b = pinv(full(J)'.*x(:)).*f;
-    Q = J.*b;
-    f = (Q-Q*Dstep)*x(:);
-end
+% if nargin == 5
+%     D_dt  = (D*1000)*dt;
+%     Dstep = dt - D_dt;
+% 
+%     b = pinv(full(J)'.*x(:)).*f;
+%     Q = J.*b;
+%     f = (Q-Q*Dstep)*x(:);
+% end
 
 
 %if ~isfield(P,'delays')
