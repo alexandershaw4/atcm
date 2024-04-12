@@ -187,65 +187,21 @@ for i = i;%1:length(Data.Datasets)
 
     pE = spm_unvec(spm_vec(pE)*0,pE);
 
-    pC.ID = (pC.ID * 0) ;%+ 1/8;
+    pC.ID = pC.ID * 0;
     pC.T  = pC.T *0;
-
-    pC.CV = (pC.CV * 0);
     
-    pE.J = pE.J-1000;
-    %pE.J([1 2 4 6]) = log([.2 .6 .8 .6]);
-    %pE.J([2 4]) = log(.8);
+    pE.J = pE.J-1000;    
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
-    %pC.J(1:8) = 1/8;
-    
-%    pC.d(1) = 1/8;
-          
-    pE.L =-6;
-    pC.L=1/8;
-
-%    pC.C = 1/8;
-
-    %pE.a = zeros(8,1);
-    %pC.a = ones(8,1)/8;
+    %pC.ID = pC.ID + 1/8;
+    pE.L = 0;
     pC.a = pC.a*0;
 
-%    pC.R = [1 1]./8;
-
-    %pC = spm_unvec( ~~spm_vec(pC)/64, pC);
-
-    %pC.J(1:8)=1/32;
-    %pC.ID = pC.ID + 1/8;
- %   pC.L = 1/8;
-%    pC.d(1)=1/8;
-
-    %pC.d = pC.d +1/8;
-
-%    pC.S = pC.S + 1/8;
-
-    %pC.T = pC.T + 1/16;
-
-    %pC = spm_unvec( ~~spm_vec(pC)/64, pC);
-
-    %pE.I = 0;
-    %pC.I = 1/8;
+    pC.J(1:8)=1/8;
+    pC.d(1) = 1/8;
 
     DCM.M.pE = pE;
     DCM.M.pC = pC;
 
-    DCM.M.pC.CV = zeros(1,8) ;
-    DCM.M.pC.a = DCM.M.pC.a + 1/8;
-
-    %DCM.M.pC.S = DCM.M.pC.S + 1/32;
-
-    %load('REDUCED_SET_JAN24','NewpC')
-
-    %DCM.M.pC = NewpC;
-    
-    %DCM.M.dmd=1;
-
-     %load('mean_global_search','M');
-     %pE = spm_unvec(M.Ep,DCM.M.pE);
-     %DCM.M.pE = pE;
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -262,32 +218,16 @@ for i = i;%1:length(Data.Datasets)
     fprintf('Search for a stable fixed point\n');
 
     xx = load([p '/newx.mat']); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
-    %x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
     load('init_14dec','x');
     DCM.M.x = spm_unvec(x,DCM.M.x);
 
-    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10,[],[]); % (P,M,tol,a,input,dt)
+    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
     DCM.M.x = spm_unvec(x,DCM.M.x);
 
     norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
 
-    %xx0 = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
-    %DCM.M.x = spm_unvec(xx0,DCM.M.x);
-
-    %Y0 = spm_vec(feval(DCM.M.IS,DCM.M.pE,DCM.M,DCM.xU));
-    %DCM.M.Y0 = Y0;
-
     fprintf('Finished...\n');
 
-    %load('mean_global_search','M');
-    %pE = spm_unvec(M.Ep,DCM.M.pE);
-    %DCM.M.pE = pE;
-
-    %E = load('MeanFit_Surrogate.mat','Ep');
-   % DCM.M.pE = E.Ep;
-
-    %load('GausFFTMat2','Mt');
-    %DCM.M.GFFTM = Mt;
       
     fprintf('--------------- PARAM ESTIMATION (neural) ---------------\n');
     %fprintf('iteration %d\n',j);   

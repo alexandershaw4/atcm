@@ -130,6 +130,11 @@ for i = 1:Ns
     %Y = sum(Y,1);
     Y = abs(Y);
 
+    if isfield(M,'ham') && M.ham;
+        H = hamming(length(w));
+        Y = Y(:).*H(:); 
+    end
+
     MAG{i} = (MG);%magnitude;
     PHA{i} = angle(MG)*180/pi;%phase;
     

@@ -112,6 +112,11 @@ G    = exp(G);
 Gn = full(P.Hn);
 Gn = exp(Gn);
 
+if isfield(P,'Gb')
+    Gb = exp(full(P.Gb));
+else
+    Gb = G;
+end
 
 % connectivity switches
 %==========================================================================
@@ -218,6 +223,7 @@ GIa =[8     0     10    0     0     0     0     0;
 %       0     0     0     0     4     8     0     0;
 %       0     0     0     0     0     0     8     0;
 %       0     0     0     0     0     0     8     8];
+
 
 GIb = GIa;
 
@@ -345,7 +351,7 @@ for i = 1:ns
         E      = ( G(:,:,i).*GEa)*m(i,:)'; % AMPA currents
         ENMDA  = (Gn(:,:,i).*GEn)*m(i,:)'; % NMDA currents
         I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
-        IB     = ( G(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
+        IB     = (Gb(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
                 
         if IncludeMH
             

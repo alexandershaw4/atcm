@@ -558,18 +558,23 @@ switch IntMethod
                 % Precompute (matrix) operators for delays;
                 %--------------------------------------------------
                 % inputs
-                v(9)  = v(9)  + 1e-2 * exp(P.a(1));%*drive(i);
-                v(10) = v(10) + 1e-2 * exp(P.a(2));%*drive(i);
-                v(12) = v(12) + 1e-2 * exp(P.a(3));%*drive(i);
-                v(14) = v(14) + 1e-2 * exp(P.a(4));%*drive(i);
-                v(16) = v(16) + 1e-2 * exp(P.a(5));%*drive(i);
+                %v(9)  = v(9)  + 1e-2 * exp(P.a(1));%*drive(i);
+                %v(10) = v(10) + 1e-2 * exp(P.a(2));%*drive(i);
+                %v(12) = v(12) + 1e-2 * exp(P.a(3));%*drive(i);
+                %v(14) = v(14) + 1e-2 * exp(P.a(4));%*drive(i);
+                %v(16) = v(16) + 1e-2 * exp(P.a(5));%*drive(i);
 
 
                 if i == 1
                     [dxdt,~,D] = f(v,0*drive(i),P,M);
                     
                     D     = real(D);
-                    D_dt  = (D*1000)*dt;
+                    D_dt  = (D*1000);
+
+                    %X  = spm_dctmtx(length(v),8 + 1);
+                    %Mu = exp(X(:,2:end)*P.d);
+                    B = gaubasis(56,8);
+                    Mu = exp(P.d(:)'*B);
 
                 else
                     dxdt  = f(v,0*drive(i),P,M);
@@ -577,8 +582,8 @@ switch IntMethod
 
                 b    = pinv(full(J)'.*v).*dxdt;
                 Q    =  J.*b; % dxdt = Q*x; Q is linear operator
-                dxdt = (Q + (Q.*D_dt) )*v;
-                v    = v + dt*dxdt;
+                dxdt = (Q.*D_dt)*v;
+                v    = v + dt*diag(Mu)*dxdt;
 
                 % update
                 %--------------------------------------------------
@@ -1107,7 +1112,7 @@ for ins = 1:ns
 
             b = atcm.fun.Afft(ys,1/dt,w);
 
-            Ppf = atcm.fun.agauss_smooth(abs(b),.6);%u(:,1)'*b);
+            Ppf = atcm.fun.agauss_smooth(abs(b),1);%u(:,1)'*b);
 
 
              %Fs = atcm.fun.asinespectrum(w,t(burn:end),[],@sin);
