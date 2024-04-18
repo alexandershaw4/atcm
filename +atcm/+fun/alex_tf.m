@@ -12,16 +12,15 @@ function [Y,w,G,units,MAG,PHA] = alex_tf(P,M,U)
 %   dx = Ax  + Bu;
 %    y = Cx [+ Du];
 %
-% having computed the linearisation matrices, uses MATLAB's state-space
-% (ss) function to get a SYS object that can be used with Bode's method to 
-% get the frequency response at frequencies of interest (vector stored in
-% M.Hz) using the Laplace transform.
+% having computed the linearisation matrices, computes the frequency response 
+% at frequencies of interest (vector stored in M.Hz) using the Laplace transform.
 %
 % Usage: [Y,w,G,units] = alex_tf(P,M,U); 
 %
 % add sub-structure M.sim with M.sim.pst and M.sim.dt to force the routine
 % to also recronstruct the time-domain simulation and return in the 4th
-% output.
+% output, since we can access the magnitude and phase data of each component
+% from the Laplace transform.
 %
 % * Update Feb 2024: AS refactored for multiple node models to compute the
 % Laplace transform of each region, then compute the cross-spectral density
@@ -44,27 +43,6 @@ delta_x = 1e-6;
 % get delay operator
 [f0,A0,D] = f(x0,u0,[]);
 D         = inv(eye(length(D)) - D);
-
-% % Compute A matrix numerically
-% A = zeros(length(x0), length(x0));
-% for i = 1:length(x0)
-%     x_perturbed = x0;
-%     x_perturbed(i) = x_perturbed(i) + delta_x;
-%     dx_perturbed = f(x_perturbed, u0, []);
-%     A(:, i) = (dx_perturbed - f0) / delta_x;
-% end
-% 
-% A = D*A;
-% 
-% % Compute B matrix numerically
-% B = zeros(length(x0), 1);
-% for i = 1:length(u0)
-%     u_perturbed = u0;
-%     u_perturbed(i) = u_perturbed(i) + delta_x;
-%     dx_perturbed = f(x0, u_perturbed, []);
-%     B(:, i) = (dx_perturbed - f0) / delta_x;
-% end
-
 
 % dynamics linearisation; numerical Jacobian - dfdx
 %--------------------------------------------------------------------------
@@ -92,15 +70,6 @@ for i = 1:Ns
 
     AA = A(win,win);
     BB = B(win);
-
-    % % Inputs - 
-    % v = zeros(56,1) + 1e-3;
-    % v(16) = v(16) + exp(P.a(1));
-    % v(12) = v(12) + exp(P.a(2));
-    % v(10) = v(10) + exp(P.a(3));
-    % v(18) = v(18) + exp(P.a(4));
-    % v(19) = v(19) + exp(P.a(5));
-    % v(26) = v(26) + exp(P.a(6));
     
     BB;% = BB + v;
     
@@ -146,6 +115,7 @@ for i = 1:Ns
 
 end
 
+% compute cross spectrum from autospectra using complex cobjugate
 CSD = zeros(length(w),Ns,Ns);
 for i = 1:Ns
     CSD(:,i,i) = PSD(i,:);
