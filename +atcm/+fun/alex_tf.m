@@ -154,6 +154,7 @@ if isfield(M,'sim') && nargout > 3
         end
     
         S{k} = squeeze(sum(series{k},2));
+        S{k} = S{k} + spm_vec(M.x(k,:,:));
         LFP(k,:) = diag(G.C)'*S{k};
     end
 

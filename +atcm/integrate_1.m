@@ -803,10 +803,9 @@ switch IntMethod
                             D     = real(D);
                             D_dt  = (D*1000)*dt;
                             Dstep = dt - D_dt;
-                            ddt   = dt;
+                            addt   = dt * exp(P.d);
+                            ddt = repmat(addt(:),[7 1]);
 
-                            %X  = spm_dctmtx(length(v),8 + 1);
-                            %Mu = exp(X(:,2:end)*P.d);
                         end  
 
                         % inputs
@@ -829,7 +828,7 @@ switch IntMethod
                         Q    = J.*b; % dxdt = Q*x; Q is linear operator
                         dxdt = (Q + (Q.*D_dt) )*v;
 
-                        v    = v + dxdt;
+                        v    = v + dxdt;%dxdt;
                                                
                         % Full update
                         %--------------------------------------------------
