@@ -1,4 +1,4 @@
-function x0 = alexfixed(P,M,tol,a,input,dt)
+function x0 = alexfixed_delays(P,M,tol,a,input,dt)
 % Use the Newton-Raphson method to find a fixed point of a dynamical system
 % (in this case, a DCM) with adaptive step size (regulariser) that
 % increases when iterations don't improve
@@ -21,12 +21,7 @@ if nargin < 5 || isempty(input)
     input = 0;
 end
 
-%if dt > 0
- %   f  = @(x,varargin) M.f(x,input,P,M,dt);
-%else
-    f  = @(x,varargin) M.f(x,input,P,M);
-%end
-
+f  = @(x,varargin) M.f(x,input,P,M);
 x0 = M.x(:);
 
 if nargin < 3 || isempty(tol)
@@ -38,23 +33,27 @@ if nargin < 4 || isempty(a)
 end
 
 % fetch delay operator
-%[dx,A,D] = f(x0,[]);
-%D        = inv(eye(length(D)) - D);
+[dx,A,D] = f(x0,[]);
+D        = real(D);
 
-%rf = 0.2; 
-
-for i = 1:3e3;%3e10
+for i = 1:3e3
 
     [dx,A] = f(x0,[]);
 
-    %A = D*A;
+    % delay model
     
-    x1 = x0 - (exp(-a) * pinv(full(A)) * dx);
+    % work in seconds;
+    dx = dx / dt;
 
-    % x1 = x0 - dt * pinv(full(A)) * dx;
+    % compute a linear update operator for this step
+    b    = pinv(full(A)'.*x0).*dx;
+    Q    = (A.*b); % dxdt = Q*x;
 
-    %x1 = ( (1 - rf) * x0 ) - ( rf * exp(-a) * pinv(full(A)) * dx );
+    % add delays and recompute step @ dt
+    Q    = Q + (D.*~~real(A));;
+    dx   = (dt*Q*x0);
 
+    x1   = x0 - (exp(-a) * pinv(full(A)) * dx);
     e(i) = norm(f(x1,[]) );
     
     norm(f(x1,[]) )

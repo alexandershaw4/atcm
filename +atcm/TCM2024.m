@@ -1,4 +1,4 @@
-function [f,J,D] = tc_hilge2(x,u,P,M,dt)
+function [f,J,D] = TCM2024(x,u,P,M)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -206,26 +206,6 @@ GIa =[8     0     10    0     0     0     0     0;
       0     0     0     0     0     0     8     0;
       0     0     0     0     0     0     8     8];
 
-% GIa =[8     0     10    0     0     0     0     0;
-%       0    18     10    0     0     0     0     0;
-%       0     0     10    0     0     0     0     0;
-%       0     0     0     8     2     0     0     0;
-%       0     0     0     0     2     0     0     0;
-%       0     0     0     0     2     8     0     0;
-%       0     0     0     0     0     0     8     0;
-%       0     0     0     0     0     0     8     8];
-
-%GIa = GIa * exp(P.I);
-
-% GIa =[8     0     10    0     0     0     0     0;
-%       0    18     10    0     0     0     0     0;
-%       0     0     10    0     0     0     0     0;
-%       0     0     0     8     4     0     0     0;
-%       0     0     0     0     8     0     0     0;
-%       0     0     0     0     4     8     0     0;
-%       0     0     0     0     0     0     8     0;
-%       0     0     0     0     0     0     8     8];
-
 
 GIb = GIa;
 
@@ -245,12 +225,10 @@ KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
 % ampa = 1.2 to 2.4 ms
 % gabaa -   6ms
 % nmda - 50 ms
-%KN  = exp(-P.T(:,3))*1000/50;    
 
 % gaba-b maybe evern 300 or 500ms
 % now using faster AMPA and GABA-A dynamics based on this book:
 % https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
-
 
 % Trial-specific effects on time constants: AMPA & NMDA only for LTP task
 if isfield(P,'T1')
@@ -290,13 +268,6 @@ end
 %--------------------------------------------------------------------------
 CV   = exp(P.CV).*      [128*3 128 128/2 128 64  128  64  64*2]/1000;  
 
-%CV   = exp(P.CV).*      [128 128 64 128 64  128  64  64*2]/1000;  
-
-%CV   = exp(P.CV).*[16 16 32 16 32 16 32 16]*2/1000;  
-
-
-%CV   = exp(P.CV).*[128 128 256 32]/1000;  % 
-
 % leak conductance - fixed
 %--------------------------------------------------------------------------
 GL   = 1 ;       
@@ -315,7 +286,6 @@ RS = 30 ;
 Fu = find( x(:,:,1) >= VR ); FF(Fu) = 1;
 Fl = find( x(:,:,1) >= RS ); FF(Fl) = 0;
 m  = FF;
-
 
 % extrinsic effects
 %--------------------------------------------------------------------------
@@ -436,48 +406,40 @@ for i = 1:ns
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
         end
 
-        % CT and TC
-        %xx = reshape( x(:), [1 8 7]);
-        %ff = reshape( f(:), [1 8 7]);
+        % delays
+        df = spm_unvec( f(:) - x(:), f);
 
+        % seconds; 
+         if isfield(M,'J') 
 
-        % % Thalamo-cortical-thalamo time constant
-        % if isfield(P,'TD')
-        %     TD = exp(P.TD) * 1000/8;
-        %     f(:,[7 8],:) = f(:,[7 8],:) - x(:,[7 8],:) * TD;
-        % end
+            J    = M.J ;
+            b    = pinv(full(J)'.*x(:)).*f(:);
+            Q    = J.*b; 
+
+            t  = 5 * exp(P.TC);
+            c  = 5 * exp(P.CT);
+            d  = [1     1     1     1     1     1     t     t;
+                  1     1     1     1     1     1     t     t;
+                  1     1     1     1     1     1     t     t;
+                  1     1     1     1     1     1     t     t;
+                  1     1     1     1     1     1     t     t;
+                  1     1     1     1     1     1     t     t;
+                  c     c     c     c     c     c     1     1;
+                  c     c     c     c     c     c     1     1];
+            d  = d * diag(exp(P.ID));
+        
+            d = repmat(d,[7 7]);
+            D = 1-d/1000;
+
+            f = spm_unvec( D.*Q*x(:), f);
+
+         end
+
 
 end
 
 
-% vectorise equations of motion
-%==========================================================================
-f = spm_vec((f));
-pE = P;
- 
-[J,Q,D]=deal([]);
-
-if (nargout < 2 || nargout == 50) && nargin < 5, return, end
-
-% Only compute Jacobian (gradients) if requested
-%==========================================================================
-J = spm_cat(spm_diff(M.f,x,u,P,M,1));
-
-%fun = @(x) M.f(x,u,P,M);
-%J = jaco_mimo_par(fun,x(:),ones(length(x(:)),1)/8,0,1);
-%C = jaco_mimo_par(fun,x(:),ones(length(x(:)),1)/8,0,2);
-
-%J = cat(2,J{:});
-%C = cat(2,C{:}); C = denan(C);
-
-%J = J./norm(J);
-%C = C./norm(C);
-
-%J = J + C;
-
-if nargout < 3 && nargin < 5, return, end
-
-% Only compute Delays if requested
+% compute Delay matrix
 %==========================================================================
 % Delay differential equations can be integrated efficiently (but 
 % approximately) by absorbing the delay operator into the Jacobian
@@ -489,50 +451,122 @@ if nargout < 3 && nargin < 5, return, end
 %--------------------------------------------------------------------------
 % [specified] fixed parameters
 %--------------------------------------------------------------------------
-D  = [1 16];
-d  = D.*full(exp(P.D(1:2)))/1000;
-Sp = kron(ones(nk,nk),kron( eye(np,np),eye(ns,ns)));  % states: same pop.
-Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
+% D  = [1 16];
+% d  = D.*full(exp(P.D(1:2)))/1000;
+% Sp = kron(ones(nk,nk),kron( eye(np,np),eye(ns,ns)));  % states: same pop.
+% Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
+% 
+% CT = 8; %60;
+% TC = 3; %20;
+% 
+% Tc              = zeros(np,np);
+% Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal
+% Tc([1:6],[7 8]) = TC  * exp(P.TC); % thal->ss
+% 
+% Tc = Tc / 1000;
+% Tc = kron(ones(nk,nk),kron(Tc,ones(ns,ns)));
+% 
+% ID = [2 1 1 1 1 2 1 2];
+% ID = [1 1 1 1 1 1 1 1];
+% ID = ID.*exp(P.ID)/1000; 
+% ID = repmat(ID,[1 nk]);
+% 
+% ID = repmat(ID(:)',[np*nk,1]);
+% ID = kron(ID,ones(ns,ns));
+% 
+% 
+% % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
+% %--------------------------------------------------------------------------
+% Dp = ~Ss;                            % states: different sources
+% Ds = ~Sp & Ss;                       % states: same source different pop.
+% D  = d(1)*Ds + Tc + (ID) ;
+% D  =  Tc + (ID) ;
 
-% Thalamo cortical interactions: ~80ms round trip: 20 ms T->C, 60 ms C->T
-%--------------------------------------------------------------------------
-%Thalamocortical connections and forward connections from Vp to Vs had
-%a mean delay of 3 ms, while corticothalamic connections and backward
-%connections from Vs to Vp had a mean delay of 8 m - Neural Dynamics in a Model of the
-%Thalamocortical System. I. Layers, Loops and the Emergence of Fast Synchronous Rhythms
-% Lumer et al 1997
 
-CT = 8; %60;
-TC = 3; %20;
+% % If J was passed, compute delayed step instead of standard step
+% if isfield(M,'J') 
+%     J    = M.J;
+%     b    = pinv(full(J)'.*x(:)).*f(:);
+%     Q    = J.*b; % dxdt = Q*x; Q is linear operator
+%     Q    = Q + D;
+%     f    = spm_unvec((Q*x(:)),f);
+% end
 
-Tc              = zeros(np,np);
-Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal
-Tc([1:6],[7 8]) = TC  * exp(P.TC); % thal->ss
+% vectorise equations of motion
+%==========================================================================
+f = spm_vec((f));
+pE = P;
+ 
+%[J,Q]=deal([]);
 
-Tc = Tc / 1000;
-Tc = kron(ones(nk,nk),kron(Tc,ones(ns,ns)));
+if (nargout < 2), return, end
 
+% Only compute Jacobian (gradients) if requested
+%==========================================================================
+%J = spm_cat(spm_diff(M.f,x,u,P,M,1));
 
-%kd = exp(P.a(1)) * 8;
-%ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
-ID = [2 1 1 1 1 2 1 2];
-ID = ID.*exp(P.ID)/1000; 
-ID = repmat(ID,[1 nk]);
+fun = @(x) M.f(x,u,P,M);
+J = jaco_mimo_par(fun,x(:),ones(length(x(:)),1)/8,0,1);
+J = cat(2,J{:});
 
-ID = repmat(ID(:)',[np*nk,1]);
-ID = kron(ID,ones(ns,ns));
+%if nargout < 3, return, end
 
-%ID = ID - ID(:);
-
-% Mean intra-population delays, inc. axonal etc. Seem to help oscillation
-%--------------------------------------------------------------------------
-Dp = ~Ss;                            % states: different sources
-Ds = ~Sp & Ss;                       % states: same source different pop.
-%Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
-
-D = d(1)*Ds + Tc + (ID) ;
-
-D =  Tc + (ID) ;
+% % Only compute Delays if requested
+% %==========================================================================
+% % Delay differential equations can be integrated efficiently (but 
+% % approximately) by absorbing the delay operator into the Jacobian
+% %
+% %    dx(t)/dt     = f(x(t - d))
+% %                 = Q(d)f(x(t))
+% %
+% %    J(d)         = Q(d)df/dx
+% %--------------------------------------------------------------------------
+% % [specified] fixed parameters
+% %--------------------------------------------------------------------------
+% D  = [1 16];
+% d  = D.*full(exp(P.D(1:2)))/1000;
+% Sp = kron(ones(nk,nk),kron( eye(np,np),eye(ns,ns)));  % states: same pop.
+% Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
+% 
+% % Thalamo cortical interactions: ~80ms round trip: 20 ms T->C, 60 ms C->T
+% %--------------------------------------------------------------------------
+% %Thalamocortical connections and forward connections from Vp to Vs had
+% %a mean delay of 3 ms, while corticothalamic connections and backward
+% %connections from Vs to Vp had a mean delay of 8 m - Neural Dynamics in a Model of the
+% %Thalamocortical System. I. Layers, Loops and the Emergence of Fast Synchronous Rhythms
+% % Lumer et al 1997
+% 
+% CT = 8; %60;
+% TC = 3; %20;
+% 
+% Tc              = zeros(np,np);
+% Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal
+% Tc([1:6],[7 8]) = TC  * exp(P.TC); % thal->ss
+% 
+% Tc = Tc / 1000;
+% Tc = kron(ones(nk,nk),kron(Tc,ones(ns,ns)));
+% 
+% 
+% %kd = exp(P.a(1)) * 8;
+% %ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
+% ID = [2 1 1 1 1 2 1 2];
+% ID = ID.*exp(P.ID)/1000; 
+% ID = repmat(ID,[1 nk]);
+% 
+% ID = repmat(ID(:)',[np*nk,1]);
+% ID = kron(ID,ones(ns,ns));
+% 
+% %ID = ID - ID(:);
+% 
+% % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
+% %--------------------------------------------------------------------------
+% Dp = ~Ss;                            % states: different sources
+% Ds = ~Sp & Ss;                       % states: same source different pop.
+% %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
+% 
+% D = d(1)*Ds + Tc + (ID) ;
+% 
+% D =  Tc + (ID) ;
 
 
 % Compute delays if dt provided, including on output vector;

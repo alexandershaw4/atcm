@@ -339,6 +339,38 @@ for i = 1:Ne;
                     else
                         [Pf, F] = SpecFun(Ymod',  1/DCM.xY.dt, DCM.xY.Hz) ;
 
+                        % use the same regression based routine as the TCM
+                        % model
+                        if isfield(DCM.options,'RegressionDCM') && DCM.options.RegressionFFT
+                            % if j == 1
+                            %     [~,DFT,f] = adft(Ymod,1/DCM.xY.dt,DCM.xY.Hz);
+                            % end
+                            % 
+                            % b = DFT\Ymod;
+                            % 
+                            % %[u,s,v] = svd(b);
+                            % 
+                            % %b = atcm.fun.Afft(ys,1/dt,w);
+                            % 
+                            % PpfR = atcm.fun.agauss_smooth(abs(real(b)),1);%u(:,1)'*b);
+                            % PpfI = atcm.fun.agauss_smooth(abs(imag(b)),1);
+                            % 
+                            % Pf = PpfR + sqrt(-1)*PpfI;
+
+
+
+                            if j == 1
+                                DFT = lsqspectrum(Ymod,1/DCM.xY.dt,DCM.xY.Hz);
+                            end
+
+                            Pf = abs( (DFT)'\(ys)' );
+
+
+
+
+                        end
+
+
                         if j == 1
                             FMAT   = atcm.fun.asinespectrum(DCM.xY.Hz,D.time(It)*1000);
                         end

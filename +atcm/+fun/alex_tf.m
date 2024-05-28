@@ -37,6 +37,7 @@ w = M.Hz;
 x0 = M.x(:);
 u0 = 1;
 
+
 % Numerically compute the Jacobian matrix
 delta_x = 1e-6;  
 
@@ -47,6 +48,8 @@ D         = inv(eye(length(D)) - D);
 % dynamics linearisation; numerical Jacobian - dfdx
 %--------------------------------------------------------------------------
 [f,A,D]  = feval(M.f,M.x,0,P,M);
+f  = denan(f);
+A  = denan(A);
 J        = A;
 D        = inv(eye(length(D)) - D);
 A        = D*A;
@@ -54,6 +57,7 @@ A        = D*A;
 % input linearisation, e.g. dfdu
 %--------------------------------------------------------------------------
 B = spm_diff(M.f,M.x,1,P,M,2);
+B = denan(B);
 n = length(f);
 
 % observation linearisation (static)
@@ -84,7 +88,7 @@ for i = 1:Ns
         Ym  = Jm\BB;
         MG(:,j) = Ym;
         Y   = C'*Ym;
-        y(j) =  Y;
+        y(j) =  Y; 
     end
 
     Y = y;
@@ -162,10 +166,10 @@ if isfield(M,'sim') && nargout > 3
     units.LFP    = LFP;
     units.dt     = dt;
     units.pst    = pst;
-    units.A      = G.A;
-    units.B      = G.B;
-    units.C      = G.C;
-    units.D      = G.D;
+    units.A      = A;
+    units.B      = B;
+    units.C      = C;
+    units.D      = [];
     units.xinit  = M.x(:);
     
     units.mag    = squeeze(mag);

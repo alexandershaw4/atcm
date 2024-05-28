@@ -89,7 +89,7 @@ for i = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tc_hilge2;               % model function handle
+    DCM.M.f  = @atcm.TCM2024;               % model function handle
     DCM.M.IS = @atcm.integrate_1;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
@@ -114,6 +114,8 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.Fltdcm = fq;                    %... bp filter [new!]
     DCM.options.UseButterband = fq;
 
+    DCM.options.RegressionFFT = 1;
+
     DCM.options.analysis      = 'CSD';              %... analyse type
     DCM.xY.modality           = 'LFP';              %... ECD or LFP data? [LFP]
     DCM.options.spatial       = 'LFP';              %... spatial model [LFP]
@@ -123,14 +125,15 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = 1;
+    DCM.options.FrequencyStep = 1/4;
     
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
 
+    DCM.xY.y{:} = abs(DCM.xY.y{:});
 
-    DCM.xY.y{:}  = atcm.fun.agauss_smooth(DCM.xY.y{:},1);
+    DCM.xY.y{:}  = atcm.fun.agauss_smooth(DCM.xY.y{:},2);
 
     %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
 
@@ -147,7 +150,7 @@ for i = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     DCM = atcm.parameters(DCM,Ns);
     
-    DCM.xY.y{:} = abs(DCM.xY.y{:});
+    
     w = DCM.xY.Hz;
 
     %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
@@ -178,8 +181,11 @@ for i = i;%1:length(Data.Datasets)
     DCM.M.InputType = 0;
 
     % Use a 2-point RK method for integration
-    DCM.M.intmethod = 1;%45;%45;
+    DCM.M.intmethod = 0;%45;%1;%1;%45;
 
+    %DCM.M.IntMethod = 'ode45_2';
+
+    
     % No hamming on spectrum
     DCM.M.DoHamming = 0;
 
@@ -192,15 +198,31 @@ for i = i;%1:length(Data.Datasets)
     
     pE.J = pE.J-1000;    
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
+    %pE.J([7 8]) = log(.4);
+    %pE.J([2 4]) = log(.8);
     %pC.ID = pC.ID + 1/8;
-    pE.L = 0;
+    pE.L = -4;
     pC.a = pC.a*0;
 
     pC.J(1:8)=1/8;
-    pC.d(1) = 1/8;
+
+    %pC.d(1) = 1/8;
+    
+    pC.ID = ones(1,8)/8;
+    %pC.S = ones(1,8)/8;
+
+    %pE.f = [0 0];;
+    %pC.f = [1 1]./8;
 
     DCM.M.pE = pE;
     DCM.M.pC = pC;
+
+    J = reshape(exp(DCM.M.pE.J),[8 7]);
+    J(:,2) = J(:,1);
+    J(:,3) = J(:,1);
+    J(:,4) = J(:,1);
+    DCM.M.pE.J = spm_unvec(log(J(:)),DCM.M.pE.J);
+    DCM.M.pE.J(DCM.M.pE.J==-inf)=-1000;
 
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
@@ -217,6 +239,11 @@ for i = i;%1:length(Data.Datasets)
     fprintf('--------------- STATE ESTIMATION ---------------\n');
     fprintf('Search for a stable fixed point\n');
 
+    % precompute J and put in J which flags for the rhs to compute the
+    % *delayed* update step
+    [dx,J] = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
+    DCM.M.J = J;
+
     xx = load([p '/newx.mat']); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
     load('init_14dec','x');
     DCM.M.x = spm_unvec(x,DCM.M.x);
@@ -226,8 +253,18 @@ for i = i;%1:length(Data.Datasets)
 
     norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
 
+    % update Jacobian obtained from fixed point
+    [~,J] = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
+    DCM.M.J = J;
+
+    DCM.M.x = DCM.M.x*0;
+    DCM.M.x(:,:,1) = -70;
+
     fprintf('Finished...\n');
 
+    % evaluate model and plot at fp
+    %[y,X,pst] = simpleint(DCM.M.pE,DCM.M,DCM.xU);
+    %subplot(211),plot(pst,X); subplot(212), plot(DCM.xY.Hz,y)
       
     fprintf('--------------- PARAM ESTIMATION (neural) ---------------\n');
     %fprintf('iteration %d\n',j);   
@@ -235,10 +272,6 @@ for i = i;%1:length(Data.Datasets)
     
     % Construct an AO optimisation object
    M = AODCM(DCM);
-
-    %M.ga;
-   % M.alex_lm
-    %M.opts.Q = atcm.fun.VtoGauss(1+hamming(length(w)));
 
     [parts,moments]=iterate_gauss(DCM.xY.y{:},2);
     for ii = 1:size(parts,1); QQ{ii} = diag(parts(ii,:)); end
@@ -251,9 +284,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.ismimo      = 1;     
     M.opts.doparallel  = 1;    
 
-    M.opts.hyperparams = 1; 
-    M.opts.ahyper      = 0;
-    M.opts.ahyper_p    = 0;
+    M.opts.hyperparams = 0; 
 
     M.opts.hypertune   = 0; 
     M.opts.fsd         = 0;        
@@ -265,10 +296,10 @@ for i = i;%1:length(Data.Datasets)
     M.opts.criterion   = -inf;
 
     M.opts.factorise_gradients = 0;
-    M.opts.normalise_gradients = 0;
+    M.opts.normalise_gradients = 1;
 
     M.opts.memory_optimise = 0;
-    M.opts.rungekutta      = 4;
+    M.opts.rungekutta      = 5;
     M.opts.surrls          = 0;
     M.opts.dopowell        = 0;
     M.opts.wolfelinesearch = 0;
@@ -277,7 +308,7 @@ for i = i;%1:length(Data.Datasets)
     M.opts.updateQ         = 0; 
     M.opts.crit            = [0 0 0 0];
 
-    %M.opts.userplotfun = @aodcmplotfun;
+    M.opts.userplotfun = @aodcmplotfun;
 
     M.opts.isNewton      = 0;
     M.opts.isQuasiNewton = 0;

@@ -1,4 +1,8 @@
-function y = agauss_smooth(x,n,a)
+function y = agauss_smooth(x,n,a,model)
+
+if nargin < 4 || isempty(model)
+    model = 'gauss';
+end
 
 x   = real(x(:));
 w   = (1:length(x))';
@@ -14,7 +18,10 @@ end
 if length(a) == 1 && length(n) == 1
 
     
-    fun = @(Wid,f) a * exp( -(w-f).^2 / (2*(2*Wid)^2) );
+    switch model
+        case 'gauss'; fun = @(Wid,f) a * exp( -(w-f).^2 / (2*(2*Wid)^2) );
+        case 'laplace'; fun = @(Wid,f) a *( 1/(sqrt(2)*Wid)*exp(-sqrt(2)*abs(w-f)/Wid) );
+    end
     
     for i = 1:length(x)
     
