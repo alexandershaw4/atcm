@@ -1,9 +1,6 @@
-function RunTCM_Script_transfun(i)
+function RunTCM_Script(i)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
-%
-% This version using a linearisation and transfer function (numerical
-% Laplace) rather than brute numerical integration.
 %
 % Requires atcm (thalamo cortical modelling package) and aoptim
 % (optimisation package)
@@ -40,8 +37,13 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'aLM_Laplace_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'MTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
+
+%Data.Datasets     = {'NEW_MeanDataset.mat'};
+
+[p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
+
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
 %--------------------------------------------------------------------------
@@ -51,9 +53,6 @@ F = (T==1);
 B = (T==2);
 C = [1]';          % input(s)
 L = sparse(1,1);
-
-[p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
-
 
 % Set up, over subjects
 %--------------------------------------------------------------------------
@@ -90,8 +89,8 @@ for i = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tc_hilge2;               % model function handle
-    DCM.M.IS = @atcm.fun.alex_tf;            % Alex integrator/transfer function
+    DCM.M.f  = @atcm.TCM2024;               % model function handle
+    DCM.M.IS = @atcm.integrate_1;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
     % Print Progress
@@ -108,12 +107,14 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.Tdcm   = [300 1300];                   %... peristimulus time
     DCM.options.Fdcm   = fq;                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
-    DCM.options.han    = 1;                         %... apply hanning window
-    DCM.options.h      = 4;                         %... number of confounds (DCT)
+    DCM.options.han    = 0;                         %... apply hanning window
+    DCM.options.h      = 1;                         %... number of confounds (DCT)
     DCM.options.DoData = 1;                         %... leave on [custom]
     %DCM.options.baseTdcm   = [-200 0];             %... baseline times [new!]
     DCM.options.Fltdcm = fq;                    %... bp filter [new!]
     DCM.options.UseButterband = fq;
+
+    DCM.options.RegressionFFT = 0;
 
     DCM.options.analysis      = 'CSD';              %... analyse type
     DCM.xY.modality           = 'LFP';              %... ECD or LFP data? [LFP]
@@ -130,18 +131,66 @@ for i = i;%1:length(Data.Datasets)
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
 
-    DCM.xY.y{:}  = agauss_smooth(abs(DCM.xY.y{:}),1)';
+    DCM.xY.y{:} = abs(DCM.xY.y{:});
+
+    DCM.xY.y{:}  = atcm.fun.agauss_smooth(DCM.xY.y{:},1);
+
+    DCM.xY.y{:} = DCM.xY.y{:}';
+
+    %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
+
+    % also without the robust fitting to get the residual
+    %DCMo = DCM;
+    %DCMo.options.BeRobust=0;
+    %DCMo = atcm.fun.prepcsd(DCMo);
+    %r = DCMo.xY.y{1} - DCM.xY.y{1};
+
+    % amount of smoothing scales linearly with frequency step
+    %SmoothingK = 4./DCM.options.FrequencyStep;
         
     % Subfunctions and default priors
     %----------------------------------------------------------------------
     DCM = atcm.parameters(DCM,Ns);
-            
+    
+    
+    w = DCM.xY.Hz;
+
+    %DCM.xY.y{:} = atcm.fun.awinsmooth(DCM.xY.y{:},2)';
+    
+    % If using DCM inversion, select whether to block graph or not
+    DCM.M.nograph = 0;
+    
+    % Feature function for the integrator [NOT USED]
+    %----------------------------------------------------------------------
+    DCM = atcm.complete(DCM);
+    DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
+    imscale = sum(spm_vec(abs(real(DCM.xY.y{:})))) ./ sum(spm_vec(abs(imag(DCM.xY.y{:}))));
+    DCM.M.FS = @(x) [real(x) ; imscale*imag(x) ];
+    
     % other model options
     %----------------------------------------------------------------------
     DCM.M.solvefixed=0;      % 
     DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
     DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
         
+    % simulation / integration parameters
+    %----------------------------------------------------------------------
+    DCM.M.sim.dt  = 1./1000;
+    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(1)-DCM.M.sim.dt)');
+    DCM.M.burnin  = 0;
+    
+    % Input is d.c
+    DCM.M.InputType = 0;
+
+    % Use a 2-point RK method for integration
+    DCM.M.intmethod = 0;%45;%1;%1;%45;
+
+    %DCM.M.IntMethod = 'ode45_2';
+
+    
+    % No hamming on spectrum
+    DCM.M.DoHamming = 0;
+
     load([p '/newpoints3.mat'],'pE','pC')
 
     pE = spm_unvec(spm_vec(pE)*0,pE);
@@ -151,29 +200,29 @@ for i = i;%1:length(Data.Datasets)
     
     pE.J = pE.J-1000;    
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
+    %pE.J([7 8]) = log(.4);
+    %pE.J([2 4]) = log(.8);
     %pC.ID = pC.ID + 1/8;
-    pE.L = 0;
+    pE.L = 2;
     pC.a = pC.a*0;
 
-    pE.Gb = pE.H;
-    pC.Gb = [1   0   0   0   0   0   0   0;
-             0   1   1   0   0   0   0   0;
-             0   0   1   0   0   0   0   0;
-             0   0   0   1   1   0   0   0;
-             0   0   0   0   1   0   0   0;
-             0   0   0   0   1   1   0   0;
-             0   0   0   0   0   0   0   0;
-             0   0   0   0   0   0   1   0]/64;
+    pC.a(2) = 1/8;
+
+    pC.C = 1/8;
 
     pC.J(1:8)=1/8;
+
     pC.d(1) = 1/8;
     
+    pC.ID = ones(1,8)/8;
+    %pC.S = ones(1,8)/8;
 
-    % Make changes here;
-    %-----------------------------------------------------------
-   
+    %pE.f = [0 0];;
+    %pC.f = [1 1]./8;
+
     DCM.M.pE = pE;
     DCM.M.pC = pC;
+
 
     % Optimise using AO.m -- a Newton scheme with add-ons and multiple
     % objective functions built in, including free energy
@@ -189,53 +238,106 @@ for i = i;%1:length(Data.Datasets)
     fprintf('--------------- STATE ESTIMATION ---------------\n');
     fprintf('Search for a stable fixed point\n');
 
-    xx = load([p '/newx.mat']); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
-    load('init_14dec','x');
+    
+
+    % xx = load([p '/newx.mat']); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
+    % load('init_14dec','x');
+    % DCM.M.x = spm_unvec(x,DCM.M.x);
+    % 
+    %x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
+    load('new_fp','x')
     DCM.M.x = spm_unvec(x,DCM.M.x);
 
-    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
-    DCM.M.x = spm_unvec(x,DCM.M.x);
+    % precompute J and put in J which flags for the rhs to compute the
+    % *delayed* update step
+    [dx,J] = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
+    DCM.M.J = J;
 
-    norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
+    % 
+    % norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
+    % 
+    % % update Jacobian obtained from fixed point
+    % [~,J] = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
+    % DCM.M.J = J;
+    % 
+    %DCM.M.x = DCM.M.x*0;
+    %DCM.M.x(:,:,1) = -70;
 
     fprintf('Finished...\n');
+
+    % evaluate model and plot at fp
+    %[y,X,pst] = simpleint(DCM.M.pE,DCM.M,DCM.xU);
+    %subplot(211),plot(pst,X); subplot(212), plot(DCM.xY.Hz,y)
+      
+    fprintf('--------------- PARAM ESTIMATION (neural) ---------------\n');
+    %fprintf('iteration %d\n',j);   
+
     
-          
-    fprintf('--------------- PARAM ESTIMATION ---------------\n');
-    %fprintf('iteration %d\n',j);
+    % Construct an AO optimisation object
+    M = AODCM(DCM);
 
-    % Alex's version of the Levenberg-Marquard routine
-    %M = AODCM(DCM);
+    %M.bayesopt
 
-    [Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
+    [parts,moments]=iterate_gauss(DCM.xY.y{:},2);
+    for ii = 1:size(parts,1); QQ{ii} = diag(parts(ii,:)); end
+    M.opts.Q = QQ;
 
-    %M.alex_lm;
+    % Optimisation option set 1.
+    M.opts.WeightByProbability = 0;
 
-    %M.compute_free_energy(M.Ep);
+    M.opts.ismimo      = 1;     
+    M.opts.doparallel  = 1;    
 
-    %DCM.M.nograph = 0;
-    %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
+    M.opts.hyperparams = 1; 
+    M.opts.hypertune   = 0; 
+    M.opts.fsd         = 0;        
+    M.opts.inner_loop  = 1;
+
+    %M.opts.objective   = 'gaussfe';%_trace';%fe';%gauss_trace';%'gauss';%_trace';%'qrmse_g';%'gauss';
+    M.opts.objective   = 'sse';
+
+    M.opts.criterion   = -inf;
+
+    M.opts.factorise_gradients = 0;
+    M.opts.normalise_gradients = 1;
+
+    M.opts.rungekutta      = 5;
+    M.opts.surrls          = 0;
+    M.opts.dopowell        = 0;
+    M.opts.wolfelinesearch = 0;
+    M.opts.bayesoptls      = 0; 
+    M.opts.agproptls       = 0;
+    M.opts.updateQ         = 0; 
+    M.opts.crit            = [0 0 0 0];
+
+    M.opts.userplotfun = @aodcmplotfun;
+
+    % order of dfdx: grads or curv & whether to orthogoanlise
+    M.opts.order         = 1;
+    M.opts.gradtol       = 1e-8;
+
+    M.default_optimise([1],[20]);
+     
+     M.update_parameters(M.Ep);
+
+     %M.rungekutteopt(32)
+
+     %M.update_parameters(M.Ep);
+     
+     M.default_optimise(1,20);
+
+   
+
+    % M.update_parameters(M.Ep);
+    %M.default_optimise([1],[8])
 
     % save in DCM structures after optim 
     %----------------------------------------------------------------------
     DCM.M.pE = ppE;
-    DCM.Ep = Qp;%spm_unvec(M.Ep,DCM.M.pE);
-    DCM.Cp = Cp;
-
-    DCM.M.sim.dt  = 1./600;
-    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
-
-    [y,w,G,s] = feval(DCM.M.IS,DCM.Ep,DCM.M,DCM.xU);
-
-    DCM.pred = y;
-    DCM.w = w;
-    DCM.G = G;
-    DCM.series = s;
-    
-    %DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
-    %DCM.Cp = makeposdef(DCM.Cp);
-    DCM.F  = F;%M.FreeEnergyF;
-    %DCM.Cp = M.CP;
+    DCM.Ep = spm_unvec(M.Ep,DCM.M.pE);
+    DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
+    DCM.Cp = makeposdef(DCM.Cp);
+    DCM.F = M.F;
     save(DCM.name); close all; clear global;
     
 end

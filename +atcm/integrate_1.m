@@ -370,6 +370,8 @@ end
 condel = 1;
 QD     = 1;
 
+dfdu    = spm_diff(M.f,M.x,drive(1)*dt,P,M,2); 
+
 % firing rate & count when fired (membrane potential passes threshold)
 %-------------------------------------------------------------------------
 Curfire    = zeros(size(M.x,2),1)';
@@ -400,8 +402,8 @@ end
 dw = 1./(w(2)-w(1));
 
 % setup a baseline jacobian using finite differecnes
-fun = @(v) f(spm_unvec(v,M.x),drive(1),P,M);
-Jf = jaco(fun,v,ones(size(v))/128,0,2);
+fun = @(v) f(spm_unvec(v,M.x),drive(1)*0,P,M);
+Jf = jaco(fun,v,ones(size(v))/128,0,1);
 vi = v*0;
 
 xb = M.x(:);
@@ -431,14 +433,9 @@ switch IntMethod
         
     case 'ode45'
 
-        [~,~,D] = f(v,0,P,M);
-        Q = eye(length(D)) - (D);
-
         % matlab build in ode solver
-        %ode = @(t,v,P,M,f) spm_vec( Q*f(spm_unvec(v,M.x),t,P,M) );
-        %ode = @(t,v,P,M,f) spm_vec( Q*f(spm_unvec(v,M.x),drive(1),P,M) );
         
-        ode = @(t,v) spm_vec( Q*f(spm_unvec(v,M.x),0,P,M) );
+        ode = @(t,v) spm_vec( f(spm_unvec(v,M.x),0,P,M) );
 
         opts = odeset;
         %opts.MaxStep = 1/600;
@@ -546,325 +543,63 @@ switch IntMethod
             
             if ~WithDelays 
                 
+                % Evaluate model
                 [dxdt] = f(v,0*drive(i),P,M);
-                v      = v + dt*dxdt;
-                y(:,i) = v;
 
-            elseif WithDelays == 11
+                % v(1) = v(1) + exp(P.a(1));
+                % v(2) = v(2) + exp(P.a(3));
+                % 
+                % v(4) = v(4) + exp(P.a(4));
+                % v(6) = v(6) + exp(P.a(5));
+                % 
+                % v(8) = v(8) + exp(P.a(6));
 
-                if i == 1
-                    [dx,~,D] = f(M.x,drive(i)*0,P,M);
-                else
-                    dx      = M.f(M.x,drive(i)*0,P,M);
-                end
 
-                M.x     = spm_unvec(M.x(:) + (dt)*D*dx,M.x);
-                v       = M.x(:);
+                % % approximate Jacobian at t[i] by Broyden's method: 
+                % % first order Taylor expansion
+                % x_next    = v + dt * dxdt;
+                % dxdt_next = f(x_next,drive(i)*0,P,M);
+                % Delta_x   = x_next - v;
+                % Delta_f   = dxdt_next - dxdt;
+                % J = J + ((Delta_f - J * Delta_x) * Delta_x') / (Delta_x' * Delta_x);
+                % 
+                % if i == 1
+                %     %precompute dfdu (B) and C
+                %     B = spm_diff(M.f,M.x,1,P,M,2);
+                %     B = denan(B);
+                %     C = exp(P.J);
+                % end
+                % 
+                % % Laplace transform at x[i]
+                % for j = 1:length(w)
+                %     Jm  = J - 1i*2*pi*w(j)*eye(length(J));
+                %     Ym  = Jm\B;
+                %     MG(:,j) = Ym;
+                %     Y   = C'*Ym;
+                %     tfm(i,j) =  Y;
+                % end
+                
+                % update time domain and continue integration
+                v      = v + dt*dfdx*v + dfdu*drive(i);
+                y(:,i) = v ;
 
-                y(:,i) = v;
-
-            elseif WithDelays == 2
-                
-                % TWO-point RK method
-                k1  = f(v,drive(i,:),P,M);  
-                k2  = f(v+dt*k1,drive(i,:),P,M);
-                phi = 0.5*k1 + 0.5*k2;              
-                v = v + dt*phi;
-
-                % State Delays - interpolated
-                %--------------------------------------------------
-                d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
-                d = repmat(d,[1 nk]);
-                L = (d);
-
-                for j = 1:length(L)
-                    ti = real(L(j))/dt;
-                    if i > 1 && any(ti)
-                        pt = t(i) - ti;
-                        if pt > 0
-                            v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
-                        end
-                    end
-                end
-
-                y(:,i) = v;
-                
-                
-            elseif WithDelays == 1
-                 
-                if i == 1
-                    [dxdt,~,D] = f(v,0*drive(i),P,M);
-                    
-                    D     = real(D);
-                    D_dt  = (D*1000);
-
-                    %D = 1 - D;
-
-                else
-                    dxdt  = f(v,0*drive(i),P,M);
-                end
-
-                b    = pinv(full(J)'.*v).*dxdt;
-                Q    =  J.*b; % dxdt = Q*x; Q is linear operator
-                dxdt = (Q.*D_dt)*v;
-                
-                v    = v + dt*dxdt;
-
-                % update
-                %--------------------------------------------------
-                y(:,i) =   v ;
-
-                     
-                
-            elseif WithDelays == 1.5
-                
-                % *backward* euler
-                if i == 1
-                    [dxdt] = f(v,drive(i,:),P,M);    
-                    v      = v + dt*dxdt;
-                    y(:,i) = v;
-                else
-                    % Next step with input
-                    [dxdt] = f(v,drive(i,:),P,M);    
-                    %v = v + dt*dxdt;                    
-                    y(:,i) = y(:,i-1) + dt*dxdt;
-                    v = y(:,i);
-                    
-                end
-                               
-            elseif WithDelays == 1010
-                
-                %delays
-                del = exp(P.d(:)').*[1 1 1 1 1 1 1 1];
-                del = repmat(del,[1 nk]);
-                del = 1./del;
-                Tau = ( 1./(1 - (dt*del))-dt );  % <-- NOTE!
-                dxdt = f(v,drive(i,:),P,M);
-
-                % delay state update
-                dx = v + (dxdt - v)./Tau(:);
-                v = v + dt*dx;
-
-                y(:,i) = v;
-                
-            elseif WithDelays == 10
-                
-                ff = @(x) f(x,drive(i),P,M);  
-                j = jaco(ff,spm_unvec(v,M.x),ones(size(v))*exp(-8));
-                
-                warning off;
-                v = v + j\v;
-                warning on;
-                
-                y(:,i) = v;
-                
-            elseif WithDelays == 33
-                % A simple second order integration routine akin to an
-                % Euler or RK routine - but with a (matrix) delay operator
-                % and updating dfdx - i.e. full Jacobian integration
-                
-                for j = 1
-                    
-                    % simulation integration
-                    %------------------------------------------------------
-                    [dx]  = f(spm_unvec(v,M.x),drive(i,:),P,M);
-                    
-                    
-                    % augment Jacobian & delay operator, take matrix exp
-                    %------------------------------------------------------
-                    J = full(spm_cat({0   [];
-                                     dt*dx dt*(Q.*dfdx)}));
-                                                     
-                    % solve using matrix expectation
-                    %------------------------------------------------------
-                    step = expm(J);
-                    v = v + step(2:end,1);
-                    
-                    % no-stim integration
-                    %------------------------------------------------------
-                    bx  = f(spm_unvec(v0,M.x),1e-6,P,M);
-                                        
-                    % augment Jacobian & delay operator, take matrix exp
-                    %------------------------------------------------------
-                    Jb = full(spm_cat({0   [];
-                                      dt*bx dt*(Q.*dfdx)}));
-                    
-                    % solve using matrix expectation
-                    %------------------------------------------------------
-                    stepb = expm(Jb);
-                    v0 = v0 + stepb(2:end,1);
-                    
-                end
-                
-                y(:,i) = v - v0; %- spm_vec(M.x);    
-                
-            elseif WithDelays == 44
-                % Newton-Cotes quadrature, including Q
-                % note this is a Lagrange polynomial method
-                
-                k1 = f(v      ,drive(i,:),P,M);
-                k2 = f(v+dt*k1,drive(i,:),P,M);
-                k3 = f(v+dt*k2,drive(i,:),P,M);
-                k4 = f(v+dt*k3,drive(i,:),P,M);
-                k5 = f(v+dt*k4,drive(i,:),P,M);
-                
-                dxdt = ((2*dt)./45)*(7*k1 + 32*k2 + 12*k3 + 32*k4 + 7*k5);
-                v    = v + (dxdt);
-                
-                y(:,i) = v;
-                                                    
-            elseif WithDelays == 20
-                % same as above, but with the spm observation (gx) added on
-                for j = 1:N
-                    v = v + Q*f(v,drive(i),P,M);
-                end
-                % Expansion about f point
-                y (:,i) = v - spm_vec(M.x);
-                yw(:,i) = spm_gx_erp(spm_vec(v),drive(i)',P,M);
-                
-            elseif WithDelays == 21
-                % Integration with a bilinear jacobian                
-                % motion dx(t)/dt and Jacobian df/dx
-                %----------------------------------------------------------
-                fx    = f(v,drive(i),P,M);
-                dx    = spm_vec(v) - x0;
-                dfdx  = J;
-                for j = 1:length(dJdx)
-                    dfdx = dfdx + dJdx{j}*dx(j);
-                end
-                for j = 1:length(dJdu)
-                    dfdx = dfdx + dJdu{j}*drive(j);
-                end
-                
-                % update dx = (expm(dt*J) - I)*inv(J)*fx
-                %----------------------------------------------------------
-                v  = spm_unvec(spm_vec(v) + spm_dx(D*dfdx,D*fx,dt),v);
-                y(:,i) = v - spm_vec(M.x);  % Treat as expansion about fp          
-                                
-            elseif WithDelays == 23
-                % Full jacobian integration
-                % dx(t)/dt and Jacobian df/dx
-                %----------------------------------------------------------------------
-                [fx,dfdx,D] = f(v,drive(i),P,M);
-                
-                % update dx = (expm(dt*J) - I)*inv(J)*fx
-                %----------------------------------------------------------------------
-                v      = spm_vec(v) + spm_dx(D*dfdx,D*fx,dt);
-                y(:,i) = v - spm_vec(M.x);
-                
-            elseif WithDelays == 24
-                % Stochastic equation integration (SLOW)
-                dfdw = speye(length(v))/sqrt(2);
-                [fx,dfdx] = f(v,drive(i),P,M);
-                v  = spm_unvec(spm_vec(v) + spm_sde_dx(D*dfdx,dfdw,D*fx,dt),v);
-                y(:,i) = v - spm_vec(M.x);
-                
-            elseif WithDelays == 8
-                % 8th order Runge Kutta (RK8) - bit ott!
-                k_1  = f(v          ,drive(i)               ,P,M);  
-                k_2  = f(v+dt*(4/27),drive(i)+(dt*4/27)*k_1 ,P,M);       
-                k_3  = f(v+dt*(2/9) ,drive(i)+  (dt/18)*(k_1+3*k_2),P,M); 
-                k_4  = f(v+dt*(1/3) ,drive(i)+  (dt/12)*(k_1+3*k_3),P,M);
-                k_5  = f(v+dt*(1/2) ,drive(i)+   (dt/8)*(k_1+3*k_4),P,M);
-                k_6  = f(v+dt*(2/3) ,drive(i)+  (dt/54)*(13*k_1-27*k_3+42*k_4+8*k_5),P,M);
-                k_7  = f(v+dt*(1/6) ,drive(i)+(dt/4320)*(389*k_1-54*k_3+966*k_4-824*k_5+243*k_6),P,M);
-                k_8  = f(v+dt       ,drive(i)+  (dt/20)*...
-                        (-234*k_1+81*k_3-1164*k_4+656*k_5-122*k_6+800*k_7),P,M);
-                k_9  = f(v+dt*(5/6) ,drive(i)+ (dt/288)*...
-                        (-127*k_1+18*k_3-678*k_4+456*k_5-9*k_6+576*k_7+4*k_8),P,M);
-                k_10 = f(v+dt       ,drive(i)+ (dt/820)*...
-                        (1481*k_1-81*k_3+7104*k_4-3376*k_5+72*k_6-5040*k_7-60*k_8+720*k_9),P,M);
-                dxdt = dt/840*(41*k_1+27*k_4+272*k_5+27*k_6+216*k_7+216*k_9+41*k_10);
-                v      = v + Q*dxdt;
-                y(:,i) = v - spm_vec(M.x); 
-                
-            elseif WithDelays == 5
-                for j = 1:N
-                    %4-th order Runge-Kutta method.
-                    k1       = f(v          ,drive(i)     ,P,M);
-                    k2       = f(v+0.5*dt*k1,drive(i)+dt/2,P,M);
-                    k3       = f(v+0.5*dt*k2,drive(i)+dt/2,P,M);
-                    k4       = f(v+    dt*k3,drive(i)+dt  ,P,M);
-                    dxdt     = (dt/6)*(k1+2*k2+2*k3+k4);
-                    v        = v + dxdt;
-                end
-                y(:,i)   = (del.*Q)*v;    
-            
-            elseif WithDelays == 100
-
-                if i == 1
-                    [fx,J,D] = f(v,0*drive(i),P,M);
-                    D        = real(1-D*dt);
-                    Q = D;
-                    QJ  = Q.*J;
-                else
-                    fx       = f(v,abs(drive(i)),P,M);
-                end
-
-                
-
-                % Jacobian integration;
-                dxdt   = dt*atcm.fun.aregress(J,fx,'MAP');
-
-                g    = dxdt - v;
-                b    = J'\g;
-                dxdt = v + QJ'*b ;
-
-                v = v + dxdt;
-
-                y(:,i) = v;
-    
             elseif WithDelays == 45 % RK45 with delayed states
                     
 
-                drive(i) = 0;
+                %drive(i) = 0;
                 
-                % Matrix delays and rate (integration) constants
-                %--------------------------------------------------
-                if i == 1
+                k1   = f(v,drive(:,i),P,M);
+                k2   = f(v+0.5.*dt.*k1,drive(i)+0.5*dt,P,M);
+                k3   = f(v+0.5.*dt.*k2,drive(i)+0.5*dt,P,M);
+                k4   = f(v+     dt.*k3,drive(i)+dt,P,M);
 
-                    [k1,J,D] = f(v,drive(:,i),P,M);
-                    k2   = f(v+0.5.*dt.*k1,drive(i)+0.5*dt,P,M);
-                    k3   = f(v+0.5.*dt.*k2,drive(i)+0.5*dt,P,M);
-                    k4   = f(v+     dt.*k3,drive(i)+dt,P,M);
-
-                    % D   = real(D);
-                    % %D   = inv(eye(length(D)) - D);
-                    % D = 1 - D;    
-                    % J   = full(J);
-                    % D = D.*(~~real(J));
-
-                else
-
-                    % integrate w 4-th order Runge-Kutta method.
-                    %--------------------------------------------------
-                    k1   = f(v            ,drive(i),P,M);
-                    k2   = f(v+0.5.*dt.*k1,drive(i)+0.5*dt,P,M);
-                    k3   = f(v+0.5.*dt.*k2,drive(i)+0.5*dt,P,M);
-                    k4   = f(v+     dt.*k3,drive(i)+dt,P,M);
-
-                end
 
                 dxdt = (dt/6).*(k1 + 2*k2 + 2*k3 + k4);
-
-                % % work in seconds;
-                % dxdt = dxdt / dt;
-                % 
-                % % compute a linear update operator for this step
-                % b    = pinv(full(J)'.*v).*dxdt;
-                % Q    =  (J.*b); % dxdt = Q*x;
-                % 
-                % % add delays and recompute step @ dt
-                % Q    = Q .* D;
-                % dxdt = (dt*Q*v);
-
                 v    = v + dxdt;
 
                 % Full update
                 %--------------------------------------------------
                 y(:,i) =   (v );
-
-                   
 
             end  
             
@@ -949,6 +684,8 @@ g = [];%g = exp(P.J(:))'*yorig;
 % Compute the cross spectral responses from the integrated states timeseries 
 %==========================================================================
 [yb,s,~,layers] = spectral_response(P,M,y,w,npp,nk,ns,t,nf,timeseries,dt,J,ci,1,fso,drive);
+
+%yb = exp(P.L) * mean(abs(tfm),1)';
 
 y = yb;
 %s = [];
@@ -1038,9 +775,31 @@ for ins = 1:ns
             % % filtering
             ti = t(burn:burno);
 
-            % Laplace transform (of timeseries)
-            %---------------------------------------------------
-            sigma = 0 ;              % Real part (decay factor)
+            % Option 1: Weighted Least Squares Estimator with Gaussian Constraint
+            %==============================================================
+
+            % % Precompute transformation operator
+            % if ij == 1
+            %     % Weighted Least Squares Estimator with Gaussian Constraint
+            %     F  = atcm.fun.asinespectrum(w,ti);
+            %     %Fc = atcm.fun.asinespectrum(w,ti,[],@cos);
+            %     %F  = F + sqrt(-1)*Fc;
+            % 
+            %     %F  = abs(F);
+            %     gk = 8;
+            %     G  = VtoGauss(ones(length(w),1),gk,[],0); % ~ GP kernel
+            %     W  = (pinv(F'*G*F)*F'*G);
+            % end
+            % 
+            % Ppf = abs(ys*W);
+            
+
+            %Ppf = atcm.fun.Afft(ys,1/dt,w);
+            %Ppf = atcm.fun.agauss_smooth(Ppf,1);
+
+            % Option 2: Numerical Laplace transform 
+            %==============================================================
+            sigma = 0 + (P.a(2));              % Real part (decay factor)
             f     = 2*pi*w;
             s     = sigma + 1i * f;  % s values (complex)
             Fs    = zeros(size(s));
@@ -1049,15 +808,27 @@ for ins = 1:ns
                 Fs(k) = sum(ys .* exp(-s(k) * ti'/1000) * dt);
             end
 
-             Fs  = abs(Fs);
-             N   = spm_dctmtx(length(w),24);
-             b   = N\Fs';
-            % 
-             Ppf = abs(N*b);
+            % s = 2 * pi * w * 1i;
+            % for k = 1:length(s)
+            %     integrand = ys' .* exp(-s(k) * ti/1000);
+            %     Fs(k) = trapz(ti/1000, integrand);
+            % end
+
+            Ppf  = abs(Fs);
+            
+            Ppf  = atcm.fun.agauss_smooth(Ppf,1);
+
+            %N   = spm_dctmtx(length(w),24);
+            %b   = N\Fs';
+            %Ppf = abs(N*b);
 
             %Ppf = abs(Fs);
 
-            %Ppf = atcm.fun.agauss_smooth(abs(Fs),1);
+            % Variable-width smoothing kernel (matrix)
+            %G   = VtoGauss(M.y{:});
+            %G   = G ./ max(G);
+            %Ppf = G*Ppf';
+
 
             % De-NaN/inf the spectrum
             %--------------------------------------------------------------
@@ -1123,9 +894,19 @@ for ins = 1:ns
 
     Pf0 = Pf(:,ins,ins);
 
-    Pf0 = atcm.fun.agauss_smooth(Pf0,1.6);
+    %H = gradient(gradient(Pf0));
+    %Pf0 = Pf0 - (exp(P.d(1))*3)*H;
 
-    Pf(:,ins,ins) = ( Pf0(:));
+   % Pf0 = atcm.fun.agauss_smooth(Pf0,1);
+
+    % Variable-width smoothing kernel (matrix)
+    %G   = VtoGauss(M.y{:});
+    %G   = G ./ max(G);
+    %H   = gradient(gradient(G));
+    %G   = G - (exp(P.d(1))*3)*H;
+    %Pf0 = G*Pf0;
+
+    Pf(:,ins,ins) = ( Pf0(:)./sum(Pf) );
 
     % Electrode gain: rescale to sum of data spectrum
     %----------------------------------------------------------------------
@@ -1220,6 +1001,263 @@ function [x] = sq(x)
 if size(x,3) > 1, x = squeeze(x); else, x = x(:); end
 
 end
+
+
+
+
+
+            % 
+            % elseif WithDelays == 2
+            % 
+            %     % TWO-point RK method
+            %     k1  = f(v,drive(i,:),P,M);  
+            %     k2  = f(v+dt*k1,drive(i,:),P,M);
+            %     phi = 0.5*k1 + 0.5*k2;              
+            %     v = v + dt*phi;
+            % 
+            %     % State Delays - interpolated
+            %     %--------------------------------------------------
+            %     d = 100*[.006 .002 .001 .004 .001 .008 .001 .008].*exp(P.ID);
+            %     d = repmat(d,[1 nk]);
+            %     L = (d);
+            % 
+            %     for j = 1:length(L)
+            %         ti = real(L(j))/dt;
+            %         if i > 1 && any(ti)
+            %             pt = t(i) - ti;
+            %             if pt > 0
+            %                 v(j) = interp1(t(1:i), [y(j,1:i-1) v(j)]', pt);
+            %             end
+            %         end
+            %     end
+            % 
+            %     y(:,i) = v;
+            % 
+            % 
+            % elseif WithDelays == 1
+            % 
+            %     if i == 1
+            %         [dxdt,~,D] = f(v,0*drive(i),P,M);
+            % 
+            %         D     = real(D);
+            %         D_dt  = (D*1000);
+            % 
+            %         %D = 1 - D;
+            % 
+            %     else
+            %         dxdt  = f(v,0*drive(i),P,M);
+            %     end
+            % 
+            %     b    = pinv(full(J)'.*v).*dxdt;
+            %     Q    =  J.*b; % dxdt = Q*x; Q is linear operator
+            %     dxdt = (Q.*D_dt)*v;
+            % 
+            %     v    = v + dt*dxdt;
+            % 
+            %     % update
+            %     %--------------------------------------------------
+            %     y(:,i) =   v ;
+            % 
+            % 
+            % 
+            % elseif WithDelays == 1.5
+            % 
+            %     % *backward* euler
+            %     if i == 1
+            %         [dxdt] = f(v,drive(i,:),P,M);    
+            %         v      = v + dt*dxdt;
+            %         y(:,i) = v;
+            %     else
+            %         % Next step with input
+            %         [dxdt] = f(v,drive(i,:),P,M);    
+            %         %v = v + dt*dxdt;                    
+            %         y(:,i) = y(:,i-1) + dt*dxdt;
+            %         v = y(:,i);
+            % 
+            %     end
+            % 
+            % elseif WithDelays == 1010
+            % 
+            %     %delays
+            %     del = exp(P.d(:)').*[1 1 1 1 1 1 1 1];
+            %     del = repmat(del,[1 nk]);
+            %     del = 1./del;
+            %     Tau = ( 1./(1 - (dt*del))-dt );  % <-- NOTE!
+            %     dxdt = f(v,drive(i,:),P,M);
+            % 
+            %     % delay state update
+            %     dx = v + (dxdt - v)./Tau(:);
+            %     v = v + dt*dx;
+            % 
+            %     y(:,i) = v;
+            % 
+            % elseif WithDelays == 10
+            % 
+            %     ff = @(x) f(x,drive(i),P,M);  
+            %     j = jaco(ff,spm_unvec(v,M.x),ones(size(v))*exp(-8));
+            % 
+            %     warning off;
+            %     v = v + j\v;
+            %     warning on;
+            % 
+            %     y(:,i) = v;
+            % 
+            % elseif WithDelays == 33
+            %     % A simple second order integration routine akin to an
+            %     % Euler or RK routine - but with a (matrix) delay operator
+            %     % and updating dfdx - i.e. full Jacobian integration
+            % 
+            %     for j = 1
+            % 
+            %         % simulation integration
+            %         %------------------------------------------------------
+            %         [dx]  = f(spm_unvec(v,M.x),drive(i,:),P,M);
+            % 
+            % 
+            %         % augment Jacobian & delay operator, take matrix exp
+            %         %------------------------------------------------------
+            %         J = full(spm_cat({0   [];
+            %                          dt*dx dt*(Q.*dfdx)}));
+            % 
+            %         % solve using matrix expectation
+            %         %------------------------------------------------------
+            %         step = expm(J);
+            %         v = v + step(2:end,1);
+            % 
+            %         % no-stim integration
+            %         %------------------------------------------------------
+            %         bx  = f(spm_unvec(v0,M.x),1e-6,P,M);
+            % 
+            %         % augment Jacobian & delay operator, take matrix exp
+            %         %------------------------------------------------------
+            %         Jb = full(spm_cat({0   [];
+            %                           dt*bx dt*(Q.*dfdx)}));
+            % 
+            %         % solve using matrix expectation
+            %         %------------------------------------------------------
+            %         stepb = expm(Jb);
+            %         v0 = v0 + stepb(2:end,1);
+            % 
+            %     end
+            % 
+            %     y(:,i) = v - v0; %- spm_vec(M.x);    
+            % 
+            % elseif WithDelays == 44
+            %     % Newton-Cotes quadrature, including Q
+            %     % note this is a Lagrange polynomial method
+            % 
+            %     k1 = f(v      ,drive(i,:),P,M);
+            %     k2 = f(v+dt*k1,drive(i,:),P,M);
+            %     k3 = f(v+dt*k2,drive(i,:),P,M);
+            %     k4 = f(v+dt*k3,drive(i,:),P,M);
+            %     k5 = f(v+dt*k4,drive(i,:),P,M);
+            % 
+            %     dxdt = ((2*dt)./45)*(7*k1 + 32*k2 + 12*k3 + 32*k4 + 7*k5);
+            %     v    = v + (dxdt);
+            % 
+            %     y(:,i) = v;
+            % 
+            % elseif WithDelays == 20
+            %     % same as above, but with the spm observation (gx) added on
+            %     for j = 1:N
+            %         v = v + Q*f(v,drive(i),P,M);
+            %     end
+            %     % Expansion about f point
+            %     y (:,i) = v - spm_vec(M.x);
+            %     yw(:,i) = spm_gx_erp(spm_vec(v),drive(i)',P,M);
+            % 
+            % elseif WithDelays == 21
+            %     % Integration with a bilinear jacobian                
+            %     % motion dx(t)/dt and Jacobian df/dx
+            %     %----------------------------------------------------------
+            %     fx    = f(v,drive(i),P,M);
+            %     dx    = spm_vec(v) - x0;
+            %     dfdx  = J;
+            %     for j = 1:length(dJdx)
+            %         dfdx = dfdx + dJdx{j}*dx(j);
+            %     end
+            %     for j = 1:length(dJdu)
+            %         dfdx = dfdx + dJdu{j}*drive(j);
+            %     end
+            % 
+            %     % update dx = (expm(dt*J) - I)*inv(J)*fx
+            %     %----------------------------------------------------------
+            %     v  = spm_unvec(spm_vec(v) + spm_dx(D*dfdx,D*fx,dt),v);
+            %     y(:,i) = v - spm_vec(M.x);  % Treat as expansion about fp          
+            % 
+            % elseif WithDelays == 23
+            %     % Full jacobian integration
+            %     % dx(t)/dt and Jacobian df/dx
+            %     %----------------------------------------------------------------------
+            %     [fx,dfdx,D] = f(v,drive(i),P,M);
+            % 
+            %     % update dx = (expm(dt*J) - I)*inv(J)*fx
+            %     %----------------------------------------------------------------------
+            %     v      = spm_vec(v) + spm_dx(D*dfdx,D*fx,dt);
+            %     y(:,i) = v - spm_vec(M.x);
+            % 
+            % elseif WithDelays == 24
+            %     % Stochastic equation integration (SLOW)
+            %     dfdw = speye(length(v))/sqrt(2);
+            %     [fx,dfdx] = f(v,drive(i),P,M);
+            %     v  = spm_unvec(spm_vec(v) + spm_sde_dx(D*dfdx,dfdw,D*fx,dt),v);
+            %     y(:,i) = v - spm_vec(M.x);
+            % 
+            % elseif WithDelays == 8
+            %     % 8th order Runge Kutta (RK8) - bit ott!
+            %     k_1  = f(v          ,drive(i)               ,P,M);  
+            %     k_2  = f(v+dt*(4/27),drive(i)+(dt*4/27)*k_1 ,P,M);       
+            %     k_3  = f(v+dt*(2/9) ,drive(i)+  (dt/18)*(k_1+3*k_2),P,M); 
+            %     k_4  = f(v+dt*(1/3) ,drive(i)+  (dt/12)*(k_1+3*k_3),P,M);
+            %     k_5  = f(v+dt*(1/2) ,drive(i)+   (dt/8)*(k_1+3*k_4),P,M);
+            %     k_6  = f(v+dt*(2/3) ,drive(i)+  (dt/54)*(13*k_1-27*k_3+42*k_4+8*k_5),P,M);
+            %     k_7  = f(v+dt*(1/6) ,drive(i)+(dt/4320)*(389*k_1-54*k_3+966*k_4-824*k_5+243*k_6),P,M);
+            %     k_8  = f(v+dt       ,drive(i)+  (dt/20)*...
+            %             (-234*k_1+81*k_3-1164*k_4+656*k_5-122*k_6+800*k_7),P,M);
+            %     k_9  = f(v+dt*(5/6) ,drive(i)+ (dt/288)*...
+            %             (-127*k_1+18*k_3-678*k_4+456*k_5-9*k_6+576*k_7+4*k_8),P,M);
+            %     k_10 = f(v+dt       ,drive(i)+ (dt/820)*...
+            %             (1481*k_1-81*k_3+7104*k_4-3376*k_5+72*k_6-5040*k_7-60*k_8+720*k_9),P,M);
+            %     dxdt = dt/840*(41*k_1+27*k_4+272*k_5+27*k_6+216*k_7+216*k_9+41*k_10);
+            %     v      = v + Q*dxdt;
+            %     y(:,i) = v - spm_vec(M.x); 
+            % 
+            % elseif WithDelays == 5
+            %     for j = 1:N
+            %         %4-th order Runge-Kutta method.
+            %         k1       = f(v          ,drive(i)     ,P,M);
+            %         k2       = f(v+0.5*dt*k1,drive(i)+dt/2,P,M);
+            %         k3       = f(v+0.5*dt*k2,drive(i)+dt/2,P,M);
+            %         k4       = f(v+    dt*k3,drive(i)+dt  ,P,M);
+            %         dxdt     = (dt/6)*(k1+2*k2+2*k3+k4);
+            %         v        = v + dxdt;
+            %     end
+            %     y(:,i)   = (del.*Q)*v;    
+            % 
+            % elseif WithDelays == 100
+            % 
+            %     if i == 1
+            %         [fx,J,D] = f(v,0*drive(i),P,M);
+            %         D        = real(1-D*dt);
+            %         Q = D;
+            %         QJ  = Q.*J;
+            %     else
+            %         fx       = f(v,abs(drive(i)),P,M);
+            %     end
+            % 
+            % 
+            % 
+            %     % Jacobian integration;
+            %     dxdt   = dt*atcm.fun.aregress(J,fx,'MAP');
+            % 
+            %     g    = dxdt - v;
+            %     b    = J'\g;
+            %     dxdt = v + QJ'*b ;
+            % 
+            %     v = v + dxdt;
+            % 
+            %     y(:,i) = v;
+
 
 
             %ul = [w(1)*exp(P.f(1)) (w(end)-1)*exp(P.f(2))];

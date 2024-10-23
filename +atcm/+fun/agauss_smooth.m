@@ -21,6 +21,7 @@ if length(a) == 1 && length(n) == 1
     switch model
         case 'gauss'; fun = @(Wid,f) a * exp( -(w-f).^2 / (2*(2*Wid)^2) );
         case 'laplace'; fun = @(Wid,f) a *( 1/(sqrt(2)*Wid)*exp(-sqrt(2)*abs(w-f)/Wid) );
+        case 'sin'; fun = @(Wid,f) a * abs(sin( 2*pi*f*(1:length(x))'/1000 ));
     end
     
     for i = 1:length(x)

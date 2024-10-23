@@ -3,31 +3,31 @@ function Qp = get_posteriors_tcm2024(Ep)
 F = fixedvalues();
 
 % intrinsics
-Qp.AMPA = exp(Ep.H).*F.GEa;
-Qp.GABAA = exp(Ep.H).*F.GIa;
-Qp.NMDA = exp(Ep.Hn).*F.GEn;
-Qp.GABAB = exp(Ep.Gb).*F.GIa;
+try;Qp.AMPA = exp(Ep.H).*F.GEa;end
+try;Qp.GABAA = exp(Ep.H).*F.GIa;end
+try;Qp.NMDA = exp(Ep.Hn).*F.GEn;end
+try;Qp.GABAB = exp(Ep.Gb).*F.GIa;end
 
 
 % time constants in ms
-Qp.KE  = 1./(exp(-Ep.T(:,1))*1000/2.2);
-Qp.KI  = 1./(exp(-Ep.T(:,2))*1000/5);
-Qp.KN  = 1./(exp(-Ep.T(:,3))*1000/100);
-Qp.KB  = 1./(exp(-Ep.T(:,4))*1000/300);  
-Qp.KM  = 1./(exp(-Ep.T(:,5))*1000/160);  
-Qp.KH  = 1./(exp(-Ep.T(:,6))*1000/100);  
+try;Qp.KE  = 1./(exp(-Ep.T(:,1))*1000/2.2);end
+try;Qp.KI  = 1./(exp(-Ep.T(:,2))*1000/5);end
+try;Qp.KN  = 1./(exp(-Ep.T(:,3))*1000/100);end
+try;Qp.KB  = 1./(exp(-Ep.T(:,4))*1000/300);  end
+try;Qp.KM  = 1./(exp(-Ep.T(:,5))*1000/160);  end
+try;Qp.KH  = 1./(exp(-Ep.T(:,6))*1000/100);  end
 
 % thalamo-cortical and cortico-thalamic delays
-Qp.CT = (8* exp(Ep.CT))/1000; %60;
-Qp.TC = (3* exp(Ep.TC))/1000; %20;
+try,Qp.CT = (8* exp(Ep.CT))/1000; end %60;
+try,Qp.TC = (3* exp(Ep.TC))/1000; end %20;
 
-% cell / axon conductance delays
-ID = [2 1 1 1 1 2 1 2];
-Qp.ID = (ID.*exp(Ep.ID)/1000); 
+% cell / axononal conductance delays
+%ID = [2 1 1 1 1 2 1 2];
+%Qp.ID = (ID.*exp(Ep.ID)/1000); 
 
 Qp.J = exp(Ep.J);
 
-Qp.scale_NMDA = exp(Ep.scale_NMDA);
+try;Qp.scale_NMDA = exp(Ep.scale_NMDA);end
 
 end
 

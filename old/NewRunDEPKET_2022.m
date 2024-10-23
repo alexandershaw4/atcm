@@ -1,9 +1,6 @@
-function RunTCM_Script_transfun(i)
+function NewRunDEPKET_2022(i)
 % Top level script showing how to apply the thalamo-cortical neural mass
-% model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
-%
-% This version using a linearisation and transfer function (numerical
-% Laplace) rather than brute numerical integration.
+% model decribed in Shaw et al 2020 NeuroImage, to M/EEG data. 
 %
 % Requires atcm (thalamo cortical modelling package) and aoptim
 % (optimisation package)
@@ -15,10 +12,10 @@ function RunTCM_Script_transfun(i)
 %--------------------------------------------------
 % - atcm. contains:
 %         - the equations of motion for an 8 pop thalamo-cortical
-%           model described by parameterised Morris-Lecar/Hodgkin-Hux
+%           model described by parameterised Morris-Lecar/Hodgkin-Hux 
 %           conductance ODEs
-%         - numerical integration (Euler, RK, Newton-Cotes +) and spectral
-%           response functions
+%         - numerical integration (Euler, RK, Newton-Cotes +) and spectral 
+%           response functions 
 %         - lots of helper functions (integration, differentiation,
 %           continuation, decomposition methods etc)
 % - aoptim contains:
@@ -31,16 +28,22 @@ function RunTCM_Script_transfun(i)
 
 % EXAMPLE ONE NODE SETUP:
 %==========================================================================
+clear global;
 
+% for cubric system, add paths -
+% addpath(genpath('~/spm12'));
+% addpath(genpath('/home/sapas10/code/atcm/'));
+% addpath(genpath('/home/sapas10/code/aoptim/'));
+ 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'NewSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'ketdep_list.txt';
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'aLM_Laplace_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'nfinalTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -50,29 +53,26 @@ T = [... % this is a 1-node model; nothing to put here...
 F = (T==1);
 B = (T==2);
 C = [1]';          % input(s)
-L = sparse(1,1);
-
-[p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
-
+L = sparse(1,1); 
 
 % Set up, over subjects
 %--------------------------------------------------------------------------
-for i = i;%1:length(Data.Datasets)
+for s = i;%1:length(Data.Datasets)
     
     % Data Naming & Design Matrix
     %----------------------------------------------------------------------
     DCM          = [];
-    [fp fn fe]   = fileparts(Data.Datasets{i});
+    [fp fn fe]   = fileparts(Data.Datasets{s});
     DCM.name     = [Data.Prefix fn fe];
     
-    DCM.xY.Dfile = Data.Datasets{i};  % original spm datafile
+    DCM.xY.Dfile = Data.Datasets{s};  % original spm datafile
     Ns           = length(F);         % number of regions / modes
     DCM.xU.X     = Data.Design.X;     % design matrix
     DCM.xU.name  = Data.Design.name;  % condition names
     tCode        = Data.Design.tCode; % condition index (in SPM)
     DCM.xY.Ic    = Data.Design.Ic;    % channel indices
     DCM.Sname    = Data.Design.Sname; % channel names
-    
+        
     
     if exist(DCM.name);
         fprintf('Skipping model %d/%d - already exists!\n( %s )\n',i,length(Data.Datasets),DCM.name);
@@ -90,16 +90,16 @@ for i = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tc_hilge2;               % model function handle
-    DCM.M.IS = @atcm.fun.alex_tf;            % Alex integrator/transfer function
+    DCM.M.f  = @atcm.tc_hilge;               % model function handle
+    DCM.M.IS = @atcm.integrate_1;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
     % Print Progress
     %----------------------------------------------------------------------
-    fprintf('Running Dataset %d / %d\n',i,length(Data.Datasets));
+    fprintf('Running Dataset %d / %d\n',s,length(Data.Datasets));
     
     % Frequency range of interest
-    fq =  [1 90];
+    fq = [3 90];
     
     % Prepare Data
     %----------------------------------------------------------------------
@@ -113,131 +113,139 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.DoData = 1;                         %... leave on [custom]
     %DCM.options.baseTdcm   = [-200 0];             %... baseline times [new!]
     DCM.options.Fltdcm = fq;                    %... bp filter [new!]
-    DCM.options.UseButterband = fq;
 
     DCM.options.analysis      = 'CSD';              %... analyse type
     DCM.xY.modality           = 'LFP';              %... ECD or LFP data? [LFP]
     DCM.options.spatial       = 'LFP';              %... spatial model [LFP]
     DCM.options.model         = 'tc6';              %... neural model
     DCM.options.Nmodes        = length(DCM.M.U);    %... number of modes
-    
+
+    % 1010 == use atcm.fun.AFFT.m
     DCM.options.UseWelch      = 1010;
-    DCM.options.FFTSmooth     = 0;
+    DCM.options.FFTSmooth     = 3;
+    %DCM.options.UseButterband = fq;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = 1;
-    
+    DCM.options.FrequencyStep = 1;     
+            
     DCM.xY.name = DCM.Sname;
     DCM = atcm.fun.prepcsd(DCM);
-    DCM.options.DATA = 1 ;
-
-    DCM.xY.y{:}  = agauss_smooth(abs(DCM.xY.y{:}),1)';
-        
+    DCM.options.DATA = 1 ;      
+                
     % Subfunctions and default priors
     %----------------------------------------------------------------------
     DCM = atcm.parameters(DCM,Ns);
-            
-    % other model options
-    %----------------------------------------------------------------------
-    DCM.M.solvefixed=0;      % 
-    DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
-    DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
         
-    load([p '/newpoints3.mat'],'pE','pC')
-
-    pE = spm_unvec(spm_vec(pE)*0,pE);
-
-    pC.ID = pC.ID * 0;
-    pC.T  = pC.T *0;
-    
-    pE.J = pE.J-1000;    
-    pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
-    %pC.ID = pC.ID + 1/8;
-    pE.L = 0;
-    pC.a = pC.a*0;
-
-    pE.Gb = pE.H;
-    pC.Gb = [1   0   0   0   0   0   0   0;
-             0   1   1   0   0   0   0   0;
-             0   0   1   0   0   0   0   0;
-             0   0   0   1   1   0   0   0;
-             0   0   0   0   1   0   0   0;
-             0   0   0   0   1   1   0   0;
-             0   0   0   0   0   0   0   0;
-             0   0   0   0   0   0   1   0]/64;
-
-    pC.J(1:8)=1/8;
-    pC.d(1) = 1/8;
-    
-
-    % Make changes here;
-    %-----------------------------------------------------------
-   
-    DCM.M.pE = pE;
-    DCM.M.pC = pC;
-
-    % Optimise using AO.m -- a Newton scheme with add-ons and multiple
-    % objective functions built in, including free energy
-    %----------------------------------------------------------------------
-    w   = DCM.xY.Hz;
-    Y   = DCM.xY.y{:};
+    % if using AOPTIM for inversion, invoke the linear model g(x) output by
+    % placing data (DCM.xY.y) in model struct - DCM.M.y
     DCM.M.y  = DCM.xY.y;
     DCM.M.Hz = DCM.xY.Hz;
-
-    ppE = DCM.M.pE;
-    ppC = DCM.M.pC;
-
-    fprintf('--------------- STATE ESTIMATION ---------------\n');
-    fprintf('Search for a stable fixed point\n');
-
-    xx = load([p '/newx.mat']); DCM.M.x = spm_unvec(xx.x,DCM.M.x);
-    load('init_14dec','x');
-    DCM.M.x = spm_unvec(x,DCM.M.x);
-
-    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
-    DCM.M.x = spm_unvec(x,DCM.M.x);
-
-    norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
-
-    fprintf('Finished...\n');
     
-          
-    fprintf('--------------- PARAM ESTIMATION ---------------\n');
-    %fprintf('iteration %d\n',j);
-
-    % Alex's version of the Levenberg-Marquard routine
-    %M = AODCM(DCM);
-
-    [Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
-
-    %M.alex_lm;
-
-    %M.compute_free_energy(M.Ep);
-
-    %DCM.M.nograph = 0;
-    %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
-
-    % save in DCM structures after optim 
+    % If using DCM inversion, select whether to block graph or not
+    DCM.M.nograph = 0;
+            
+    % Feature function for the integrator [NOT USED]
     %----------------------------------------------------------------------
+    DCM = atcm.complete(DCM);
+    DCM.M.FS = @(x) x(:).^2.*(1:length(x))'.^2;
+    imscale = sum(spm_vec(abs(real(DCM.xY.y{:})))) ./ sum(spm_vec(abs(imag(DCM.xY.y{:}))));
+    DCM.M.FS = @(x) [real(x) ; imscale*imag(x) ];
+
+    % other model options
+    %----------------------------------------------------------------------
+    DCM.M.solvefixed=0;      % oscillations == no fixed point search
+    DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
+    DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
+    
+    % Set Q - a precision operator, increasing with frequency
+    %----------------------------------------------------------------------
+    y  = spm_vec(DCM.xY.y{1});
+    w  = spm_vec(DCM.xY.Hz);
+    Qw = diag(DCM.xY.y{:}./max(DCM.xY.y{:}));
+    Nf = length(w);
+    Q  = {spm_Q(1/2,Nf,1)*diag(DCM.M.Hz)*spm_Q(1/2,Nf,1)};
+    Qw = Qw * Q{:};
+
+    % Newton-Cotes integration parameters
+    %----------------------------------------------------------------------
+    DCM.M.sim.dt  = 1./300;
+    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(3)-DCM.M.sim.dt)');
+    DCM.M.burnin  = 300;
+    DCM.M.intmethod = 44;
+    
+    % Input is an ERP
+    DCM.M.InputType = 0;
+    DCM.M.pE.C = log(.01);
+    
+    % only interested in real psd rn
+    %----------------------------------------------------------------------
+    DCM.xY.y{1} = real(DCM.xY.y{1});
+    DCM.M.y     = DCM.xY.y;
+    
+    ppE = DCM.M.pE;
+    
+    % Optimise using AO.m                                                     
+    %----------------------------------------------------------------------
+    M = AODCM(DCM);
+
+    % Bias and feature selection
+    M.opts.Q  = real(Qw);  
+    M.opts.FS = @(x) [real(sqrt(x))];
+    M.opts.FS = @(x) [real( spm_vec(atcm.fun.Pf2VMD(x,3)) )];    
+    
+    % opt set 1.
+    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
+    M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
+    M.opts.hyperparams=1;   % hyperparameter tuning
+    M.opts.fsd = 1;         % fixed-step for derivatives
+    M.opts.corrweight = 0;  % weight log evidence by correlation 
+    M.opts.inner_loop = 3;
+        
+    M.opts.objective = 'qrmse'; % objective (error) function
+    M.opts.criterion = 1e-3;
+    
+    %M.opts.isGaussNewton=1;
+    
+    M.default_optimise([7],[28])
+    
+    % afterward, use AODCM object to loop through the optimisation steps
+    % for a visualisation:
+    %-------------------------------------------------------------------
+%     for i = 1:28; 
+%        dydp(i,:) = spm_vec(M.opts.fun(M.history.p{i}));
+%     end
+    
+    Morig=M;
+    
+    % Extract fit and run again
+    Ep = spm_unvec(M.Ep,DCM.M.pE);
+    DCM.M.pE = Ep;
+
+    % Optimise --- 2                                                         1
+    %----------------------------------------------------------------------
+    M = AODCM(DCM);
+    
+    % Bias and feature selection
+    M.opts.Q  = Qw;  
+    M.opts.FS = @(x) real(sqrt(x));
+    M.opts.FS = @(x) real( spm_vec(atcm.fun.Pf2VMD(x,3)) );
+
+    % opt set 1.
+    M.opts.EnforcePriorProb=0; % forcibly constrain parameters to within prior dist
+    M.opts.ismimo=0;        % compute dfdp elementwise on vector-output function
+    M.opts.doparallel=1;    % use parfor loops when poss, incl for df/dx
+    M.opts.hyperparams=1;   % hyperparameter tuning
+    M.opts.fsd=0;           % fixed-step for derivatives
+    M.opts.corrweight = 0;  % weight log evidence by correlation 
+    
+    M.opts.objective = 'qrmse'; % objective (error) function
+    M.opts.criterion = 1e-3;
+
+    M.default_optimise([7],[8])
+      
+    % reinstate the actual priors before saving
     DCM.M.pE = ppE;
-    DCM.Ep = Qp;%spm_unvec(M.Ep,DCM.M.pE);
-    DCM.Cp = Cp;
-
-    DCM.M.sim.dt  = 1./600;
-    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
-
-    [y,w,G,s] = feval(DCM.M.IS,DCM.Ep,DCM.M,DCM.xU);
-
-    DCM.pred = y;
-    DCM.w = w;
-    DCM.G = G;
-    DCM.series = s;
     
-    %DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
-    %DCM.Cp = makeposdef(DCM.Cp);
-    DCM.F  = F;%M.FreeEnergyF;
-    %DCM.Cp = M.CP;
-    save(DCM.name); close all; clear global;
+    save(DCM.name); close; clear global;    
     
-end
-
 end

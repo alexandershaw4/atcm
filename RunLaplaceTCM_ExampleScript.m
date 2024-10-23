@@ -40,7 +40,7 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'aLM_Laplace_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'LaplaceTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -90,8 +90,8 @@ for i = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tc_hilge2;               % model function handle
-    DCM.M.IS = @atcm.fun.alex_tf;            % Alex integrator/transfer function
+    DCM.M.f  = @atcm.TCM2024;                % model function handle
+    DCM.M.IS = @atcm.fun.alex_LapTF_NoDelay;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
     % Print Progress
@@ -130,7 +130,7 @@ for i = i;%1:length(Data.Datasets)
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
 
-    DCM.xY.y{:}  = agauss_smooth(abs(DCM.xY.y{:}),1)';
+    DCM.xY.y{:}  = atcm.fun.agauss_smooth(abs(DCM.xY.y{:}),1)';
         
     % Subfunctions and default priors
     %----------------------------------------------------------------------
@@ -199,7 +199,11 @@ for i = i;%1:length(Data.Datasets)
     norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
 
     fprintf('Finished...\n');
-    
+
+    % precompute J and put in J which flags for the rhs to compute the
+    % *delayed* update step
+    [dx,J] = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
+    DCM.M.J = J;
           
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
     %fprintf('iteration %d\n',j);

@@ -11,6 +11,7 @@ for i = 1:size(X,2)
         %mu = mean(dat);
 
         GX{i} = atcm.fun.VtoGauss(X(:,i));
+        %GX{i} = GX{i}./max(GX{i});
     
         fun = @(r) sum( (y(:) - atcm.fun.aregress(GX{i},y,'bayes',r(1),r(2))).^2 );
     
@@ -42,6 +43,8 @@ bv  = pinv(V)'*y;
 %bv  = atcm.fun.aregress(V',y,'MAP');
 
 Cov = 0;
-for i = 1:length(CovStack)
-    Cov = Cov + b(i) * squeeze(CovStack{i});
+try
+    for i = 1:length(CovStack)
+        Cov = Cov + b(i) * squeeze(CovStack{i});
+    end
 end

@@ -341,7 +341,7 @@ for i = 1:Ne;
 
                         % use the same regression based routine as the TCM
                         % model
-                        if isfield(DCM.options,'RegressionDCM') && DCM.options.RegressionFFT
+                        if isfield(DCM.options,'RegressionFFT') && DCM.options.RegressionFFT
                             % if j == 1
                             %     [~,DFT,f] = adft(Ymod,1/DCM.xY.dt,DCM.xY.Hz);
                             % end
@@ -357,13 +357,13 @@ for i = 1:Ne;
                             % 
                             % Pf = PpfR + sqrt(-1)*PpfI;
 
+                            Pf = atcm.fun.awlsegc(Ymod,DCM.xY.pst,DCM.xY.Hz);
 
-
-                            if j == 1
-                                DFT = lsqspectrum(Ymod,1/DCM.xY.dt,DCM.xY.Hz);
-                            end
-
-                            Pf = abs( (DFT)'\(ys)' );
+                            % if j == 1
+                            %     DFT = lsqspectrum(Ymod,1/DCM.xY.dt,DCM.xY.Hz);
+                            % end
+                            % 
+                            % Pf = abs( (DFT)'\(ys)' );
 
 
 

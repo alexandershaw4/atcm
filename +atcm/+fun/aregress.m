@@ -23,7 +23,7 @@ if strcmp(method,'ML')==1
     W=(PHI'*PHI)\(PHI'*Y); 
 elseif strcmp(method,'MAP')==1
     I=p1.*eye(D);
-    W=(I+PHI'*PHI)\(PHI'*Y); 
+    W=pinv(I+PHI'*PHI)*(PHI'*Y); 
 
     % H = I+PHI'*PHI;
     %[E,D] = eig(H);
@@ -34,8 +34,8 @@ elseif strcmp(method,'MAP')==1
 else
     I=eye(D);
     lambda=(p1.^2)./(p2.^2);
-    W=(lambda*I+PHI'*PHI)\(PHI'*Y);
-    C=inv(p1.^(-2)*(PHI'*PHI)+p2.^(-2).*I);
+    W=pinv(lambda*I+PHI'*PHI)*(PHI'*Y);
+    C=pinv(p1.^(-2)*(PHI'*PHI)+p2.^(-2).*I);
 end
 
 end

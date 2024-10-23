@@ -10,10 +10,10 @@ function [f,J,D] = tc_hilge2(x,u,P,M,dt)
 % These 'channels' feature their own reversal poentials and rate constants:
 %
 % K  = -70           (Leak)
-% Na =  60  / 4 ms   (AMPA)
-% Cl = -90  / 16 ms  (GABA-A)
+% Na =  60  / 2.2 ms   (AMPA)
+% Cl = -90  / 5 ms  (GABA-A)
 % Ca =  10  / 100 ms (NMDA)   + voltage mag switch
-% B  = -100 / 200 ms (GABA-B)
+% B  = -100 / 300 ms (GABA-B)
 % f  = -40
 %
 % FORMAT [f,J,Q,D] = atcm.tcm_hilge(x,u,P,M)
@@ -67,6 +67,9 @@ function [f,J,D] = tc_hilge2(x,u,P,M,dt)
 %
 % Dr Alexander Shaw | 2020 | alexandershaw4[@]gmail.com
 
+if isstruct(P) && isfield(P,'p')
+    P = P.p;
+end
 
 % Flag: include M- & H- channels on L6 TP & Thalamic Relay cells, or not
 %--------------------------------------------------------------------------
@@ -380,7 +383,7 @@ for i = 1:ns
             E(2) = E(2) + dU(1);
         else
             % otherwise just drive the thalamus
-            input_cell        = [7 8];
+            input_cell        = [8 7];
             E(input_cell)     = E(input_cell) + dU;            
         end
 

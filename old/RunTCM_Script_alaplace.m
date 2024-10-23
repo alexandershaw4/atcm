@@ -1,4 +1,4 @@
-function RunTCM_Script_transfun(i)
+function RunTCM_Script_alaplace(i)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
 %
@@ -91,7 +91,7 @@ for i = i;%1:length(Data.Datasets)
     % Function Handles
     %----------------------------------------------------------------------
     DCM.M.f  = @atcm.tc_hilge2;               % model function handle
-    DCM.M.IS = @atcm.fun.alex_tf;            % Alex integrator/transfer function
+    DCM.M.IS = @atcm.alaplace;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
     % Print Progress
@@ -138,7 +138,7 @@ for i = i;%1:length(Data.Datasets)
             
     % other model options
     %----------------------------------------------------------------------
-    DCM.M.solvefixed=0;      % 
+    DCM.M.solvefixed=0;      % oscillations == no fixed point search
     DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
     DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
         
@@ -153,17 +153,8 @@ for i = i;%1:length(Data.Datasets)
     pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
     %pC.ID = pC.ID + 1/8;
     pE.L = 0;
-    pC.a = pC.a*0;
 
-    pE.Gb = pE.H;
-    pC.Gb = [1   0   0   0   0   0   0   0;
-             0   1   1   0   0   0   0   0;
-             0   0   1   0   0   0   0   0;
-             0   0   0   1   1   0   0   0;
-             0   0   0   0   1   0   0   0;
-             0   0   0   0   1   1   0   0;
-             0   0   0   0   0   0   0   0;
-             0   0   0   0   0   0   1   0]/64;
+   % pC.S = pC.S + 1/8;
 
     pC.J(1:8)=1/8;
     pC.d(1) = 1/8;
@@ -199,19 +190,16 @@ for i = i;%1:length(Data.Datasets)
     norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
 
     fprintf('Finished...\n');
-    
           
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
     %fprintf('iteration %d\n',j);
 
     % Alex's version of the Levenberg-Marquard routine
-    %M = AODCM(DCM);
+    M = AODCM(DCM);
 
-    [Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
+    M.alex_lm;
 
-    %M.alex_lm;
-
-    %M.compute_free_energy(M.Ep);
+    M.compute_free_energy(M.Ep);
 
     %DCM.M.nograph = 0;
     %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
@@ -219,13 +207,13 @@ for i = i;%1:length(Data.Datasets)
     % save in DCM structures after optim 
     %----------------------------------------------------------------------
     DCM.M.pE = ppE;
-    DCM.Ep = Qp;%spm_unvec(M.Ep,DCM.M.pE);
-    DCM.Cp = Cp;
+    DCM.Ep = spm_unvec(M.Ep,DCM.M.pE);
+    DCM.Cp = [];
 
-    DCM.M.sim.dt  = 1./600;
-    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(2)-DCM.M.sim.dt)');
+    DCM.M.sim.dt  = 1./2000;
+    DCM.M.sim.pst = 1000*((0:DCM.M.sim.dt:(1)-DCM.M.sim.dt)');
 
-    [y,w,G,s] = feval(DCM.M.IS,DCM.Ep,DCM.M,DCM.xU);
+    [y,w,s,t,yy] = feval(DCM.M.IS,DCM.Ep,DCM.M,DCM.xU);
 
     DCM.pred = y;
     DCM.w = w;
@@ -234,8 +222,8 @@ for i = i;%1:length(Data.Datasets)
     
     %DCM.Cp = atcm.fun.reembedreducedcovariancematrix(DCM,M.CP);
     %DCM.Cp = makeposdef(DCM.Cp);
-    DCM.F  = F;%M.FreeEnergyF;
-    %DCM.Cp = M.CP;
+    DCM.F  = M.FreeEnergyF;
+    DCM.Cp = M.CP;
     save(DCM.name); close all; clear global;
     
 end

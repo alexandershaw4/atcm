@@ -1,4 +1,4 @@
-function [Y,w,G,units,MAG,PHA] = alex_tf(P,M,U)
+function [Y,w,G,units,MAG,PHA] = alex_LapTF_NoDelay(P,M,U)
 % linearisation and numerical (Laplace) transfer function for a DCM
 % witten by Alex Shaw
 %
@@ -51,8 +51,7 @@ u0 = 1;
 delta_x = 1e-6;  
 
 % get delay operator
-[f0,A0,D] = f(x0,u0,[]);
-D         = inv(eye(length(D)) - D);
+[f0,A0] = f(x0,u0,[]);
 
 % dynamics linearisation; numerical Jacobian - dfdx
 %--------------------------------------------------------------------------
@@ -64,8 +63,6 @@ A  = denan(A);
 %A=jaco(fun,M.x,ones(size(M.x))*delta_x,0,1);
 %A=denan(A);
 
-D        = inv(eye(length(D)) - D);
-
 if isfield(M,'tforder') && M.tforder == 2
     fun = @(x) M.f(x,0,P,M);
     A2 = jaco(fun,M.x,ones(size(M.x))*delta_x,0,2);
@@ -73,8 +70,6 @@ if isfield(M,'tforder') && M.tforder == 2
     A2 = A2./norm(A2);
 end
 
-
-A        = D*A;
 
 % input linearisation, e.g. dfdu
 %--------------------------------------------------------------------------

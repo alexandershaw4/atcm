@@ -138,7 +138,7 @@ for i = i;%1:length(Data.Datasets)
             
     % other model options
     %----------------------------------------------------------------------
-    DCM.M.solvefixed=0;      % 
+    DCM.M.solvefixed=0;      % oscillations == no fixed point search
     DCM.M.x = zeros(1,8,7);  % init state space: ns x np x nstates
     DCM.M.x(:,:,1)=-70;      % init pop membrane pot [mV]
         
