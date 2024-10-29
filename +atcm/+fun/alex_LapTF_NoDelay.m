@@ -145,7 +145,7 @@ for i = 1:Ns
     H = gradient(gradient(Y));
     Y = Y - (exp(P.d(1))*3)*H;
 
-    PSD(i,:) = exp(P.L(i))*(Y);
+    PSD(i,:) = exp(P.L(i))*abs(Y);
 
 end
 

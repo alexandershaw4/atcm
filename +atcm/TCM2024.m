@@ -416,14 +416,14 @@ for i = 1:ns
 
             t  = 3 * exp(P.TC);
             c  = 8 * exp(P.CT);
-            d  = [1     1     1     1     1     1     t     t;
+            d  = [2     1     1     1     1     1     t     t;
                   1     1     1     1     1     1     t     t;
                   1     1     1     1     1     1     t     t;
                   1     1     1     1     1     1     t     t;
                   1     1     1     1     1     1     t     t;
-                  1     1     1     1     1     1     t     t;
+                  1     1     1     1     1     2     t     t;
                   c     c     c     c     c     c     1     1;
-                  c     c     c     c     c     c     1     1];
+                  c     c     c     c     c     c     1     2];
             d  = d * diag(exp(P.ID));
         
             d = repmat(d,[7 7]);
