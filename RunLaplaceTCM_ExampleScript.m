@@ -1,4 +1,4 @@
-function RunTCM_Script_transfun(i)
+function RunLaplaceTCM_ExampleScript(i)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
 %
