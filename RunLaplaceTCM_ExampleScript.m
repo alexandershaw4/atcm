@@ -47,6 +47,12 @@ Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 %--------------------------------------------------------------------------
 T = [... % this is a 1-node model; nothing to put here...
     0];
+
+%    from
+%    v1 v2
+% T = [0  2 % v1 to
+%      1  0];%;v2
+
 F = (T==1);
 B = (T==2);
 C = [1]';          % input(s)
