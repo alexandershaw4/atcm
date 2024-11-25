@@ -53,6 +53,7 @@ delta_x = 1e-6;
 % get delay operator
 [f0,A0] = f(x0,u0,[]);
 
+
 % dynamics linearisation; numerical Jacobian - dfdx
 %--------------------------------------------------------------------------
 [f,A,D]  = feval(M.f,M.x,0,P,M);
@@ -73,7 +74,7 @@ end
 
 % input linearisation, e.g. dfdu
 %--------------------------------------------------------------------------
-B = spm_diff(M.f,M.x,1,P,M,2);
+B = spm_diff(M.f,M.x,1*delta_x,P,M,2);
 B = denan(B);
 n = length(f);
 
@@ -133,17 +134,17 @@ for i = 1:Ns
     %Y = sum(Y,1);
     Y = abs(Y);
 
-    if isfield(M,'ham') && M.ham;
-        H = hamming(length(w));
-        Y = Y(:).*H(:); 
-    end
+    %if isfield(M,'ham') && M.ham;
+    %    H = hamming(length(w));
+    %    Y = Y(:).*H(:); 
+    %end
 
     MAG{i} = (MG);%magnitude;
     PHA{i} = angle(MG)*180/pi;%phase;
     
     % Laplace is pretty smooth, parameterise granularity
-    H = gradient(gradient(Y));
-    Y = Y - (exp(P.d(1))*3)*H;
+    %H = gradient(gradient(Y));
+    %Y = Y - (exp(P.d(1))*3)*H;
 
     PSD(i,:) = exp(P.L(i))*abs(Y);
 
@@ -174,7 +175,7 @@ if isfield(M,'sim') && nargout > 3
     % remove sim struct and recall top func
     M = rmfield(M,'sim');
     P.J(P.J==-1000)=0;
-    [~,~,~,~,MAG,PHA] = atcm.fun.alex_tf(P,M,U);
+    [~,~,~,~,MAG,PHA] = atcm.fun.alex_LapTF_NoDelay(P,M,U);
 
     for k = 1:Ns
         

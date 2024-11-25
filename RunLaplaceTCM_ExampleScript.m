@@ -210,7 +210,10 @@ for i = i;%1:length(Data.Datasets)
     % *delayed* update step
     [dx,J] = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
     DCM.M.J = J;
-          
+    
+    newp = load('NewPriors','Ep');
+    DCM.M.pE = newp.Ep;
+
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
     %fprintf('iteration %d\n',j);
 

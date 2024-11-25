@@ -314,7 +314,7 @@ for i = 1:ns
                
         % input scaling: 
         %------------------------------------------------------------------
-        dU = u(:)*C(i,1);
+        dU = u(:)*C(i,:)';
                                                 
         % intrinsic coupling - parameterised
         %------------------------------------------------------------------
@@ -343,7 +343,11 @@ for i = 1:ns
         
         % if length of input vector > 1, represents more than one exogenous
         % input - one to thal relay and one to cortical pyramids
-        if length(u) > 1
+        if length(P.C) == 8
+            
+            E = E + dU;
+
+        elseif length(u) > 1
             E(8) = E(8) + dU(2);
             E(2) = E(2) + dU(1);
         else
