@@ -10,7 +10,7 @@ function [X,F] = agd(f,x,n,a)
 e = f(x);
 
 if nargin < 4 || isempty(a);
-    a = 4;
+    a = 1;
 end
 
 doplot = 1;
@@ -39,11 +39,13 @@ for i = 1:n
     %    a  = e./ga;
     %end
 
-    if i == 1
-        a = 1/8;
-    end
+    % if i == 1
+    %     a = 1/8;
+    % end
 
-    H = g(:)*g(:)';
+    H = dfdxdx(f,x);
+
+    %H = g(:)*g(:)';
 
     g = g./norm(g);
     H = H./norm(H);
@@ -76,6 +78,27 @@ for i = 1:n
 
 end
 
+
+end
+
+function g = dfdxdx(f,x)
+% simple 1-step finite difference routine for compute partial gradients
+
+e0 = f(x);
+k  = exp(-8);
+
+for i  = 1:length(x)
+    for j = 1:length(x)
+        if i < j
+            dx    = x;
+            dx(i) = dx(i) + k;
+            dx(j) = dx(j) + k;
+        
+            g(i,j)  = (f(dx) - e0) ./ (2*k);
+            g(j,i)  = g(i,j);
+        end
+    end
+end
 
 end
 
