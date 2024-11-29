@@ -106,7 +106,8 @@ for i = 1:Ns
     % The Laplace transfer - this replaces the MATLAB built-in version using
     % 'ss' and 'bode' with a from-scratch numerical routine;
     for j = 1:length(w)
-        Jm  = AA - 1i*2*pi*w(j)*eye(length(AA));
+        s = exp(P.d(2)) + 1i*2*pi*w(j);
+        Jm  = AA - s*eye(length(AA));
         Ym  = Jm\BB;
         MG(:,j) = Ym;
         Y   = C'*Ym;
@@ -150,6 +151,15 @@ for i = 1:Ns
     H = gradient(gradient(Y));
     Y = Y - (exp(P.d(1))*3)*H;
 
+    % inverse generalised filtering
+    H = 1 ./ (1 + (w / 10).^2);
+
+    lambda = 0.01 * exp(P.d(3));
+    Gf = conj(H) ./ (abs(H).^2 + lambda);
+
+    Y = Gf.*Y;
+
+    % electrode scaling
     PSD(i,:) = exp(P.L(i))*(Y);
 
 end

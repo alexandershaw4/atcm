@@ -68,6 +68,17 @@ catch
     end
 end
 
+if isfield(DCM.options,'notch') && DCM.options.notch
+    % Define the filter parameters
+    S.D = D;  % Input data structure
+    S.band = 'stop';  % Notch filter (bandstop)
+    S.freq = [49.6 50.4];  % Frequency range to filter out
+    S.order = 5;  % Filter order (adjust as needed for your data)
+
+    % Apply the notch filter
+    D = spm_eeg_filter(S);
+end
+
  
 % indices of EEG channel (excluding bad channels)
 %--------------------------------------------------------------------------

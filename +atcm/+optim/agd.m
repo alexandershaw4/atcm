@@ -22,7 +22,7 @@ fprintf('It: %d | f = %d\n',0,e);
 % iterate
 for i = 1:n
     
-    % gradients
+    % Numerical gradients
     g = dfdx(f,x);
 
     % check whether f'(x) == f(x)
@@ -32,19 +32,10 @@ for i = 1:n
         return;
     end
 
-    % if n == 1, optimise alpha
-    %if i == 1
-    %    fa = @(a) f(x + (a)*-g(:));
-    %    ga = dfdx(fa,a);
-    %    a  = e./ga;
-    %end
-
-    % if i == 1
-    %     a = 1/8;
-    % end
-
+    % Numerical Hessian
     H = dfdxdx(f,x);
 
+    % or zero'th order approximation 
     %H = g(:)*g(:)';
 
     g = g./norm(g);
