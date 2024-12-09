@@ -544,7 +544,7 @@ switch IntMethod
             if ~WithDelays 
                 
                 % Evaluate model
-                [dxdt] = f(v,0*drive(i),P,M);
+                [dxdt] = f(v,drive(i),P,M);
 
                 % v(1) = v(1) + exp(P.a(1));
                 % v(2) = v(2) + exp(P.a(3));
@@ -580,7 +580,9 @@ switch IntMethod
                 % end
                 
                 % update time domain and continue integration
-                v      = v + dt*dfdx*v + dfdu*drive(i);
+                %v      = v + dt*dfdx*v + dfdu*drive(i);
+                
+                v = v + dt * dxdt;
                 y(:,i) = v ;
 
             elseif WithDelays == 45 % RK45 with delayed states

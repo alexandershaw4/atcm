@@ -89,7 +89,7 @@ for i = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.TCM2024;               % model function handle
+    DCM.M.f  = @atcm.tc_hilge2;  % TCM2024;               % model function handle
     DCM.M.IS = @atcm.integrate_1;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     

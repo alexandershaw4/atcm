@@ -1,4 +1,4 @@
-function RunTCM_Script_transfun(i)
+function RunLaplaceTCM_ExampleScript(i)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
 %
@@ -9,6 +9,7 @@ function RunTCM_Script_transfun(i)
 % (optimisation package)
 %
 % atcm: https://github.com/alexandershaw4/atcm
+% aoptim: https://github.com/alexandershaw4/aoptim
 %
 % Overview of contents
 %--------------------------------------------------
@@ -19,7 +20,12 @@ function RunTCM_Script_transfun(i)
 %         - numerical integration (Euler, RK, Newton-Cotes +) and spectral
 %           response functions
 %         - lots of helper functions (integration, differentiation,
-%           continuation, decomposition methods etc%
+%           continuation, decomposition methods etc)
+% - aoptim contains:
+%          - a second order gradient descent optimisation routine that
+%          includes both free energy and orther objective functions
+%          - n-th order numerical differentiation functions (parallelised)
+%
 %
 % AS2020/21/22 {alexandershaw4[@]gmail.com}
 
@@ -34,13 +40,19 @@ Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'LM_Laplace_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'LaplaceTCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
 %--------------------------------------------------------------------------
 T = [... % this is a 1-node model; nothing to put here...
     0];
+
+%    from
+%    v1 v2
+% T = [0  2 % v1 to
+%      1  0];%;v2
+
 F = (T==1);
 B = (T==2);
 C = [1]';          % input(s)
@@ -84,8 +96,8 @@ for i = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tc_hilge2;               % model function handle
-    DCM.M.IS = @atcm.fun.alex_tf;            % Alex integrator/transfer function
+    DCM.M.f  = @atcm.TCM2024;                % model function handle
+    DCM.M.IS = @atcm.fun.alex_LapTF_NoDelay;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
     % Print Progress
@@ -124,7 +136,7 @@ for i = i;%1:length(Data.Datasets)
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
 
-    DCM.xY.y{:}  = agauss_smooth(abs(DCM.xY.y{:}),1)';
+    DCM.xY.y{:}  = atcm.fun.agauss_smooth(abs(DCM.xY.y{:}),1)';
         
     % Subfunctions and default priors
     %----------------------------------------------------------------------
@@ -161,7 +173,7 @@ for i = i;%1:length(Data.Datasets)
 
     pC.J(1:8)=1/8;
     pC.d(1) = 1/8;
-    pC.d(3) = 1/8;
+    
 
     % Make changes here;
     %-----------------------------------------------------------
@@ -193,41 +205,29 @@ for i = i;%1:length(Data.Datasets)
     norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
 
     fprintf('Finished...\n');
+
+    % precompute J and put in J which flags for the rhs to compute the
+    % *delayed* update step
+    [dx,J] = DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M);
+    DCM.M.J = J;
     
-          
+    %newp = load('NewPriors','Ep');
+    %DCM.M.pE = newp.Ep;
+
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
     %fprintf('iteration %d\n',j);
 
-    % Fit with DCM VB routine:
-    %----------------------------------------------------------------------
+    % Alex's version of the Levenberg-Marquard routine
+    %M = AODCM(DCM);
+
     [Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
-    
 
-    % Fit with LM (Log Likelihood estimation):
-    %----------------------------------------------------------------------
-    % M = aFitDCM(DCM)
-    % 
-    % M.aloglik
-    % M.update_parameters(M.Ep)
-    % M.aloglik
-    % M.update_parameters(M.Ep)
-    % M.aloglik
-    %Qp = spm_unvec(M.Ep,DCM.M.pE);
-    %Cp = M.CP;
+    %M.alex_lm;
 
+    %M.compute_free_energy(M.Ep);
 
-    % Fit with LM (Free energy estimation):
-    %----------------------------------------------------------------------
-    % M = aFitDCM(DCM)
-    % 
-    % M.aloglikFE
-    % M.update_parameters(M.Ep)
-    % M.aloglikFE
-    % M.update_parameters(M.Ep)
-    % M.aloglikFE
-    %Qp = spm_unvec(M.Ep,DCM.M.pE);
-    %Cp = M.CP;
-
+    %DCM.M.nograph = 0;
+    %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
 
     % save in DCM structures after optim 
     %----------------------------------------------------------------------
