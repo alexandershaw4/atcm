@@ -1,6 +1,7 @@
-function [Y,w,G,units,MAG,PHA] = alex_tf(P,M,U)
+function [Y,w,G,units,MAG,PHA] = Alex_LaplaceTFwD(P,M,U)
 % linearisation and numerical (Laplace) transfer function for a DCM
-% witten by Alex Shaw
+% witten by Alex Shaw; this version has proper (Laplace domain) handling of
+% delays...
 %
 % takes a dynamical model and observation function;
 %
@@ -52,7 +53,6 @@ delta_x = 1e-6;
 
 % get delay operator
 [f0,A0,D] = f(x0,u0,[]);
-D         = inv(eye(length(D)) - D);
 
 % dynamics linearisation; numerical Jacobian - dfdx
 %--------------------------------------------------------------------------
@@ -60,21 +60,8 @@ D         = inv(eye(length(D)) - D);
 f  = denan(f);
 A  = denan(A);
 
-%fun = @(x) M.f(x,0,P,M);
-%A=jaco(fun,M.x,ones(size(M.x))*delta_x,0,1);
-%A=denan(A);
-
-D        = inv(eye(length(D)) - D);
-
-if isfield(M,'tforder') && M.tforder == 2
-    fun = @(x) M.f(x,0,P,M);
-    A2 = jaco(fun,M.x,ones(size(M.x))*delta_x,0,2);
-    A2 = denan(A2);
-    A2 = A2./norm(A2);
-end
-
-
-A        = D*A;
+% Delay operator
+D_exp = arrayfun(@(w) expm(-1i * 2 * pi * w * D), M.Hz, 'UniformOutput', false);
 
 % input linearisation, e.g. dfdu
 %--------------------------------------------------------------------------
@@ -85,7 +72,6 @@ n = length(f);
 % observation linearisation (static)
 %--------------------------------------------------------------------------
 C = exp(P.J);
-
 
 % separate sources from here to compute sep Laplace for each unit
 Ns = size(M.x,1);
@@ -102,28 +88,15 @@ for i = 1:Ns
     % we use a static observer model anyway...
     C = exp(P.J(:));
     
-
-    % The Laplace transfer - this replaces the MATLAB built-in version using
-    % 'ss' and 'bode' with a from-scratch numerical routine;
+    % properly handle delays in the lpalace domain:
+    % D(s) = e^−sD = e^−(jω)D
     for j = 1:length(w)
-        s = exp(P.d(2)) + 1i*2*pi*w(j);
-        Jm  = AA - s*eye(length(AA));
-        Ym  = Jm\BB;
+        D_w = D_exp{j};  % Get delay operator at this frequency
+        Jm  = D_w * (AA - 1i*2*pi*w(j)*eye(length(AA)));
+        Ym  = Jm \ BB;
         MG(:,j) = Ym;
-        Y   = C'*Ym;
-        y(j) =  Y; 
-    end
-
-    % Laplace augmented with second order term
-    if isfield(M,'tforder') && M.tforder == 2
-        for j = 1:length(w)
-            Jm  = AA - 1i*2*pi*w(j)*eye(length(AA)) - (0.5*A2);
-            Ym  = Jm\BB;
-            MG(:,j) = Ym;
-            Y   = C'*Ym;
-            y(j) =  Y;
-        end
-
+        Y   = C' * Ym;
+        y(j) = Y;
     end
 
     Y = y;
@@ -131,12 +104,6 @@ for i = 1:Ns
     % the matlab way (not in use now)
     %G = ss(AA, BB, diag(C), 0);  % Assuming unity output matrix
     G = [];
-    
-    % use Bode to get Laplace transform
-    %[magnitude, phase] = bode(G,w*6.2831853); % convert radians to Hz
-    
-    %Y = squeeze(magnitude);
-    %Y = sum(Y,1);
     Y = abs(Y);
 
     if isfield(M,'ham') && M.ham;
@@ -146,18 +113,21 @@ for i = 1:Ns
 
     MAG{i} = (MG);%magnitude;
     PHA{i} = angle(MG)*180/pi;%phase;
+
+    %Y = atcm.fun.asmooth_data(Y, exp(P.d(1)) );
+    Y = atcm.fun.agauss_smooth(Y,exp(P.d(1)));
     
-    % Laplace is pretty smooth, parameterise granularity
-    H = gradient(gradient(Y));
-    Y = Y - (exp(P.d(1))*3)*H;
-
-    % inverse generalised filtering
-    H = 1 ./ (1 + (w / 10).^2);
-
-    lambda = 0.01 * exp(P.d(3));
-    Gf = conj(H) ./ (abs(H).^2 + lambda);
-
-    Y = Gf.*Y;
+    % % Laplace is pretty smooth, parameterise granularity
+    % H = gradient(gradient(Y));
+    % Y = Y - (exp(P.d(1))*3)*H;
+    % 
+    % % inverse generalised filtering
+    % H = 1 ./ (1 + (w / 10).^2);
+    % 
+    % lambda = 0.01 * exp(P.d(3));
+    % Gf = conj(H) ./ (abs(H).^2 + lambda);
+    % 
+    % Y = Gf.*Y;
 
     % electrode scaling
     PSD(i,:) = exp(P.L(i))*(Y);
