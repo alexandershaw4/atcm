@@ -39,21 +39,23 @@ p.T(1)  = 1./(exp(-p.T(1))*1000/4);            % excitatory rate constants (AMPA
 p.T(2)  = 1./(exp(-p.T(2))*1000/16);           % inhibitory rate constants (GABAa)
 p.T(3)  = 1./(exp(-p.T(3))*1000/100);          % excitatory rate constants (NMDA)
 p.T(4)  = 1./(exp(-p.T(4))*1000/200);          % excitatory rate constants (NMDA)
-p.m  = (exp(-p.m)*1000/160) ;               % m-current opening + CV
-p.h  = (exp(-p.h)*1000/100) ;               % h-current opening + CV
+p.T(5)  = 1./(exp(-p.T(5))*1000/160) ;               % m-current opening + CV
+p.T(6)  = 1./(exp(-p.T(6))*1000/100) ;               % h-current opening + CV
 
 % memebrane capacitance
-p.CV = exp(p.CV).*[128 128 64  128 64  128  64  64*2]/1000;  
+%p.CV = exp(p.CV).*[128 128 64  128 64  128  64  64*2]/1000;  
 
 % population variances on synaptic delays
-pop_rates = [1 1 1 1 1 1 1 1];
-p.pr = pop_rates.*exp(p.pr);
+%pop_rates = [1 1 1 1 1 1 1 1];
+%p.pr = pop_rates.*exp(p.pr);
 
 % thalamic delays
 CT = 8; 
 TC = 3; 
-p.D0(1) = CT  * exp(p.D0(1)); % L6->thal
-p.D0(2) = TC  * exp(p.D0(2)); % thal->ss
+%p.D0
+
+p.CT(1) = CT  * exp(p.CT(1)); % L6->thal
+p.TC(1) = TC  * exp(p.TC(1)); % thal->ss
 
 % intrinsic delays
 p.ID = exp(p.ID).*[2 1/4 1/2 4 1/2 4 2 2]/2;

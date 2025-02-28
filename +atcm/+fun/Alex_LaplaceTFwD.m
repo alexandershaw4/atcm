@@ -40,41 +40,20 @@ if isstruct(P) && isfield(P,'p')
     P = P.p;
 end
 
-
 f = @(x,u,varargin) M.f(x,u,P,M);
 w = M.Hz;
-
 x0 = M.x(:);
 u0 = 1;
 
-
-% Numerically compute the Jacobian matrix
-delta_x = 1e-6;  
-
-% get delay operator
-[f0,A0,D] = f(x0,u0,[]);
-
-% dynamics linearisation; numerical Jacobian - dfdx
-%--------------------------------------------------------------------------
-[f,A,D]  = feval(M.f,M.x,0,P,M);
-f  = denan(f);
-A  = denan(A);
+[f,A,D] = feval(M.f,M.x,0,P,M);
+A = denan(A);
+B = spm_diff(M.f,M.x,1,P,M,2);
+B = denan(B);
+C = exp(P.J);
+Ns = size(M.x,1);
 
 % Delay operator
 D_exp = arrayfun(@(w) expm(-1i * 2 * pi * w * D), M.Hz, 'UniformOutput', false);
-
-% input linearisation, e.g. dfdu
-%--------------------------------------------------------------------------
-B = spm_diff(M.f,M.x,1,P,M,2);
-B = denan(B);
-n = length(f);
-
-% observation linearisation (static)
-%--------------------------------------------------------------------------
-C = exp(P.J);
-
-% separate sources from here to compute sep Laplace for each unit
-Ns = size(M.x,1);
 
 % Loop each node (aka region, source, mode, column ..)
 for i = 1:Ns
@@ -193,6 +172,26 @@ if isfield(M,'sim') && nargout > 3
     units.freq   = w(:);
 
 end
+
+% --- New Impulse Response Calculation ---
+if isfield(M,'impulse') && M.impulse
+    t = 0:dt:max(pst); 
+    impulse_response = zeros(Ns, length(t));
+
+    for k = 1:Ns
+        win = k:Ns:(length(A));
+        AA = A(win,win);
+        BB = B(win);
+        CC = C(k);
+        for idx = 1:length(t)
+            impulse_response(k,idx) = CC * expm(AA * t(idx)) * BB;
+        end
+    end
+
+    units.impulse_response = impulse_response;
+    units.impulse_time = t;
+end
+
 
 return;
 
