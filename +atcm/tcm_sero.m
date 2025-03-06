@@ -1,4 +1,4 @@
-function [f,J,D] = tc_hilge2(x,u,P,M)
+function [f,J,D] = tcm_sero(x,u,P,M)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -70,12 +70,6 @@ function [f,J,D] = tc_hilge2(x,u,P,M)
 if isstruct(P) && isfield(P,'p')
     P = P.p;
 end
-
-% Flag: include M- & H- channels on L6 TP & Thalamic Relay cells, or not
-%--------------------------------------------------------------------------
-IncludeMH = 1;
-
-inputu = u;
  
 % get dimensions and configure state variables
 %--------------------------------------------------------------------------
@@ -83,7 +77,6 @@ ns   = size(M.x,1);                      % number of sources
 np   = size(M.x,2);                      % number of populations per source
 nk   = size(M.x,3);                      % number of states per population
 x    = reshape(x,ns,np,nk);              % hidden states 
-
 
 % extrinsic connection strengths
 %==========================================================================
@@ -209,27 +202,6 @@ GIa =[8     0     10    0     0     0     0     0;
       0     0     0     0     0     0     8     0;
       0     0     0     0     0     0     8     8];
 
-% GIa =[8     0     10    0     0     0     0     0;
-%       0    18     10    0     0     0     0     0;
-%       0     0     10    0     0     0     0     0;
-%       0     0     0     8     2     0     0     0;
-%       0     0     0     0     2     0     0     0;
-%       0     0     0     0     2     8     0     0;
-%       0     0     0     0     0     0     8     0;
-%       0     0     0     0     0     0     8     8];
-
-%GIa = GIa * exp(P.I);
-
-% GIa =[8     0     10    0     0     0     0     0;
-%       0    18     10    0     0     0     0     0;
-%       0     0     10    0     0     0     0     0;
-%       0     0     0     8     4     0     0     0;
-%       0     0     0     0     8     0     0     0;
-%       0     0     0     0     4     8     0     0;
-%       0     0     0     0     0     0     8     0;
-%       0     0     0     0     0     0     8     8];
-
-
 GIb = GIa;
 
 
@@ -254,7 +226,6 @@ KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
 % now using faster AMPA and GABA-A dynamics based on this book:
 % https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
 
-
 % Trial-specific effects on time constants: AMPA & NMDA only for LTP task
 if isfield(P,'T1')
     KE = KE + P.T1(1);
@@ -271,8 +242,6 @@ VN   =  10 ;%* exp(P.pr(3));                % reversal Ca(NMDA)
 VB   = -100;%* exp(P.pr(4));               % reversal of GABA-B
 
 
-if IncludeMH
-    
     % M- & H- channel conductances (np x np) {L6 & Thal Relay cells only}
     %----------------------------------------------------------------------
     % https://www.sciencedirect.com/science/article/pii/S0006349599769250
@@ -286,19 +255,19 @@ if IncludeMH
     KH    = (exp(-P.T(:,6))*1000/100) ;               % h-current opening + CV
     h     = 1 - spm_Ncdf_jdw(x(:,:,1),-100,300); % mean firing for h-currents
     h     = 1 - 1./(1 + exp(-(2/3).*(x(:,:,1)-VH)));
+
+    Kht2a = (exp(-P.T(:,6))*1000/200) ; 
+    Ght2a = diag([0 0 0 4 0 0 0 0]) * exp(P.HT2A);
+
+    %tau_5HT = 200;  % Time constant (ms), can be adjusted
+
+     %   S_inf = 2 + exp(P.HT2A);
+
     %h      = 1./(1+exp((x(:,:,1)+81)/7));
-end
 
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
 CV   = exp(P.CV).*      [128*3 128 128/2 128 64  128  64  64*2]/1000;  
-
-%CV   = exp(P.CV).*      [128 128 64 128 64  128  64  64*2]/1000;  
-
-%CV   = exp(P.CV).*[16 16 32 16 32 16 32 16]*2/1000;  
-
-
-%CV   = exp(P.CV).*[128 128 256 32]/1000;  % 
 
 % leak conductance - fixed
 %--------------------------------------------------------------------------
@@ -358,14 +327,14 @@ for i = 1:ns
         I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
         IB     = (Gb(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
                 
-        if IncludeMH
             
-            % intrinsic coupling - non-parameterised: intrinsic dynamics
-            %--------------------------------------------------------------
-            Im     = GIm*m(i,:)'; % M currents
-            Ih     = GIh*h(i,:)'; % H currents
-        end
-        
+        % intrinsic coupling - non-parameterised: intrinsic dynamics
+        %--------------------------------------------------------------
+        Im     = GIm*m(i,:)'; % M currents
+        Ih     = GIh*h(i,:)'; % H currents
+
+        Iht2a = Ght2a*m(i,:)';
+
         % extrinsic coupling (excitatory only) and background activity
         %------------------------------------------------------------------
         E     = (E     +  BE  + SA   *a (i,:)')*2;
@@ -392,18 +361,12 @@ for i = 1:ns
             E(8) = E(8) + exp(P.thi);
             ENMDA(8) = ENMDA(8) + exp(P.thi);
         end
+
+        % Scale NMDA conductance in L5 pyramidal cells based on 5HT-2A
+        x(i,4,4) = x(i,4,4) * (1 + 0.2 * x(i,4,8));  % 20% NMDA enhancement
                               
         % Voltage equations
         %==================================================================
-        if ~IncludeMH
-            
-          f(i,:,1) =         (GL*(VL - x(i,:,1))+...
-                       1.0*x(i,:,2).*(VE - x(i,:,1))+...
-                       1.0*x(i,:,3).*(VI - x(i,:,1))+...
-                       1.0*x(i,:,5).*(VB - x(i,:,1))+...
-                       1.0*x(i,:,4).*(VN - x(i,:,1)).*mg_switch(x(i,:,1)))./CV;
-            
-        elseif IncludeMH
             
           % alternative magnesium block:
           %warning off;
@@ -420,11 +383,14 @@ for i = 1:ns
                        x(i,:,5).*((VB - x(i,:,1)))+...
                        x(i,:,6).*((VM - x(i,:,1)))+...
                        x(i,:,7).*((VH - x(i,:,1)))+...
-                       x(i,:,4).*((VN - x(i,:,1))).*mag_block)./CV;
+                       x(i,:,4).*((VN - x(i,:,1))).*mag_block + ...
+                       x(i,:,8).*((-10 - x(i,:,1))) )./CV;
                        %x(i,:,4).*((VN - x(i,:,1))).*mg_switch(x(i,:,1)))./CV;
           
-          
-        end
+
+           % 5HT-2A on DP
+           %f(i,4,1) = f(i,4,1) + 5 * x(i,4,8) .* (-10 - x(i,4,1));  % 5HT-2A with E_rev = -10mV
+
                    
         % Conductance equations
         %==================================================================           
@@ -432,13 +398,15 @@ for i = 1:ns
         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)');%*pop_rates);
         f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)');%*gabaa_rate);
         f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)');%*pop_rates);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)');%*nmdat);
-        
-        if IncludeMH
-            f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );%*pop_rates );
-            f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
-        end
+        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)');%*nmdat);        
+        f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );%*pop_rates );
+        f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
+        f(i,:,8) = (Iht2a'  - x(i,:,8)).*(Kht2a');
 
+        % 5HT-2A conductance dynamics: slow activation with a time constant (τ)
+          % Parameter controlling serotonin availability
+
+        %f(i,:,8) = (S_inf - x(i,:,8)) ./ tau_5HT;  % First-order serotonin dynamics
 
 end
 

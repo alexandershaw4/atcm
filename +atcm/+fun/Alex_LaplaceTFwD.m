@@ -174,17 +174,17 @@ if isfield(M,'sim') && nargout > 3
 end
 
 % --- New Impulse Response Calculation ---
-if isfield(M,'impulse') && M.impulse
-    t = 0:dt:max(pst); 
+if isfield(M,'impulse') && M.impulse && nargout > 3
+    t = pst;
     impulse_response = zeros(Ns, length(t));
 
     for k = 1:Ns
         win = k:Ns:(length(A));
         AA = A(win,win);
         BB = B(win);
-        CC = C(k);
+        CC = C;
         for idx = 1:length(t)
-            impulse_response(k,idx) = CC * expm(AA * t(idx)) * BB;
+            impulse_response(k,idx) = CC' * expm(AA * t(idx)) * BB;
         end
     end
 
