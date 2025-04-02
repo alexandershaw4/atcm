@@ -97,7 +97,7 @@ for i = 1:Ns
     % the matlab way (not in use now)
     %G = ss(AA, BB, diag(C), 0);  % Assuming unity output matrix
     G = [];
-    Y = abs(Y);
+    Y = (Y);
 
     if isfield(M,'ham') && M.ham;
         H = hamming(length(w));
@@ -108,7 +108,7 @@ for i = 1:Ns
     PHA{i} = angle(MG)*180/pi;%phase;
 
     %Y = atcm.fun.asmooth_data(Y, exp(P.d(1)) );
-    Y = atcm.fun.agauss_smooth(Y,exp(P.d(1)));
+    %Y = atcm.fun.agauss_smooth(Y,exp(P.d(1)));
     
     % % Laplace is pretty smooth, parameterise granularity
     % H = gradient(gradient(Y));
@@ -136,6 +136,17 @@ for i = 1:Ns
             CSD(:,i,j) = exp(P.Lc(i)) * PSD(i,:) .* conj(PSD(j,:));
             CSD(:,j,i) = CSD(:,i,j);
         end
+    end
+end
+
+% now that we've computed the CSD from the *complex* data, we can take abs
+% and smooth
+for i = 1:Ns
+    for j = 1:Ns
+        %if i < j
+            CSD(:,i,j) = atcm.fun.agauss_smooth(abs(CSD(:,i,j)),exp(P.d(1)));
+            CSD(:,j,i) = CSD(:,i,j);
+        %end
     end
 end
 
