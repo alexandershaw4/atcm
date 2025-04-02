@@ -128,6 +128,8 @@ IS = DCM.M.IS;
 
 fprintf('\nInitialising model (hidden) states\n');
 
+
+
 try
     [x,f,h] = spm_dcm_x_neural(pE,model);
     

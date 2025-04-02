@@ -40,6 +40,12 @@ if isstruct(P) && isfield(P,'p')
     P = P.p;
 end
 
+if isfield(M,'endogenous') && M.endogenous
+    Input = 0;
+else
+    Input = 1;
+end
+
 f = @(x,u,varargin) M.f(x,u,P,M);
 w = M.Hz;
 x0 = M.x(:);
@@ -62,8 +68,11 @@ for i = 1:Ns
     AA = A(win,win);
     BB = B(win);
     
-    BB;% = BB + v;
-    
+    % if no input to the system these are endogenous fluctations about x0
+    if ~Input
+        BB = x0(win);
+    end
+
     % we use a static observer model anyway...
     C = exp(P.J(:));
     
@@ -71,8 +80,13 @@ for i = 1:Ns
     % D(s) = e^−sD = e^−(jω)D
     for j = 1:length(w)
         D_w = D_exp{j};  % Get delay operator at this frequency
-        Jm  = D_w * (AA - 1i*2*pi*w(j)*eye(length(AA)));
-        Ym  = Jm \ BB;
+        D_w = D_w(win,win);
+        %Jm  = D_w * (AA - 1i*2*pi*w(j)*eye(length(AA)));
+
+        CsI = exp(P.d(2))+(1i*2*pi*w(j)*eye(length(AA)));
+
+        Jm  = D_w * (CsI - AA);
+        Ym  = (Jm \ BB) + (Jm\x0(win));
         MG(:,j) = Ym;
         Y   = C' * Ym;
         y(j) = Y;
@@ -139,7 +153,7 @@ if isfield(M,'sim') && nargout > 3
     % remove sim struct and recall top func
     M = rmfield(M,'sim');
     P.J(P.J==-1000)=0;
-    [~,~,~,~,MAG,PHA] = atcm.fun.alex_tf(P,M,U);
+    [~,~,~,~,MAG,PHA] = atcm.fun.Alex_LaplaceTFwD(P,M,U);
 
     for k = 1:Ns
         

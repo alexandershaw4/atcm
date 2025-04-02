@@ -2,7 +2,7 @@
 
 % preparation of the SPM file ERP
 %--------------------------------------------------------------------------
-Dfile = '/Users/Alex/Dropbox/KET_SPM_VS_Visual/SPM8_VS_KET_POST_02101351_Sens.mat';
+Dfile = '/Users/Alex/Dropbox/KET_VIS_SPM/SPM_VS_KET_0408061__1Cut_Sens_High.mat';
 D = spm_eeg_load(Dfile);
 
 % condition indices

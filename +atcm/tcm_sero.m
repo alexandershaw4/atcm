@@ -6,15 +6,18 @@ function [f,J,D] = tcm_sero(x,u,P,M)
 % Martin (2004) and Traub (2004) models.
 %
 % The equations of motion are Moris Lecar-esque equations, similar to Moran
-% (2011), but with conductances for AMPA, NMDA, GABA-A, & GABA-B channels. 
-% These 'channels' feature their own reversal poentials and rate constants:
+% (2011), but with conductances for AMPA, NMDA, GABA-A, & GABA-B, Kv7 (M), 
+% HCN (h) and 5HT-2A channels. 
 %
-% K  = -70           (Leak)
-% Na =  60  / 2.2 ms   (AMPA)
-% Cl = -90  / 5 ms  (GABA-A)
-% Ca =  10  / 100 ms (NMDA)   + voltage mag switch
-% B  = -100 / 300 ms (GABA-B)
-% f  = -40
+% K   = -70           (Leak)
+% Na  =  60  | 2.2 ms (AMPA)
+% Cl  = -90  | 5 ms   (GABA-A)
+% Ca  =  10  | 100 ms (NMDA)   + voltage mag switch
+% B   = -100 | 300 ms (GABA-B)
+% H   = -30  | 100 ms
+% M   = -52  | 160 ms
+% 5HT = -10  | 200
+% f   = -52
 %
 % FORMAT [f,J,Q,D] = atcm.tcm_hilge(x,u,P,M)
 %
@@ -40,10 +43,11 @@ function [f,J,D] = tcm_sero(x,u,P,M)
 %               5 gB  - conductance: GABA-B (inhibitory)
 %               6 gM  - conductance: M-channels (inhibitory)
 %               7 gih - conductance: H-channels (inhibitory)
+%               8 g5HT2A - conductance of serontonin 5HT2a on L5 PCs
 %
 %      outputs: f = model states as a vector - hint: spm_unvec(f,M.x) 
 %               J = system Jacobian - dfdx
-%               D = states delay matrix
+%               D = state-by-state delay matrix
 %
 % Info:
 %  - Ih is a hyperpolarization-activated cation current mediated by HCN channel
@@ -212,6 +216,10 @@ KE  = exp(-P.T(:,1))*1000/2.2;%3;            % excitatory rate constants (AMPA) 
 KI  = exp(-P.T(:,2))*1000/5;%6;           % inhibitory rate constants (GABAa)
 KN  = exp(-P.T(:,3))*1000/100;%40;          % excitatory rate constants (NMDA) 40-100
 KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
+KM  = (exp(-P.T(:,5))*1000/160) ;               % m-current opening + CV
+KH  = (exp(-P.T(:,6))*1000/100) ;               % h-current opening + CV
+Kht2a = (exp(-P.T(:,7))*1000/200) ;
+
 
 % notes on time-constants:
 %-----------------------------------------------------------------------
@@ -220,7 +228,6 @@ KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
 % ampa = 1.2 to 2.4 ms
 % gabaa -   6ms
 % nmda - 50 ms
-%KN  = exp(-P.T(:,3))*1000/50;    
 
 % gaba-b maybe evern 300 or 500ms
 % now using faster AMPA and GABA-A dynamics based on this book:
@@ -240,30 +247,20 @@ VI   = -90 ;%* exp(P.pr(1));                % reversal  potential inhib (Cl)
 VR   = -52 ;%* exp(P.pr(2));   %55          % threshold potential (firing)
 VN   =  10 ;%* exp(P.pr(3));                % reversal Ca(NMDA)   
 VB   = -100;%* exp(P.pr(4));               % reversal of GABA-B
+VM   = -52;                            % reversal potential m-channels          
+VH   = -30;                            % reversal potential h-channels 
 
+% M- & H- channel conductances (np x np) {L6 & Thal Relay cells only}
+%----------------------------------------------------------------------
+% https://www.sciencedirect.com/science/article/pii/S0006349599769250
+GIm = diag(4*[1 1 1 1 1 1 1 1].*exp(P.Mh(:)'));
+GIh = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Hh(:)'));
 
-    % M- & H- channel conductances (np x np) {L6 & Thal Relay cells only}
-    %----------------------------------------------------------------------
-    % https://www.sciencedirect.com/science/article/pii/S0006349599769250
-    VM   = -52;                            % reversal potential m-channels          
-    VH   = -30;                            % reversal potential h-channels 
+h     = 1 - spm_Ncdf_jdw(x(:,:,1),-100,300); % mean firing for h-currents
+h     = 1 - 1./(1 + exp(-(2/3).*(x(:,:,1)-VH)));
 
-    GIm = diag(4*[1 1 1 1 1 1 1 1].*exp(P.Mh(:)'));
-    GIh = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Hh(:)'));
+Ght2a = diag([0 0 0 4 0 0 0 0]) * exp(P.HT2A);
 
-    KM    = (exp(-P.T(:,5))*1000/160) ;               % m-current opening + CV
-    KH    = (exp(-P.T(:,6))*1000/100) ;               % h-current opening + CV
-    h     = 1 - spm_Ncdf_jdw(x(:,:,1),-100,300); % mean firing for h-currents
-    h     = 1 - 1./(1 + exp(-(2/3).*(x(:,:,1)-VH)));
-
-    Kht2a = (exp(-P.T(:,6))*1000/200) ; 
-    Ght2a = diag([0 0 0 4 0 0 0 0]) * exp(P.HT2A);
-
-    %tau_5HT = 200;  % Time constant (ms), can be adjusted
-
-     %   S_inf = 2 + exp(P.HT2A);
-
-    %h      = 1./(1+exp((x(:,:,1)+81)/7));
 
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
@@ -357,13 +354,31 @@ for i = 1:ns
         end
 
         % direct current to thalamus
-        if isfield(P,'thi');
-            E(8) = E(8) + exp(P.thi);
-            ENMDA(8) = ENMDA(8) + exp(P.thi);
-        end
+        % if isfield(P,'thi');
+        %     E(8) = E(8) + exp(P.thi);
+        %     ENMDA(8) = ENMDA(8) + exp(P.thi);
+        % end
 
         % Scale NMDA conductance in L5 pyramidal cells based on 5HT-2A
-        x(i,4,4) = x(i,4,4) * (1 + 0.2 * x(i,4,8));  % 20% NMDA enhancement
+        %x(i,4,4) = real( x(i,4,4) * (1 + 0.2 * x(i,4,8)) );  % 20% NMDA enhancement
+
+        % --- 5HT-2A Effects on Other Conductances ---
+        %if any(x(i,4,8) > 0)  % Only apply if serotonin is active
+            % NMDA enhancement
+            x(i,4,4) = x(i,4,4) * (1 + 0.2 * x(i,4,8));
+
+            % GABA-A suppression (disinhibition)
+            x(i,3,3) = real( x(i,3,3) * (1 - 0.2 * x(i,4,8)) );
+
+            % GABA-B enhancement
+            x(i,5,5) = x(i,5,5) * (1 + 0.1 * x(i,4,8));
+
+            % Kv7 (M-Channel) suppression (increased excitability)
+            x(i,4,6) = x(i,4,6) * (1 - 0.2 * x(i,4,8));
+
+            % HCN (Ih) enhancement
+            x(i,4,7) = x(i,4,7) * (1 + 0.1 * x(i,4,8));
+        %end
                               
         % Voltage equations
         %==================================================================
@@ -385,28 +400,18 @@ for i = 1:ns
                        x(i,:,7).*((VH - x(i,:,1)))+...
                        x(i,:,4).*((VN - x(i,:,1))).*mag_block + ...
                        x(i,:,8).*((-10 - x(i,:,1))) )./CV;
-                       %x(i,:,4).*((VN - x(i,:,1))).*mg_switch(x(i,:,1)))./CV;
           
-
-           % 5HT-2A on DP
-           %f(i,4,1) = f(i,4,1) + 5 * x(i,4,8) .* (-10 - x(i,4,1));  % 5HT-2A with E_rev = -10mV
-
                    
         % Conductance equations
         %==================================================================           
         
-        f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)');%*pop_rates);
-        f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)');%*gabaa_rate);
-        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)');%*pop_rates);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)');%*nmdat);        
-        f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );%*pop_rates );
-        f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
+        f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)');
+        f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)');
+        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)');
+        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)');        
+        f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );
+        f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );
         f(i,:,8) = (Iht2a'  - x(i,:,8)).*(Kht2a');
-
-        % 5HT-2A conductance dynamics: slow activation with a time constant (τ)
-          % Parameter controlling serotonin availability
-
-        %f(i,:,8) = (S_inf - x(i,:,8)) ./ tau_5HT;  % First-order serotonin dynamics
 
 end
 
@@ -423,17 +428,6 @@ if (nargout < 2 || nargout == 50) && nargin < 5, return, end
 % Only compute Jacobian (gradients) if requested
 %==========================================================================
 J = spm_cat(spm_diff(M.f,x,u,P,M,1));
-
-%fun = @(x) M.f(x,u,P,M);
-%J = jaco_mimo_par(fun,x(:),ones(length(x(:)),1)/8,0,1);
-%C = jaco_mimo_par(fun,x(:),ones(length(x(:)),1)/8,0,2);
-
-%J = cat(2,J{:});
-%C = cat(2,C{:}); C = denan(C);
-
-%J = J./norm(J);
-%C = C./norm(C);
-
 
 if nargout < 3 && nargin < 5, return, end
 
@@ -491,28 +485,7 @@ Ds = ~Sp & Ss;                       % states: same source different pop.
 %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
 
 D = d(1)*Ds + Tc + (ID) ;
-
 D =  Tc + (ID) ;
-
-
-% Compute delays if dt provided, including on output vector;
-% if nargin == 5
-%     D_dt  = (D*1000)*dt;
-%     Dstep = dt - D_dt;
-% 
-%     b = pinv(full(J)'.*x(:)).*f;
-%     Q = J.*b;
-%     f = (Q-Q*Dstep)*x(:);
-% end
-
-
-%if ~isfield(P,'delays')
- %   D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;
-%else
- %   D = d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
-%end
-
-%D = d(2)*Dp + Tc; %%%%%!!!!!!
 
 % Implement: dx(t)/dt = f(x(t - d)) = inv(1 - D.*dfdx)*f(x(t))
 %                     = Q*f = Q*J*x(t)

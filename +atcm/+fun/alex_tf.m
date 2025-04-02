@@ -107,7 +107,9 @@ for i = 1:Ns
     % 'ss' and 'bode' with a from-scratch numerical routine;
     for j = 1:length(w)
         s = exp(P.d(2)) + 1i*2*pi*w(j);
-        Jm  = AA - s*eye(length(AA));
+        %Jm  = AA - s*eye(length(AA));
+        Jm  = s*eye(length(AA)) - AA;
+
         Ym  = Jm\BB;
         MG(:,j) = Ym;
         Y   = C'*Ym;

@@ -1,4 +1,4 @@
-function RunTCMsero_Script_VL_2025_spectrum(spectrum,hz,name)
+function RunTCM_Script_VL_2025_spectrum(spectrum,hz,fs,name)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
 %
@@ -22,15 +22,15 @@ function RunTCMsero_Script_VL_2025_spectrum(spectrum,hz,name)
 
 % Data & Design
 %--------------------------------------------------------------------------
-%Data.Datasets     = 'AllLSD.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'AllLSD.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'PBVE'};            % channel (node) names
-Data.Prefix       = 'Sero_';      % outputted DCM prefix
-%Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
-Data.Datasets{1} = name;
+Data.Prefix       = 'VL_TFD_TCM_';      % outputted DCM prefix
+Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
+%Data.Datasets{1} = name;
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
 %--------------------------------------------------------------------------
@@ -113,7 +113,7 @@ for i = 1;%1:length(Data.Datasets)
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = mean(diff(hz));
+    DCM.options.FrequencyStep = 1/4;
     
     DCM.xY.name = DCM.Sname;
     %DCM = atcm.fun.prepcsd(DCM);
@@ -209,6 +209,7 @@ for i = 1;%1:length(Data.Datasets)
     norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
 
     fprintf('Finished...\n');
+
     
           
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
@@ -218,9 +219,8 @@ for i = 1;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
     
-    DCM.M.endogenous = 1;
 
-    % Fit with Alex's VB routine
+    % Fit with LM (Log Likelihood estimation):
     %----------------------------------------------------------------------
     M = aFitDCM(DCM)
 

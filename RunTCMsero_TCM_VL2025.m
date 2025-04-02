@@ -1,19 +1,15 @@
-function RunTCMsero_Script_VL_2025_spectrum(spectrum,hz,name)
+function RunTCMsero_TCM_VL2025(i)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
 %
 % This version using a linearisation and transfer function (numerical
-% Laplace) rather than brute numerical integration. It does however return
-% the time-domain signal using an impulse response function on the
-% linearised model.
+% Laplace) rather than brute numerical integration.
 %
 % Requires atcm (thalamo cortical modelling package) and aoptim
 % (optimisation package)
 %
 % atcm: https://github.com/alexandershaw4/atcm
 %
-% This version takes as input a spectrum, vector of corresponding
-% frequencies and sample rate and filename.
 %
 % AS2020/21/22 {alexandershaw4[@]gmail.com}
 
@@ -22,15 +18,14 @@ function RunTCMsero_Script_VL_2025_spectrum(spectrum,hz,name)
 
 % Data & Design
 %--------------------------------------------------------------------------
-%Data.Datasets     = 'AllLSD.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'NewSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
-Data.Design.Sname = {'PBVE'};            % channel (node) names
-Data.Prefix       = 'Sero_';      % outputted DCM prefix
-%Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
-Data.Datasets{1} = name;
+Data.Design.Sname = {'V1'};            % channel (node) names
+Data.Prefix       = 'TCMsero_';      % outputted DCM prefix
+Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
 %--------------------------------------------------------------------------
@@ -46,7 +41,7 @@ L = sparse(1,1);
 
 % Set up, over subjects
 %--------------------------------------------------------------------------
-for i = 1;%1:length(Data.Datasets)
+for i = i;%1:length(Data.Datasets)
     
     % Data Naming & Design Matrix
     %----------------------------------------------------------------------
@@ -79,7 +74,7 @@ for i = 1;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tcm_sero;              % model function handle
+    DCM.M.f  = @atcm.tcm_sero;               % model function handle
     DCM.M.IS = @atcm.fun.Alex_LaplaceTFwD;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
@@ -94,7 +89,7 @@ for i = 1;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     DCM.M.U            = sparse(diag(ones(Ns,1)));  %... ignore [modes]
     DCM.options.trials = tCode;                     %... trial code [GroupDataLocs]
-    DCM.options.Tdcm   = [1 2000];                   %... peristimulus time
+    DCM.options.Tdcm   = [300 1300];                   %... peristimulus time
     DCM.options.Fdcm   = fq;                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
     DCM.options.han    = 1;                         %... apply hanning window
@@ -113,16 +108,10 @@ for i = 1;%1:length(Data.Datasets)
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = mean(diff(hz));
+    DCM.options.FrequencyStep = 1/4;
     
     DCM.xY.name = DCM.Sname;
-    %DCM = atcm.fun.prepcsd(DCM);
-
-    DCM.xY.y{1}  = spectrum(:);
-    DCM.xY.csd{1} = spectrum(:);
-    DCM.xY.Hz = hz;
-    DCM.xY.X0 = eye(length(hz));
-
+    DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1 ;
 
     DCM.xY.y{:}  = agauss_smooth(abs(DCM.xY.y{:}),3)';
@@ -164,7 +153,7 @@ for i = 1;%1:length(Data.Datasets)
     pC.d(1) = 1/8;
     pC.d(3) = 1/8;
 
-    pE.L = -4;
+    pE.L = 0;
     pC.ID = pC.ID + 1/8;
 
     % Serotonin 5HT-2A receptors on L5 pydamidal cells
@@ -177,7 +166,6 @@ for i = 1;%1:length(Data.Datasets)
 
     pE.T(7) = 0;
     pC.T(7) = 0;
-
 
     % Make changes here;
     %-----------------------------------------------------------
@@ -203,6 +191,8 @@ for i = 1;%1:length(Data.Datasets)
     %load('init_14dec','x');
     %DCM.M.x = spm_unvec(x,DCM.M.x);
 
+    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
+    DCM.M.x = spm_unvec(x,DCM.M.x);
     x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
     DCM.M.x = spm_unvec(x,DCM.M.x);
 

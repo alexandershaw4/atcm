@@ -291,7 +291,7 @@ end
 
 % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
 %--------------------------------------------------------------------------
-CV   = exp(P.CV).*      [128*3 128 128/2 128 64  128  64  64*2]/1000;  
+CV   = exp(P.CV).*      [128*3 128 64 128 64  128  64  128]/1000;  
 
 %CV   = exp(P.CV).*      [128 128 64 128 64  128  64  64*2]/1000;  
 
@@ -334,6 +334,7 @@ an(:,2) = AN{2}*m(:,4);                     % backward afference NMDA
 an(:,3) = AN{3}*m(:,6);                     % thalamic projection pyramids
 an(:,4) = AN{4}*m(:,7);                     % reticular NMDA
 an(:,5) = AN{5}*m(:,8);                     % relay NMDA
+
 
 % Averge background activity and exogenous input
 %==========================================================================
