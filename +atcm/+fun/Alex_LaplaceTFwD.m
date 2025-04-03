@@ -18,7 +18,7 @@ function [Y,w,G,units,MAG,PHA] = Alex_LaplaceTFwD(P,M,U)
 %
 %   Y(s) = C*inv(sI - A)*BU + C*inv(sI - A)*x0
 %
-% Usage: [Y,w,G,units] = alex_tf(P,M,U); 
+% Usage: [Y,w,G,units] = atcm.fun.Alex_LaplaceTFwD(P,M,U); 
 %
 % add sub-structure M.sim with M.sim.pst and M.sim.dt to force the routine
 % to also recronstruct the time-domain simulation and return in the 4th
