@@ -16,6 +16,8 @@ function [Y,w,G,units,MAG,PHA] = Alex_LaplaceTFwD(P,M,U)
 % having computed the linearisation matrices, computes the frequency response 
 % at frequencies of interest (vector stored in M.Hz) using the Laplace transform.
 %
+%   Y(s) = C*inv(sI - A)*BU + C*inv(sI - A)*x0
+%
 % Usage: [Y,w,G,units] = alex_tf(P,M,U); 
 %
 % add sub-structure M.sim with M.sim.pst and M.sim.dt to force the routine
@@ -25,10 +27,6 @@ function [Y,w,G,units,MAG,PHA] = Alex_LaplaceTFwD(P,M,U)
 %
 % * Update Feb 2024: AS refactored for multiple node models to compute the
 % Laplace transform of each region, then compute the cross-spectral density
-%
-% * Update Oct 2024: AS added second order terms; set DCM.M.tforder = 2 to
-% include second order terms in transfer function (akin to including second 
-% order Fourier coefficients) - although this adds significant nonlinearity
 %
 % AS2023
 
