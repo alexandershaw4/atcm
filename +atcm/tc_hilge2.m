@@ -161,6 +161,7 @@ SNMDA = [1   0   0   0   0;   %  SS
 
      SNMDA(:,[3 4 5]) = 0; % For ket study
      
+
 % intrinsic connectivity switches
 %--------------------------------------------------------------------------    
 %   population: 1  - Spint stellates (L4)                : e
@@ -306,7 +307,8 @@ GL   = 1 ;
 
 % mean-field effects:
 %==========================================================================
-
+%ef = -55; If = -45;
+%VR = [ef ef If ef If ef If ef];
 VR = VR + exp(P.S);
 
 % neural-mass approximation to covariance of states: trial specific
@@ -439,8 +441,8 @@ for i = 1:ns
             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );%*pop_rates );
             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
         end
-
-
+        
+        
 end
 
 

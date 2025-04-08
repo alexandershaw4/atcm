@@ -44,6 +44,12 @@ else
     Input = 1;
 end
 
+% fixed point search?
+if isfield(M,'fixedpoint') && M.fixedpoint == 1
+    x = atcm.fun.alexfixed(P,M,1e-10,[],[],1000);
+    M.x = spm_unvec(x,M.x);
+end
+
 f = @(x,u,varargin) M.f(x,u,P,M);
 w = M.Hz;
 x0 = M.x(:);
@@ -150,7 +156,7 @@ end
 
 
 % global scaling / electrode gain
-Y = {CSD};
+Y = {(CSD)};% {[real(CSD);imag(CSD)]};
 
 units = [];
 
