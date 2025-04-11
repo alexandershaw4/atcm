@@ -86,10 +86,10 @@ for s1 = 1:size(signal,1)
         if varargin{1}
             Hz = varargin{1};
             warning off;
-            SPf(:,s1,s1) = spline(f,data1(1:L2+1),Hz);
-            SPf(:,s2,s2) = spline(f,data2(1:L2+1),Hz);
-            SPf(:,s1,s2) = spline(f,Pxy  (1:L2+1),Hz);
-            SPf(:,s2,s1) = spline(f,Pyx  (1:L2+1),Hz);
+            SPf(:,s1,s1) = interp1(f,data1(1:L2+1),Hz,'spline');
+            SPf(:,s2,s2) = interp1(f,data2(1:L2+1),Hz,'spline');
+            SPf(:,s1,s2) = interp1(f,Pxy  (1:L2+1),Hz,'spline');
+            SPf(:,s2,s1) = interp1(f,Pyx  (1:L2+1),Hz,'spline');
             warning on;
             
             i      = SPf < 0;

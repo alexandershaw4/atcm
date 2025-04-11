@@ -70,7 +70,7 @@ for i = 1:Ns
     win = i:Ns:(length(A));
 
     AA = A(win,win);
-    BB = B(win);
+    BB = B(win)*exp(P.C(i));
     
     % if no input to the system these are endogenous fluctations about x0
     if ~Input
@@ -111,21 +111,6 @@ for i = 1:Ns
     MAG{i} = (MG);%magnitude;
     PHA{i} = angle(MG)*180/pi;%phase;
 
-    %Y = atcm.fun.asmooth_data(Y, exp(P.d(1)) );
-    %Y = atcm.fun.agauss_smooth(Y,exp(P.d(1)));
-    
-    % % Laplace is pretty smooth, parameterise granularity
-    % H = gradient(gradient(Y));
-    % Y = Y - (exp(P.d(1))*3)*H;
-    % 
-    % % inverse generalised filtering
-    % H = 1 ./ (1 + (w / 10).^2);
-    % 
-    % lambda = 0.01 * exp(P.d(3));
-    % Gf = conj(H) ./ (abs(H).^2 + lambda);
-    % 
-    % Y = Gf.*Y;
-
     % electrode scaling
     PSD(i,:) = exp(P.L(i))*(Y);
 
@@ -148,16 +133,14 @@ end
 for i = 1:Ns
     for j = 1:Ns
         %if i < j
-            CSD(:,i,j) = atcm.fun.agauss_smooth(abs(CSD(:,i,j)),exp(P.d(1)));
+            CSD(:,i,j) = atcm.fun.agauss_smooth(abs(CSD(:,i,j)),mean(diff(w))*exp(P.d(1)));
             CSD(:,j,i) = CSD(:,i,j);
         %end
     end
 end
 
 
-% global scaling / electrode gain
-Y = {(CSD)};% {[real(CSD);imag(CSD)]};
-
+Y = {(CSD)};
 units = [];
 
 % if continuous-time simluation was requested, compute series

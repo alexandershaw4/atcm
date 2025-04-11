@@ -110,7 +110,7 @@ for i = 1:Ns
         %Jm  = AA - s*eye(length(AA));
         Jm  = s*eye(length(AA)) - AA;
 
-        Ym  = Jm\BB;
+        Ym  = (Jm\BB) ;%+ (Jm\x0(win));
         MG(:,j) = Ym;
         Y   = C'*Ym;
         y(j) =  Y; 

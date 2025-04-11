@@ -305,6 +305,16 @@ for i = 1:Ne;
 %         else
 %             Ymod = Y;
 %         end
+
+
+        % alex add 2025
+        if isfield(DCM.options,'norm') && DCM.options.norm
+            %fprintf('normalising series amplitude\n');
+            for ik = 1:Nc
+                Y(:,ik) = Y(:,ik)./norm(Y(:,ik));
+            end 
+        end
+
         Ymod = Y;
         series{i}(j,:,:) = Y;
         
@@ -345,10 +355,23 @@ for i = 1:Ne;
                     SpecFun = DCM.options.SpecFun;
                     %[Pf, F] = atcm.fun.AfftSmooth(Ymod', 1/DCM.xY.dt, DCM.xY.Hz) ;
 
+                    Pf = []; Ppf = [];
                     if strcmp(char(SpecFun),'atcm.fun.AfftSmooth') && isfield(DCM.options,'FFTbins');
                         [Pf, F] = SpecFun(Ymod', 1/DCM.xY.dt, DCM.xY.Hz,DCM.options.FFTbins) ;
                     else
-                        [Pf, F] = SpecFun(Ymod',  1/DCM.xY.dt, DCM.xY.Hz) ;
+                        for ik = 1:Nc
+                            [Pf(ik,:), F] = SpecFun(Ymod(:,ik)',  1/DCM.xY.dt, DCM.xY.Hz) ;
+                        end
+                        for ik = 1:Nc
+                            Ppf(:,ik,ik) = Pf(ik,:);
+                            for jk = 1:Nc
+                                if jk ~= ik
+                                    Ppf(:,ik,jk) = Pf(ik,:) .* conj(Pf(jk,:));
+                                end
+                            end
+                        end
+                        Pf = Ppf;
+
 
                         % use the same regression based routine as the TCM
                         % model
@@ -478,6 +501,7 @@ for i = 1:Ne;
                 Pfull    = u(:,m)*s(m,m)*mean(v(:,m));
                 Pfull    = full(Pfull)';
             elseif size(Pfull,1) > 1 && Nm>1
+                %Pfull = squeeze(spm_robust_average(Pfull));
                 Pfull = squeeze(spm_robust_average(Pfull));
             else
                 Pfull = squeeze(Pfull);
