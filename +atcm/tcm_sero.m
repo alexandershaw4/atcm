@@ -365,19 +365,19 @@ for i = 1:ns
         % --- 5HT-2A Effects on Other Conductances ---
         %if any(x(i,4,8) > 0)  % Only apply if serotonin is active
             % NMDA enhancement
-            x(i,4,4) = x(i,4,4) * (1 + 0.2 * x(i,4,8));
+            x(i,4,4) = x(i,4,4) * (1 + exp(P.s(1)) * 0.2 * x(i,4,8));
 
             % GABA-A suppression (disinhibition)
-            x(i,3,3) = real( x(i,3,3) * (1 - 0.2 * x(i,4,8)) );
+            x(i,3,3) = real( x(i,3,3) * (1 - exp(P.s(1)) * 0.2 * x(i,4,8)) );
 
             % GABA-B enhancement
-            x(i,5,5) = x(i,5,5) * (1 + 0.1 * x(i,4,8));
+            x(i,5,5) = x(i,5,5) * (1 + exp(P.s(1)) * 0.1 * x(i,4,8));
 
             % Kv7 (M-Channel) suppression (increased excitability)
-            x(i,4,6) = x(i,4,6) * (1 - 0.2 * x(i,4,8));
+            x(i,4,6) = x(i,4,6) * (1 - exp(P.s(1)) * 0.2 * x(i,4,8));
 
             % HCN (Ih) enhancement
-            x(i,4,7) = x(i,4,7) * (1 + 0.1 * x(i,4,8));
+            x(i,4,7) = x(i,4,7) * (1 + exp(P.s(1)) * 0.1 * x(i,4,8));
         %end
                               
         % Voltage equations

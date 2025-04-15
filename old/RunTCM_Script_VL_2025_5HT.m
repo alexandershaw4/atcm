@@ -1,15 +1,19 @@
-function RunTCMsero_TCM_VL2025(i)
+function RunTCM_Script_VL_2025_spectrum(spectrum,hz,fs,name)
 % Top level script showing how to apply the thalamo-cortical neural mass
 % model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
 %
 % This version using a linearisation and transfer function (numerical
-% Laplace) rather than brute numerical integration.
+% Laplace) rather than brute numerical integration. It does however return
+% the time-domain signal using an impulse response function on the
+% linearised model.
 %
 % Requires atcm (thalamo cortical modelling package) and aoptim
 % (optimisation package)
 %
 % atcm: https://github.com/alexandershaw4/atcm
 %
+% This version takes as input a spectrum, vector of corresponding
+% frequencies and sample rate and filename.
 %
 % AS2020/21/22 {alexandershaw4[@]gmail.com}
 
@@ -18,14 +22,15 @@ function RunTCMsero_TCM_VL2025(i)
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'NewSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'AllLSD.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
-Data.Design.Sname = {'V1'};            % channel (node) names
-Data.Prefix       = 'TCMsero_';      % outputted DCM prefix
+Data.Design.Sname = {'PBVE'};            % channel (node) names
+Data.Prefix       = 'VL_TFD_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
+%Data.Datasets{1} = name;
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
 %--------------------------------------------------------------------------
@@ -41,7 +46,7 @@ L = sparse(1,1);
 
 % Set up, over subjects
 %--------------------------------------------------------------------------
-for i = i;%1:length(Data.Datasets)
+for i = 1;%1:length(Data.Datasets)
     
     % Data Naming & Design Matrix
     %----------------------------------------------------------------------
@@ -74,7 +79,7 @@ for i = i;%1:length(Data.Datasets)
     
     % Function Handles
     %----------------------------------------------------------------------
-    DCM.M.f  = @atcm.tcm_sero;               % model function handle
+    DCM.M.f  = @atcm.tcm_sero;              % model function handle
     DCM.M.IS = @atcm.fun.Alex_LaplaceTFwD;            % Alex integrator/transfer function
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
@@ -83,13 +88,13 @@ for i = i;%1:length(Data.Datasets)
     fprintf('Running Dataset %d / %d\n',i,length(Data.Datasets));
     
     % Frequency range of interest
-    fq =  [1 90];
+    fq =  [1 100];
     
     % Prepare Data
     %----------------------------------------------------------------------
     DCM.M.U            = sparse(diag(ones(Ns,1)));  %... ignore [modes]
     DCM.options.trials = tCode;                     %... trial code [GroupDataLocs]
-    DCM.options.Tdcm   = [300 1300];                   %... peristimulus time
+    DCM.options.Tdcm   = [1 2000];                   %... peristimulus time
     DCM.options.Fdcm   = fq;                    %... frequency window
     DCM.options.D      = 1;                         %... downsample
     DCM.options.han    = 1;                         %... apply hanning window
@@ -108,13 +113,19 @@ for i = i;%1:length(Data.Datasets)
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = 1/2;
+    DCM.options.FrequencyStep = 1/4;
     
     DCM.xY.name = DCM.Sname;
-    DCM = atcm.fun.prepcsd(DCM);
+    %DCM = atcm.fun.prepcsd(DCM);
+
+    DCM.xY.y{1}  = spectrum(:);
+    DCM.xY.csd{1} = spectrum(:);
+    DCM.xY.Hz = hz;
+    DCM.xY.X0 = eye(length(hz));
+
     DCM.options.DATA = 1 ;
 
-    DCM.xY.y{:}  = agauss_smooth(abs(DCM.xY.y{:}),2)';
+    DCM.xY.y{:}  = agauss_smooth(abs(DCM.xY.y{:}),3)';
         
     % Subfunctions and default priors
     %----------------------------------------------------------------------
@@ -130,7 +141,7 @@ for i = i;%1:length(Data.Datasets)
 
     pE = spm_unvec(spm_vec(pE)*0,pE);
 
-    pC.ID = pC.ID*0 ;%  1/8;
+    pC.ID = pC.ID*0 +  1/6;
     pC.T  = pC.T *0;
     
     pE.J = pE.J-1000;    
@@ -149,11 +160,12 @@ for i = i;%1:length(Data.Datasets)
              0   0   0   0   0   0   0   0;
              0   0   0   0   0   0   1   0]/64;
 
-    pC.J(1:8)=1/8;
-    pC.d(1:3) = 1/8;
+    pC.J(1:8)=0;%1/8;
+    pC.d(1) = 1/8;
+    pC.d(3) = 1/8;
 
-    pE.L = 0;
-    %pC.ID = pC.ID + 1/8;
+    pE.L = -4;
+    pC.ID = pC.ID + 1/8;
 
     % Serotonin 5HT-2A receptors on L5 pydamidal cells
     pE.HT2A = 0;
@@ -166,8 +178,6 @@ for i = i;%1:length(Data.Datasets)
     pE.T(7) = 0;
     pC.T(7) = 0;
 
-    pE.s = [0];
-    pC.s = [1]./8;
 
     % Make changes here;
     %-----------------------------------------------------------
@@ -195,12 +205,11 @@ for i = i;%1:length(Data.Datasets)
 
     x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
     DCM.M.x = spm_unvec(x,DCM.M.x);
-    x = atcm.fun.alexfixed(DCM.M.pE,DCM.M,1e-10);
-    DCM.M.x = spm_unvec(x,DCM.M.x);
 
     norm(DCM.M.f(DCM.M.x,0,DCM.M.pE,DCM.M))
 
     fprintf('Finished...\n');
+
     
           
     fprintf('--------------- PARAM ESTIMATION ---------------\n');
@@ -210,22 +219,21 @@ for i = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
     
-    %DCM.M.endogenous = 1;
 
-    % Fit with Alex's VB routine
+    % Fit with LM (Log Likelihood estimation):
     %----------------------------------------------------------------------
     M = aFitDCM(DCM)
 
     M.aloglikVLtherm;
     M.update_parameters(M.Ep)
 
-    %M.aloglikVLtherm;
-    %M.update_parameters(M.Ep)
+    M.aloglikVLtherm;
+    M.update_parameters(M.Ep)
 
     [y,w,G,s] = feval(DCM.M.IS,spm_unvec(M.Ep,DCM.M.pE),DCM.M,DCM.xU);
 
     numit = 0;
-    while cdist(DCM.xY.y{:}(:)',y{:}(:)') > (1) && numit < 8
+    while cdist(DCM.xY.y{:}(:)',y{:}(:)') > (.05) && numit < 8
         numit = numit + 1;
         %M.aloglik;
         M.aloglikVLtherm;
