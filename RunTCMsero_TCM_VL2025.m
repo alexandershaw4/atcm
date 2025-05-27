@@ -18,14 +18,15 @@ function RunTCMsero_TCM_VL2025(i)
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'NewSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+%Data.Datasets     = 'NewSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'V1'};            % channel (node) names
 Data.Prefix       = 'TCMsero_';      % outputted DCM prefix
-Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
+%Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
+Data.Datasets = {'Average_020415_50_control.mat'};
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
 %--------------------------------------------------------------------------
@@ -134,7 +135,8 @@ for i = i;%1:length(Data.Datasets)
     pC.T  = pC.T *0;
     
     pE.J = pE.J-1000;    
-    pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
+    %pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
+    pE.J(1:8) = log([.2 .99 .1 .8 .1 .2 .05 .1]);
     %pC.ID = pC.ID + 1/8;
     pE.L = 0;
     pC.a = pC.a*0;
@@ -151,6 +153,7 @@ for i = i;%1:length(Data.Datasets)
 
     pC.J(1:8)=1/8;
     pC.d(1:3) = 1/8;
+    pC.d(2) = 0;
 
     pE.L = 0;
     %pC.ID = pC.ID + 1/8;
@@ -216,7 +219,7 @@ for i = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     M = aFitDCM(DCM)
 
-    M.aloglikVLtherm;
+    M.aloglikVLtherm([],0);
     M.update_parameters(M.Ep)
 
     %M.aloglikVLtherm;
@@ -228,7 +231,7 @@ for i = i;%1:length(Data.Datasets)
     while cdist(DCM.xY.y{:}(:)',y{:}(:)') > (1) && numit < 8
         numit = numit + 1;
         %M.aloglik;
-        M.aloglikVLtherm;
+        M.aloglikVLtherm([],0);
         %M.aloglikFE;
         M.update_parameters(M.Ep);
         [y,w,G,s] = feval(DCM.M.IS,spm_unvec(M.Ep,DCM.M.pE),DCM.M,DCM.xU);

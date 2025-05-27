@@ -18,13 +18,13 @@ function RunTCM_Script_VL_2025(i)
 
 % Data & Design
 %--------------------------------------------------------------------------
-Data.Datasets     = 'AllLSD.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
+Data.Datasets     = 'NewSZ.txt';%'MeanSZDatasets.txt';%'AllSZNoMerge.txt'; % textfile list of LFP SPM datasets (.txt)
 Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
 Data.Design.Sname = {'PBVE'};            % channel (node) names
-Data.Prefix       = 'VL_TFD_TCM_';      % outputted DCM prefix
+Data.Prefix       = 'rVL_TFD_TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
@@ -134,7 +134,8 @@ for i = i;%1:length(Data.Datasets)
     pC.T  = pC.T *0;
     
     pE.J = pE.J-1000;    
-    pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
+    %pE.J(1:8) = log([.6 .8 .4 .6 .4 .6 .4 .4]);
+    pE.J(1:8) = log([.2 .99 .1 .8 .1 .2 .05 .1]);
     %pC.ID = pC.ID + 1/8;
     pE.L = 0;
     pC.a = pC.a*0;
@@ -149,9 +150,10 @@ for i = i;%1:length(Data.Datasets)
              0   0   0   0   0   0   0   0;
              0   0   0   0   0   0   1   0]/64;
 
-    pC.J(1:8)=1/8;
+    %pC.J(1:8)=1/8;
     pC.d(1) = 1/8;
     pC.d(3) = 1/8;
+
 
     % Make changes here;
     %-----------------------------------------------------------

@@ -53,6 +53,7 @@ try
 catch
     f   = Fq(1);
 end
+f = w(f);
 
 w   = w - mw;
 switch model

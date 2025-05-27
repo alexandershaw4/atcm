@@ -276,7 +276,7 @@ for  c = 1:size(U.X,1)
 
 end
 
-other.noise = noise;
+%other.noise = noise;
 other.firing = firing;
 other.QD = QD;
 other.Spike = Spike;
