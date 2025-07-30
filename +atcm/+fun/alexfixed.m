@@ -1,4 +1,4 @@
-function x0 = alexfixed(P,M,tol,a,input,numit)
+function x0 = alexfixed(P,M,tol,a,input,numit,dt)
 % Use the Newton-Raphson method to find a fixed point of a dynamical system
 % (in this case, a DCM) with adaptive step size (regulariser) that
 % increases when iterations don't improve
@@ -13,7 +13,11 @@ function x0 = alexfixed(P,M,tol,a,input,numit)
 %
 % AS
 
-if nargin < 5 || isempty(numit)
+if nargin < 7 || isempty(dt)
+    dt = 1;
+end
+
+if nargin < 6 || isempty(numit)
     numit = 3e3;    
 end
 
@@ -37,30 +41,23 @@ if nargin < 4 || isempty(a)
     a = 2;
 end
 
-% fetch delay operator
-%[dx,A,D] = f(x0,[]);
-%D        = inv(eye(length(D)) - D);
-
-%rf = 0.2; 
 
 for i = 1:numit;%3e10
 
     [dx,A] = f(x0,[]);
+    dx = dt*dx;
+    A = dt*A;
 
-    %A = D*A;
     
     x1 = x0 - (exp(-a) * pinv(full(A)) * dx);
 
-    % x1 = x0 - dt * pinv(full(A)) * dx;
-
-    %x1 = ( (1 - rf) * x0 ) - ( rf * exp(-a) * pinv(full(A)) * dx );
 
     e(i) = norm(f(x1,[]) );
     
-    norm(f(x1,[]) )
 
     if norm(f(x1,[]) ) < tol
         %fprintf('Converged at iteration %d\n', i);
+        x0=x1;
         break;
     end
 

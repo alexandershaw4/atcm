@@ -1,4 +1,4 @@
-function [f,J,D] = tc_hilge2(x,u,P,M)
+function [f,J,D] = tc_hilge2_spindles(x,u,P,M)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
 % This model implements a conductance-based canonical thalamo-cortical circuit,
@@ -178,22 +178,22 @@ GIa = zeros(8,8);
 
 % Excitatory (np x np): AMPA & NMDA
 %--------------------------------------------------------------------------
-GEa = [  0     0     0     0     0     2     0     2;
+GEa = [  0     0     0     0     0     2     0     18;
          2     2     0     0     0     0     0     0;
          0     2     0     0     0     0     0     0;
          0     2     0     0     0     0     0     0;
          0     0     0     2     0     0     0     0;
          0     0     0     2     0     0     0     0;
-         0     0     0     0     0     0     0     2;
+         0     0     0     0     0     0     0     12;
          2     0     0     0     0     2     0     0];
 
-GEn =   [0     0     0     0     0     2     0     2;
+GEn =   [0     0     0     0     0     2     0     18;
          2     2     2     0     0     0     0     0;
          0     2     2     0     0     0     0     0;
          0     2     0     0     0     0     0     0;
          0     0     0     2     0     0     0     0;
          0     0     0     2     0     0     0     0;
-         0     0     0     0     0     0     0     2;
+         0     0     0     0     0     0     0     12;
          2     0     0     0     0     2     0     0];
 
 
@@ -207,32 +207,12 @@ GIa =[8     0     10    0     0     0     0     0;
       0     0     0     8     6     0     0     0;
       0     0     0     0    14     0     0     0;
       0     0     0     0     6     8     0     0;
-      0     0     0     0     0     0     8     0;
+      0     0     0     0     0     0     16    0;
       0     0     0     0     0     0     8     8];
-
-% GIa =[8     0     10    0     0     0     0     0;
-%       0    18     10    0     0     0     0     0;
-%       0     0     10    0     0     0     0     0;
-%       0     0     0     8     2     0     0     0;
-%       0     0     0     0     2     0     0     0;
-%       0     0     0     0     2     8     0     0;
-%       0     0     0     0     0     0     8     0;
-%       0     0     0     0     0     0     8     8];
-
-%GIa = GIa * exp(P.I);
-
-% GIa =[8     0     10    0     0     0     0     0;
-%       0    18     10    0     0     0     0     0;
-%       0     0     10    0     0     0     0     0;
-%       0     0     0     8     4     0     0     0;
-%       0     0     0     0     8     0     0     0;
-%       0     0     0     0     4     8     0     0;
-%       0     0     0     0     0     0     8     0;
-%       0     0     0     0     0     0     8     8];
-
 
 GIb = GIa;
 
+%GIb(8,7) = 80;
 
 
 % Channel rate constants [decay times]
@@ -242,25 +222,6 @@ KI  = exp(-P.T(:,2))*1000/5;%6;           % inhibitory rate constants (GABAa)
 KN  = exp(-P.T(:,3))*1000/100;%40;          % excitatory rate constants (NMDA) 40-100
 KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
 
-% notes on time-constants:
-%-----------------------------------------------------------------------
-% cojuld even use number from this friston paper
-%https://www.sciencedirect.com/science/article/pii/S0361923000004366?via%3Dihub
-% ampa = 1.2 to 2.4 ms
-% gabaa -   6ms
-% nmda - 50 ms
-%KN  = exp(-P.T(:,3))*1000/50;    
-
-% gaba-b maybe evern 300 or 500ms
-% now using faster AMPA and GABA-A dynamics based on this book:
-% https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
-
-
-% Trial-specific effects on time constants: AMPA & NMDA only for LTP task
-if isfield(P,'T1')
-    KE = KE + P.T1(1);
-    KN = KN + P.T1(2);
-end
 
 % Voltages [reversal potentials] (mV)
 %--------------------------------------------------------------------------
@@ -281,7 +242,7 @@ if IncludeMH
     VH   = -30;                            % reversal potential h-channels 
 
     GIm = diag(4*[1 1 1 1 1 1 1 1].*exp(P.Mh(:)'));
-    GIh = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Hh(:)'));
+    GIh = diag(4*[0 0 0 0 0 2 0 4].*exp(P.Hh(:)'));
 
     KM    = (exp(-P.T(:,5))*1000/160) ;               % m-current opening + CV
     KH    = (exp(-P.T(:,6))*1000/100) ;               % h-current opening + CV
@@ -294,12 +255,6 @@ end
 %--------------------------------------------------------------------------
 CV   = exp(P.CV).*      [128*3 128 64 128 64  128  64  128]/1000;  
 
-%CV   = exp(P.CV).*      [128 128 64 128 64  128  64  64*2]/1000;  
-
-%CV   = exp(P.CV).*[16 16 32 16 32 16 32 16]*2/1000;  
-
-
-%CV   = exp(P.CV).*[128 128 256 32]/1000;  % 
 
 % leak conductance - fixed
 %--------------------------------------------------------------------------
@@ -309,20 +264,12 @@ GL   = 1 ;
 %==========================================================================
 %ef = -55; If = -45;
 %VR = [ef ef If ef If ef If ef];
-VR = VR + exp(P.S);
+%VR = VR + exp(P.S);
 
 % neural-mass approximation to covariance of states: trial specific
 %----------------------------------------------------------------------
-R  = 2/3; %* exp(P.S); % P.S is the slope pf the sigmoid for each pop firing rate
-FF = 1./(1 + exp(-R.*(x(:,:,1)-VR)));
-
-RS = 30 ;
-Fu = find( x(:,:,1) >= VR ); FF(Fu) = 1;
-Fl = find( x(:,:,1) >= RS ); FF(Fl) = 0;
-m  = FF;
-
-%Vrest = -70; Vthresh = -40;
-%m = max(0, tanh((x(:,:,1) - Vthresh)/10));
+Vrest = -70; Vthresh = -40;
+m = max(0, tanh((x(:,:,1) - Vthresh)/10));
 
 % extrinsic effects
 %--------------------------------------------------------------------------
@@ -370,6 +317,21 @@ for i = 1:ns
         I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
         IB     = (Gb(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
                 
+
+        % sum of excitatory pop outputs
+        exc_pop_idx = [1 2 4 6 8];  % e.g., SS, SP, DP, TP, RC
+        exc_total = sum(m(i,exc_pop_idx));
+
+        alpha = exp(P.exc2inh);
+
+        % boost II and DI output based on excitation
+        m_aug = m(i,:)';
+        m_aug(3) = m_aug(3) + alpha * exc_total;  % II
+        m_aug(5) = m_aug(5) + alpha * exc_total;  % DI
+
+        % re-calculate inhibitory current
+        I = (G(:,:,i) .* GIa) * m_aug;
+
         if IncludeMH
             
             % intrinsic coupling - non-parameterised: intrinsic dynamics
@@ -382,10 +344,10 @@ for i = 1:ns
         %------------------------------------------------------------------
         E     = (E     +  BE  + SA   *a (i,:)')*2;
         ENMDA = (ENMDA +  BE  + SNMDA*an(i,:)')*2;
-
-        if isfield(P,'endo')
-            E(2) = E(2) + 2*exp(P.endo(1));
-        end
+        % 
+        % if isfield(P,'endo')
+        %     E(2) = E(2) + 2*exp(P.endo(1));
+        % end
                    
         % and exogenous input(U): 
         %------------------------------------------------------------------
@@ -404,10 +366,10 @@ for i = 1:ns
         end
 
         % direct current to thalamus
-        if isfield(P,'thi');
-            E(8) = E(8) + exp(P.thi);
-            ENMDA(8) = ENMDA(8) + exp(P.thi);
-        end
+        % if isfield(P,'thi');
+        %     E(8) = E(8) + exp(P.thi);
+        %     ENMDA(8) = ENMDA(8) + exp(P.thi);
+        % end
                               
         % Voltage equations
         %==================================================================
@@ -510,8 +472,8 @@ Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
 %Thalamocortical System. I. Layers, Loops and the Emergence of Fast Synchronous Rhythms
 % Lumer et al 1997
 
-CT = 8; %60;
-TC = 3; %20;
+CT = 30;%12; %60;
+TC = 20;%8; %20;
 
 Tc              = zeros(np,np);
 Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal
@@ -522,13 +484,14 @@ Tc = kron(ones(nk,nk),kron(Tc,ones(ns,ns)));
 
 
 %kd = exp(P.a(1)) * 8;
-%ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
+ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
 ID = [2 1 1 1 1 2 1 2];
 ID = ID.*exp(P.ID)/1000; 
 ID = repmat(ID,[1 nk]);
 
 ID = repmat(ID(:)',[np*nk,1]);
 ID = kron(ID,ones(ns,ns));
+
 
 %ID = ID - ID(:);
 
@@ -540,7 +503,7 @@ Ds = ~Sp & Ss;                       % states: same source different pop.
 
 D = d(1)*Ds + Tc + (ID) ;
 
-D =  Tc + (ID) ;
+%D =  Tc + (ID) ;
 
 
 % Compute delays if dt provided, including on output vector;

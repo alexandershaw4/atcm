@@ -44,6 +44,14 @@ else
     Input = 1;
 end
 
+% if isfield(M,'osc') && M.osc
+%     fq = 12*exp(P.R(1));
+%     am = 1*exp(P.R(2));
+%     wi = 2 * exp(P.R(3));
+%     InpF = atcm.fun.makef(M.Hz,fq,am,wi);
+%     M.external_spectrum = InpF;
+% end
+
 % fixed point search?
 if isfield(M,'fixedpoint') && M.fixedpoint == 1
     x = atcm.fun.alexfixed(P,M,1e-10,[],[],1000);
@@ -65,13 +73,22 @@ Ns = size(M.x,1);
 % Delay operator
 D_exp = arrayfun(@(w) expm(-1i * 2 * pi * w * D), M.Hz, 'UniformOutput', false);
 
+modulate_delay = @(f, i) exp(P.delaymod(1)) * sin(2 * pi * f / exp(P.delaymod(2))) * exp(P.delaymod(3));
+
 % Loop each node (aka region, source, mode, column ..)
 for i = 1:Ns
     win = i:Ns:(length(A));
 
     AA = A(win,win);
     BB = B(win)*exp(P.C(i));
-    
+
+    % Outside loop over j (frequencies)
+    Uomega = ones(size(w));  % default flat drive
+
+    if isfield(M, 'external_spectrum')
+        Uomega = M.external_spectrum(:);  % frequency-dependent input gain
+    end
+
     % if no input to the system these are endogenous fluctations about x0
     if ~Input
         BB = x0(win);
@@ -83,8 +100,24 @@ for i = 1:Ns
     % properly handle delays in the lpalace domain:
     % D(s) = e^−sD = e^−(jω)D
     for j = 1:length(w)
-        D_w = D_exp{j};  % Get delay operator at this frequency
-        D_w = D_w(win,win);
+        %D_w = D_exp{j};  % Get delay operator at this frequency
+        %D_w = D_w(win,win);
+        f_j = w(j);
+        D_base = D(win,win);
+
+        % Inject frequency-dependent modulation into delay
+        delta_D = zeros(size(D_base));
+        for m = 1:size(D_base,1)
+            for n = 1:size(D_base,2)
+                delta_D(m,n) = modulate_delay(f_j, i);  % i = node index
+            end
+        end
+        D_mod = D_base + delta_D;
+
+        % Construct frequency-domain delay operator
+        D_w = expm(-1i * 2 * pi * f_j * D_mod);
+        
+        
         %Jm  = D_w * (AA - 1i*2*pi*w(j)*eye(length(AA)));
 
         CsI = exp(P.d(2))+(1i*2*pi*w(j)*eye(length(AA)));
@@ -96,7 +129,9 @@ for i = 1:Ns
         y(j) = Y;
     end
 
-    Y = y;
+    Y = y.*spm_unvec(Uomega,y);
+
+    %MG = MG.*Uomega';
 
     % the matlab way (not in use now)
     %G = ss(AA, BB, diag(C), 0);  % Assuming unity output matrix
@@ -161,6 +196,7 @@ if isfield(M,'sim') && nargout > 3
         for i = 1:size(mag,1)
             for j = 1:size(mag,2)    
                 series{k}(i,j,:) = mag(i,j) * sin(2*pi*w(j)*pst/1000 - the(i,j) );
+                %series{k}(i,j,:) = real( MAG{k}(i,j) .* exp(1i * 2 * pi * w(j) * pst(:)' / 1000) - the(i,j) );
             end
         end
     
@@ -168,6 +204,9 @@ if isfield(M,'sim') && nargout > 3
         S{k} = S{k} + spm_vec(M.x(k,:,:));
         LFP(k,:) = (C)'*S{k};
     end
+
+    %LFP = real(LFP) + imag(LFP);
+    %LFP = abs(LFP);
 
     units.series = S;
     units.LFP    = LFP;

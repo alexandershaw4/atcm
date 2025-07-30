@@ -16,10 +16,14 @@ try;Qp.KN  = 1./(exp(-Ep.T(:,3))*1000/100);end
 try;Qp.KB  = 1./(exp(-Ep.T(:,4))*1000/300);  end
 try;Qp.KM  = 1./(exp(-Ep.T(:,5))*1000/160);  end
 try;Qp.KH  = 1./(exp(-Ep.T(:,6))*1000/100);  end
+try;Qp.K5HT  = 1./(exp(-Ep.T(:,7))*1000/200);  end
+
 
 % thalamo-cortical and cortico-thalamic delays
 try,Qp.CT = (8* exp(Ep.CT))/1000; end %60;
 try,Qp.TC = (3* exp(Ep.TC))/1000; end %20;
+
+try, Qp.HT2A = exp(Ep.HT2A); end
 
 % cell / axononal conductance delays
 %ID = [2 1 1 1 1 2 1 2];
