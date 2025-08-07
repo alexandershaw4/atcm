@@ -73,7 +73,7 @@ Ns = size(M.x,1);
 % Delay operator
 D_exp = arrayfun(@(w) expm(-1i * 2 * pi * w * D), M.Hz, 'UniformOutput', false);
 
-modulate_delay = @(f, i) exp(P.delaymod(1)) * sin(2 * pi * f / exp(P.delaymod(2))) * exp(P.delaymod(3));
+%modulate_delay = @(f, i) exp(P.delaymod(1)) * sin(2 * pi * f / exp(P.delaymod(2))) * exp(P.delaymod(3));
 
 % Loop each node (aka region, source, mode, column ..)
 for i = 1:Ns
@@ -100,23 +100,8 @@ for i = 1:Ns
     % properly handle delays in the lpalace domain:
     % D(s) = e^−sD = e^−(jω)D
     for j = 1:length(w)
-        %D_w = D_exp{j};  % Get delay operator at this frequency
-        %D_w = D_w(win,win);
-        f_j = w(j);
-        D_base = D(win,win);
-
-        % Inject frequency-dependent modulation into delay
-        delta_D = zeros(size(D_base));
-        for m = 1:size(D_base,1)
-            for n = 1:size(D_base,2)
-                delta_D(m,n) = modulate_delay(f_j, i);  % i = node index
-            end
-        end
-        D_mod = D_base + delta_D;
-
-        % Construct frequency-domain delay operator
-        D_w = expm(-1i * 2 * pi * f_j * D_mod);
-        
+        D_w = D_exp{j};  % Get delay operator at this frequency
+        D_w = D_w(win,win);        
         
         %Jm  = D_w * (AA - 1i*2*pi*w(j)*eye(length(AA)));
 
