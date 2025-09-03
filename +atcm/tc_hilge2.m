@@ -1,118 +1,49 @@
 function [f,J,D] = tc_hilge2(x,u,P,M)
 % State equations for an extended canonical thalamo-cortical neural-mass model.
 %
-% This model implements a conductance-based canonical thalamo-cortical circuit,
-% with cytoarchitecture inspired by Gilbert & Wiesel (1983), Douglas & 
-% Martin (2004) and Traub (2004) models.
+% Conductance-based neural mass with AMPA, NMDA, GABA-A, GABA-B (+ optional M & H).
+% Populations (per source): 
+% 1 SS (L4 spiny stellate), 2 SP (L2/3 sup. pyramids), 3 SI (L2/3 interneurons),
+% 4 DP (L5 deep pyramids),   5 DI (L5 deep interneurons),
+% 6 TP (L6 thal proj pyramids), 7 RT (reticular), 8 RC (relay)
 %
-% The equations of motion are Moris Lecar-esque equations, similar to Moran
-% (2011), but with conductances for AMPA, NMDA, GABA-A, & GABA-B channels. 
-% These 'channels' feature their own reversal poentials and rate constants:
-%
-% K  = -70           (Leak)
-% Na =  60  / 2.2 ms   (AMPA)
-% Cl = -90  / 5 ms  (GABA-A)
-% Ca =  10  / 100 ms (NMDA)   + voltage mag switch
-% B  = -100 / 300 ms (GABA-B)
-% f  = -40
-%
-% FORMAT [f,J,Q,D] = atcm.tcm_hilge(x,u,P,M)
-%
-% x - states and covariances
-%
-% x(i,j,k)        - k-th state of j-th population of i-th source
-%                   i.e., running over sources, pop. and states
-%
-%   population: 1  - Spint stellates (L4)
-%               2  - Superficial pyramids (L2/3)
-%               3  - Inhibitory interneurons (L2/3)     
-%               4  - Deep pyramidal cells (L5)
-%               5  - Deep interneurons (L5)
-%               6  - Thalamic projection neurons (pyramid) (L6)
-%               7  - Reticular cells (Thal)
-%               8  - Thalamo-cortical relay cells (Thal)
-%
-%
-%        state: 1 V   - voltage
-%               2 gE  - conductance: AMPA   (excitatory)
-%               3 gI  - conductance: GABA-A (inhibitory)
-%               4 gN  - conductance: NMDA   (excitatory)
-%               5 gB  - conductance: GABA-B (inhibitory)
-%               6 gM  - conductance: M-channels (inhibitory)
-%               7 gih - conductance: H-channels (inhibitory)
-%
-%      outputs: f = model states as a vector - hint: spm_unvec(f,M.x) 
-%               J = system Jacobian - dfdx
-%               D = states delay matrix
-%
-% Info:
-%  - Ih is a hyperpolarization-activated cation current mediated by HCN channel
-%  - non-selective, voltag gated, responsible for cariac 'funny' (pacemaker) current
-%  - HCN = Hyperpolarization-Activated Cyclic Nucleotide-Gated Channels
-%
-%  - M-channels (aka Kv7) are noninactivating potassium channels
-%  - M is unique because it is open at rest and even more likely to be open during depolarization
-%  - M is a pip2 regulated ion channel
-%
-% Notes, changes, updates:
-%
-% Kv7 channels are actually everwhere - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7530275/#ref90
-%
-% Extrinsics connection matrices [ampa but AN{n} is nmda equiv]:
-% A{1} = Forward  SP -> SS & DP
-% A{2} = Backward DP -> SP & SI
-% A{3} = Back/Lat TP -> SS & TP
-% A{4} = Inter-Thal [B] RT -> RC
-% A{5} = Inter-Thal [F] RC -> RT
+% Outputs:
+%   f : vectorised state derivatives (spm_vec order)
+%   J : Jacobian (df/dx) if requested
+%   D : delay matrix if requested
 %
 % Dr Alexander Shaw | 2020 | alexandershaw4[@]gmail.com
 
+% Allow P.p struct wrapping
 if isstruct(P) && isfield(P,'p')
     P = P.p;
 end
 
-% Flag: include M- & H- channels on L6 TP & Thalamic Relay cells, or not
-%--------------------------------------------------------------------------
+% --- Toggle optional M/H channels on L6 (TP) & thalamic relay (RC)
 IncludeMH = 1;
 
-inputu = u;
- 
-% get dimensions and configure state variables
-%--------------------------------------------------------------------------
-ns   = size(M.x,1);                      % number of sources
-np   = size(M.x,2);                      % number of populations per source
-nk   = size(M.x,3);                      % number of states per population
-x    = reshape(x,ns,np,nk);              % hidden states 
+% --- Dimensions and reshape state ----------------------------------------
+ns = size(M.x,1);              % sources
+np = size(M.x,2);              % populations
+nk = size(M.x,3);              % states per population
+x  = reshape(x,ns,np,nk);      % hidden states
 
-
-% extrinsic connection strengths
-%==========================================================================
- 
-% exponential transform to ensure positivity constraints
-%--------------------------------------------------------------------------
+% --- Extrinsic connections (A / AN) and input gains -----------------------
 for i = 1:length( P.A )
     A{i}  = exp(P.A{i});
     AN{i} = exp(P.AN{i});
 end
+C  = exp(P.C);
 
-C     = exp(P.C); 
- 
-
-% detect and reduce the strength of reciprocal (lateral) connections
-%--------------------------------------------------------------------------
-for i = 1:length(A)
+% Damp reciprocal (lateral) strengths on A (as in original)
+for i = 1:numel(A)
     L    = (A{i} > exp(-8)) & (A{i}' > exp(-8));
     A{i} = A{i}./(1 + 8*L);
 end
 
-            
-% intrinsic connection strengths
-%==========================================================================
-G    = full(P.H);
-G    = exp(G);
-
-Gn = full(P.Hn);
-Gn = exp(Gn);
+% --- Intrinsic (within-source) connection strengths -----------------------
+G  = exp(full(P.H));
+Gn = exp(full(P.Hn));
 
 if isfield(P,'Gb')
     Gb = exp(full(P.Gb));
@@ -120,234 +51,107 @@ else
     Gb = G;
 end
 
-% connectivity switches
-%==========================================================================
-% 1 - excitatory spiny stellate cells (granular input cells)
-% 2 - superficial pyramidal cells     (forward  output cells)
-% 3 - inhibitory interneurons         (intrisic interneuons)
-% 4 - deep pyramidal cells            (backward output cells)
-% 5 - deep interneurons               
-% 6 - thalamic projection pyramidal cells (with m- and h- currents)
-% 7 - thalamic reticular cells
-% 8 - thalamic relay cells (with m- and h- currents)
-%
-% Thalamic cells attached to different cortical regions (models) are laterally connected
+% --- Extrinsic routing masks (fixed switches as per original) -------------
+% AMPA-mediated
+SA = [1 0 0 0 0;  0 1 0 0 0;  0 1 0 0 0;  0 0 0 0 0; ...
+      0 0 0 0 0;  0 0 0 0 0;  0 0 0 0 1;  0 0 0 1 0]/8;
+SA(:,[3 4 5]) = 0; % ketamine study restriction
 
+% NMDA-mediated
+SNMDA = [1 0 0 0 0;  0 1 0 0 0;  0 1 0 0 0;  0 0 0 0 0; ...
+         0 0 0 0 0;  0 0 0 0 0;  0 0 0 0 1;  0 0 0 1 0]/8;
+SNMDA(:,[3 4 5]) = 0; % ketamine study restriction
 
-% % extrinsic connections (F B) - from superficial and deep pyramidal cells
-% %--------------------------------------------------------------------------
-%       SP  DP  tp  rt  rc
-SA   = [1   0   0   0   0;   %  SS    % added TP->SP
-        0   1   0   0   0;   %  SP
-        0   1   0   0   0;   %  SI
-        0   0   0   0   0;   %  DP
-        0   0   0   0   0;   %  DI
-        0   0   0   0   0;   %  TP % 0 in ket study
-        0   0   0   0   1;   %  rt % 0 in ket study
-        0   0   0   1   0]/8;%  rc % 0 in ket study
-    
-    SA(:,[3 4 5]) = 0; % For ket study
-    
-% % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
-% %--------------------------------------------------------------------------    
-SNMDA = [1   0   0   0   0;   %  SS
-         0   1   0   0   0;   %  SP
-         0   1   0   0   0;   %  SI
-         0   0   0   0   0;   %  DP
-         0   0   0   0   0;   %  DI
-         0   0   0   0   0;   %  TP % 0 in ket study
-         0   0   0   0   1;   %  rt % 0 in ket study
-         0   0   0   1   0]/8;%  rc % 0 in ket study
+% --- Intrinsic switches (fixed topology) ----------------------------------
+% Excitatory (AMPA/NMDA)
+GEa = [0 0 0 0 0 2 0 2;
+       2 2 0 0 0 0 0 0;
+       0 2 0 0 0 0 0 0;
+       0 2 0 0 0 0 0 0;
+       0 0 0 2 0 0 0 0;
+       0 0 0 2 0 0 0 0;
+       0 0 0 0 0 0 0 2;
+       2 0 0 0 0 2 0 0];
 
-     SNMDA(:,[3 4 5]) = 0; % For ket study
-     
+GEn = [0 0 0 0 0 2 0 2;
+       2 2 2 0 0 0 0 0;
+       0 2 2 0 0 0 0 0;
+       0 2 0 0 0 0 0 0;
+       0 0 0 2 0 0 0 0;
+       0 0 0 2 0 0 0 0;
+       0 0 0 0 0 0 0 2;
+       2 0 0 0 0 2 0 0];
 
-% intrinsic connectivity switches
-%--------------------------------------------------------------------------    
-%   population: 1  - Spint stellates (L4)                : e
-%               2  - Superficial pyramids (L2/3)         : e
-%               3  - Inhibitory interneurons (L2/3)      : i
-%               4  - Deep pyramidal cells (L5)           : e
-%               5  - Deep interneurons (L5)              : i
-%               6  - Thalamic projection neurons -L6     : e
-%               7  - Reticular cells (Thal)              : i
-%               8  - Thalamo-cortical relay cells (Thal) : e
-
-GEa = zeros(8,8);
-GIa = zeros(8,8);
-
-% Excitatory (np x np): AMPA & NMDA
-%--------------------------------------------------------------------------
-GEa = [  0     0     0     0     0     2     0     2;
-         2     2     0     0     0     0     0     0;
-         0     2     0     0     0     0     0     0;
-         0     2     0     0     0     0     0     0;
-         0     0     0     2     0     0     0     0;
-         0     0     0     2     0     0     0     0;
-         0     0     0     0     0     0     0     2;
-         2     0     0     0     0     2     0     0];
-
-GEn =   [0     0     0     0     0     2     0     2;
-         2     2     2     0     0     0     0     0;
-         0     2     2     0     0     0     0     0;
-         0     2     0     0     0     0     0     0;
-         0     0     0     2     0     0     0     0;
-         0     0     0     2     0     0     0     0;
-         0     0     0     0     0     0     0     2;
-         2     0     0     0     0     2     0     0];
-
-
-
-
-% Inhibitory connections (np x np): GABA-A & GABA-B
-%--------------------------------------------------------------------------
-GIa =[8     0     10    0     0     0     0     0;
-      0    18     10    0     0     0     0     0;
-      0     0     10    0     0     0     0     0;
-      0     0     0     8     6     0     0     0;
-      0     0     0     0    14     0     0     0;
-      0     0     0     0     6     8     0     0;
-      0     0     0     0     0     0     8     0;
-      0     0     0     0     0     0     8     8];
-
-% GIa =[8     0     10    0     0     0     0     0;
-%       0    18     10    0     0     0     0     0;
-%       0     0     10    0     0     0     0     0;
-%       0     0     0     8     2     0     0     0;
-%       0     0     0     0     2     0     0     0;
-%       0     0     0     0     2     8     0     0;
-%       0     0     0     0     0     0     8     0;
-%       0     0     0     0     0     0     8     8];
-
-%GIa = GIa * exp(P.I);
-
-% GIa =[8     0     10    0     0     0     0     0;
-%       0    18     10    0     0     0     0     0;
-%       0     0     10    0     0     0     0     0;
-%       0     0     0     8     4     0     0     0;
-%       0     0     0     0     8     0     0     0;
-%       0     0     0     0     4     8     0     0;
-%       0     0     0     0     0     0     8     0;
-%       0     0     0     0     0     0     8     8];
-
-
+% Inhibitory (GABA-A/B)
+GIa = [8 0 10 0 0 0 0 0;
+       0 18 10 0 0 0 0 0;
+       0 0 10 0 0 0 0 0;
+       0 0 0 8 6 0 0 0;
+       0 0 0 0 14 0 0 0;
+       0 0 0 0 6 8 0 0;
+       0 0 0 0 0 0 8 0;
+       0 0 0 0 0 0 8 8];
 GIb = GIa;
 
+% --- Channel time constants (decay rates) ---------------------------------
+KE = exp(-P.T(:,1))*1000/2.2;   % AMPA
+KI = exp(-P.T(:,2))*1000/5;     % GABA-A
+KN = exp(-P.T(:,3))*1000/100;   % NMDA
+KB = exp(-P.T(:,4))*1000/300;   % GABA-B
 
-
-% Channel rate constants [decay times]
-%--------------------------------------------------------------------------
-KE  = exp(-P.T(:,1))*1000/2.2;%3;            % excitatory rate constants (AMPA) % 2 to 5
-KI  = exp(-P.T(:,2))*1000/5;%6;           % inhibitory rate constants (GABAa)
-KN  = exp(-P.T(:,3))*1000/100;%40;          % excitatory rate constants (NMDA) 40-100
-KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
-
-% notes on time-constants:
-%-----------------------------------------------------------------------
-% cojuld even use number from this friston paper
-%https://www.sciencedirect.com/science/article/pii/S0361923000004366?via%3Dihub
-% ampa = 1.2 to 2.4 ms
-% gabaa -   6ms
-% nmda - 50 ms
-%KN  = exp(-P.T(:,3))*1000/50;    
-
-% gaba-b maybe evern 300 or 500ms
-% now using faster AMPA and GABA-A dynamics based on this book:
-% https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
-
-
-% Trial-specific effects on time constants: AMPA & NMDA only for LTP task
+% Trial-specific (optional) AMPA/NMDA mod for LTP task
 if isfield(P,'T1')
     KE = KE + P.T1(1);
     KN = KN + P.T1(2);
 end
 
-% Voltages [reversal potentials] (mV)
-%--------------------------------------------------------------------------
-VL   = -70;                               % reversal  potential leak (K)
-VE   =  60 ;                              % reversal  potential excite (Na)
-VI   = -90 ;%* exp(P.pr(1));                % reversal  potential inhib (Cl)
-VR   = -52 ;%* exp(P.pr(2));   %55          % threshold potential (firing)
-VN   =  10 ;%* exp(P.pr(3));                % reversal Ca(NMDA)   
-VB   = -100;%* exp(P.pr(4));               % reversal of GABA-B
-
+% --- Reversal potentials & optional M/H channels --------------------------
+VL = -70; VE =  60; VI = -90; VR = -52; VN = 10; VB = -100;
 
 if IncludeMH
-    
-    % M- & H- channel conductances (np x np) {L6 & Thal Relay cells only}
-    %----------------------------------------------------------------------
-    % https://www.sciencedirect.com/science/article/pii/S0006349599769250
-    VM   = -52;                            % reversal potential m-channels          
-    VH   = -30;                            % reversal potential h-channels 
-
+    VM = -52; VH = -30;               % M / H
     GIm = diag(4*[1 1 1 1 1 1 1 1].*exp(P.Mh(:)'));
     GIh = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Hh(:)'));
-
-    KM    = (exp(-P.T(:,5))*1000/160) ;               % m-current opening + CV
-    KH    = (exp(-P.T(:,6))*1000/100) ;               % h-current opening + CV
-    h     = 1 - spm_Ncdf_jdw(x(:,:,1),-100,300); % mean firing for h-currents
-    h     = 1 - 1./(1 + exp(-(2/3).*(x(:,:,1)-VH)));
-    %h      = 1./(1+exp((x(:,:,1)+81)/7));
+    KM  = exp(-P.T(:,5))*1000/160;    % M current rate
+    KH  = exp(-P.T(:,6))*1000/100;    % H current rate
 end
 
-% membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
-%--------------------------------------------------------------------------
-CV   = exp(P.CV).*      [128*3 128 64 128 64  128  64  128]/1000;  
+% --- Membrane capacitances & leak -----------------------------------------
+CV = exp(P.CV).*[128*3 128 64 128 64 128 64 128]/1000;  % per population
+GL = 1;
 
-%CV   = exp(P.CV).*      [128 128 64 128 64  128  64  64*2]/1000;  
+% --- Mean-field excitability shifts & sigmoid firing ----------------------
+VR = VR + exp(P.S);        % slope shift
+R  = 2/3;
+FF = 1./(1 + exp(-R.*(x(:,:,1) - VR)));
+RS = 30;
+FF(x(:,:,1) >= VR) = 1;
+FF(x(:,:,1) >= RS) = 0;
+m  = FF;                   % firing proxy
 
-%CV   = exp(P.CV).*[16 16 32 16 32 16 32 16]*2/1000;  
+% H-channel mean firing surrogate (match original form)
+if IncludeMH
+    h = 1 - 1./(1 + exp(-(2/3).*(x(:,:,1) - VH)));
+end
 
+% --- Extrinsic effects (per source) ---------------------------------------
+a      = zeros(ns,5);
+an     = zeros(ns,5);
+a(:,1) = A{1} * m(:,2);   % SP->SS (F)
+a(:,2) = A{2} * m(:,4);   % DP->SP (B)
+a(:,3) = A{3} * m(:,6);   % TP
+a(:,4) = A{4} * m(:,7);   % RT
+a(:,5) = A{5} * m(:,8);   % RC
+an(:,1)= AN{1} * m(:,2);
+an(:,2)= AN{2} * m(:,4);
+an(:,3)= AN{3} * m(:,6);
+an(:,4)= AN{4} * m(:,7);
+an(:,5)= AN{5} * m(:,8);
 
-%CV   = exp(P.CV).*[128 128 256 32]/1000;  % 
+% --- Background drive ------------------------------------------------------
+BE = exp(P.E)*0.8;
 
-% leak conductance - fixed
-%--------------------------------------------------------------------------
-GL   = 1 ;       
-
-% mean-field effects:
-%==========================================================================
-%ef = -55; If = -45;
-%VR = [ef ef If ef If ef If ef];
-VR = VR + exp(P.S);
-
-% neural-mass approximation to covariance of states: trial specific
-%----------------------------------------------------------------------
-R  = 2/3; %* exp(P.S); % P.S is the slope pf the sigmoid for each pop firing rate
-FF = 1./(1 + exp(-R.*(x(:,:,1)-VR)));
-
-RS = 30 ;
-Fu = find( x(:,:,1) >= VR ); FF(Fu) = 1;
-Fl = find( x(:,:,1) >= RS ); FF(Fl) = 0;
-m  = FF;
-
-%Vrest = -70; Vthresh = -40;
-%m = max(0, tanh((x(:,:,1) - Vthresh)/10));
-
-% extrinsic effects
-%--------------------------------------------------------------------------
-a       = zeros(ns,5);
-an      = zeros(ns,5); 
-a(:,1)  = A{1}*m(:,2);                      % forward afference  AMPA - SP->SS
-a(:,2)  = A{2}*m(:,4);                      % backward afference AMPA - DP->SP
-a(:,3)  = A{3}*m(:,6);                      % FWD thalamic projection pyramids
-a(:,4)  = A{4}*m(:,7);                      % LAT reticular AMPA
-a(:,5)  = A{5}*m(:,8);                      % LAT relay AMPA
-an(:,1) = AN{1}*m(:,2);                     % forward afference  NMDA
-an(:,2) = AN{2}*m(:,4);                     % backward afference NMDA
-an(:,3) = AN{3}*m(:,6);                     % thalamic projection pyramids
-an(:,4) = AN{4}*m(:,7);                     % reticular NMDA
-an(:,5) = AN{5}*m(:,8);                     % relay NMDA
-
-
-% Averge background activity and exogenous input
-%==========================================================================
-BE     = exp(P.E)*0.8;
-
-% flow over every (ns x np) subpopulation
-%==========================================================================
-f     = x;
-
+% --- Optional global scaling of intrinsic blocks --------------------------
 if isfield(P,'global')
     GEa = GEa * exp(P.global(1));
     GEn = GEn * exp(P.global(2));
@@ -355,215 +159,711 @@ if isfield(P,'global')
     GIb = GIb * exp(P.global(4));
 end
 
-% Thalamo-cortical flow [eq. motion] over modes, populations, states...
-%--------------------------------------------------------------------------
+% --- Flow over sources/populations ----------------------------------------
+f = x;   % preallocate like x
+
 for i = 1:ns
-               
-        % input scaling: 
-        %------------------------------------------------------------------
-        dU = u(:)*C(i,1);
-                                                
-        % intrinsic coupling - parameterised
-        %------------------------------------------------------------------
-        E      = ( G(:,:,i).*GEa)*m(i,:)'; % AMPA currents
-        ENMDA  = (Gn(:,:,i).*GEn)*m(i,:)'; % NMDA currents
-        I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
-        IB     = (Gb(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
-                
-        if IncludeMH
-            
-            % intrinsic coupling - non-parameterised: intrinsic dynamics
-            %--------------------------------------------------------------
-            Im     = GIm*m(i,:)'; % M currents
-            Ih     = GIh*h(i,:)'; % H currents
-        end
-        
-        % extrinsic coupling (excitatory only) and background activity
-        %------------------------------------------------------------------
-        E     = (E     +  BE  + SA   *a (i,:)')*2;
-        ENMDA = (ENMDA +  BE  + SNMDA*an(i,:)')*2;
+    % Input scaling (per source)
+    dU = u(:) * C(i,1);
 
-        if isfield(P,'endo')
-            E(2) = E(2) + 2*exp(P.endo(1));
-        end
-                   
-        % and exogenous input(U): 
-        %------------------------------------------------------------------
-        % flag for the oscillation injection desribed here: 
-        % https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5310631/
-        
-        % if length of input vector > 1, represents more than one exogenous
-        % input - one to thal relay and one to cortical pyramids
-        if length(u) > 1
-            E(8) = E(8) + dU(2);
-            E(2) = E(2) + dU(1);
-        else
-            % otherwise just drive the thalamus
-            input_cell        = [8 7];
-            E(input_cell)     = E(input_cell) + dU;            
-        end
+    % Intrinsic coupling (parameterised)
+    E     = ( G(:,:,i).*GEa ) * m(i,:)';   % AMPA
+    ENMDA = ( Gn(:,:,i).*GEn ) * m(i,:)';  % NMDA
+    I     = ( G(:,:,i).*GIa ) * m(i,:)';   % GABA-A
+    IB    = ( Gb(:,:,i).*GIb ) * m(i,:)';  % GABA-B
 
-        % direct current to thalamus
-        if isfield(P,'thi');
-            E(8) = E(8) + exp(P.thi);
-            ENMDA(8) = ENMDA(8) + exp(P.thi);
-        end
-                              
-        % Voltage equations
-        %==================================================================
-        if ~IncludeMH
-            
-          f(i,:,1) =         (GL*(VL - x(i,:,1))+...
-                       1.0*x(i,:,2).*(VE - x(i,:,1))+...
-                       1.0*x(i,:,3).*(VI - x(i,:,1))+...
-                       1.0*x(i,:,5).*(VB - x(i,:,1))+...
-                       1.0*x(i,:,4).*(VN - x(i,:,1)).*mg_switch(x(i,:,1)))./CV;
-            
-        elseif IncludeMH
-            
-          % alternative magnesium block:
-          %warning off;
-          %mag_block = 1/(1 + 0.2*exp(-0.062*(exp(P.scale_NMDA))*squeeze(x(i,:,1))')) ;
-          warning('off','all') ;
-          mag_block = mldivide((1 + 0.2*exp(-0.062*(exp(P.scale_NMDA))*squeeze(x(i,:,1))'))',1)';
-          %warning on;
-          [~,warnID] = lastwarn;
-          warning('off',warnID);
+    % Optional intrinsic M/H (non-parameterised) currents
+    if IncludeMH
+        Im = GIm * m(i,:)';
+        Ih = GIh * h(i,:)';
+    end
 
-          f(i,:,1) =  (GL*(VL - x(i,:,1))+...
-                       x(i,:,2).*((VE - x(i,:,1)))+...
-                       x(i,:,3).*((VI - x(i,:,1)))+...
-                       x(i,:,5).*((VB - x(i,:,1)))+...
-                       x(i,:,6).*((VM - x(i,:,1)))+...
-                       x(i,:,7).*((VH - x(i,:,1)))+...
-                       x(i,:,4).*((VN - x(i,:,1))).*mag_block)./CV;
-                       %x(i,:,4).*((VN - x(i,:,1))).*mg_switch(x(i,:,1)))./CV;
-          
-          
-        end
-                   
-        % Conductance equations
-        %==================================================================           
-        
-        f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)');%*pop_rates);
-        f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)');%*gabaa_rate);
-        f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)');%*pop_rates);
-        f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)');%*nmdat);
-        
-        if IncludeMH
-            f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );%*pop_rates );
-            f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
-        end
-        
-        
+    % Extrinsic excitatory + background (×2 as in original)
+    E     = (E     + BE + SA   * a (i,:)') * 2;
+    ENMDA = (ENMDA + BE + SNMDA* an(i,:)') * 2;
+
+    % Optional endogenous boost to SP
+    if isfield(P,'endo')
+        E(2) = E(2) + 2*exp(P.endo(1));
+    end
+
+    % Exogenous input routing
+    if numel(u) > 1
+        E(8) = E(8) + dU(2);  % relay
+        E(2) = E(2) + dU(1);  % superficial pyramids
+    else
+        input_cell  = [8 7];  % thalamus (relay & reticular)
+        E(input_cell) = E(input_cell) + dU;
+    end
+
+    % Direct thalamic current (optional)
+    if isfield(P,'thi')
+        E(8)     = E(8)     + exp(P.thi);
+        ENMDA(8) = ENMDA(8) + exp(P.thi);
+    end
+
+    % --- Voltage equations -------------------------------------------------
+    if ~IncludeMH
+        % Use external mg_switch (as in original)
+        f(i,:,1) = ( GL*(VL - x(i,:,1)) + ...
+                     1.0*x(i,:,2).*(VE - x(i,:,1)) + ...
+                     1.0*x(i,:,3).*(VI - x(i,:,1)) + ...
+                     1.0*x(i,:,5).*(VB - x(i,:,1)) + ...
+                     1.0*x(i,:,4).*(VN - x(i,:,1)).*mg_switch(x(i,:,1)) ) ./ CV;
+    else
+        % Alternative magnesium block (kept exactly; uses mldivide+warnings)
+        mag_block = local_mag_block(x(i,:,1), exp(P.scale_NMDA));
+        f(i,:,1) = ( GL*(VL - x(i,:,1)) + ...
+                     x(i,:,2).*(VE - x(i,:,1)) + ...
+                     x(i,:,3).*(VI - x(i,:,1)) + ...
+                     x(i,:,5).*(VB - x(i,:,1)) + ...
+                     x(i,:,6).*(VM - x(i,:,1)) + ...
+                     x(i,:,7).*(VH - x(i,:,1)) + ...
+                     x(i,:,4).*(VN - x(i,:,1)).*mag_block ) ./ CV;
+    end
+
+    % --- Conductance equations --------------------------------------------
+    f(i,:,2) = (E'     - x(i,:,2)) .* (KE(i,:)');
+    f(i,:,3) = (I'     - x(i,:,3)) .* (KI(i,:)');
+    f(i,:,5) = (IB'    - x(i,:,5)) .* (KB(i,:)');
+    f(i,:,4) = (ENMDA' - x(i,:,4)) .* (KN(i,:)');
+
+    if IncludeMH
+        f(i,:,6) = (Im' - x(i,:,6)) .* (KM(i,:) );
+        f(i,:,7) = (Ih' - x(i,:,7)) .* (KH(i,:) );
+    end
 end
 
+% --- Vectorise state derivatives ------------------------------------------
+f = spm_vec(f);
 
-% vectorise equations of motion
-%==========================================================================
-f = spm_vec((f));
-pE = P;
- 
-[J,Q,D]=deal([]);
+% Pre-assign outputs for optional computation branches
+[J,Q,D] = deal([]);
 
-if (nargout < 2 || nargout == 50) && nargin < 5, return, end
+% --- Optional Jacobian -----------------------------------------------------
+if (nargout < 2 || nargout == 50) && nargin < 5
+    return
+end
 
-% Only compute Jacobian (gradients) if requested
-%==========================================================================
-J = spm_cat(spm_diff(M.f,x,u,P,M,1));
+J = spm_cat(spm_diff(M.f, x, u, P, M, 1));
 
-%fun = @(x) M.f(x,u,P,M);
-%J = jaco_mimo_par(fun,x(:),ones(length(x(:)),1)/8,0,1);
-%C = jaco_mimo_par(fun,x(:),ones(length(x(:)),1)/8,0,2);
+% --- Optional Delays -------------------------------------------------------
+if nargout < 3 && nargin < 5
+    return
+end
 
-%J = cat(2,J{:});
-%C = cat(2,C{:}); C = denan(C);
+% Fixed delay params (kept as in original logic)
+D_   = [1 16];
+d    = D_ .* full(exp(P.D(1:2))) / 1000;
 
-%J = J./norm(J);
-%C = C./norm(C);
+% Same-source / same-population Kronecker scaffolds
+Sp = kron(ones(nk,nk),kron( eye(np),eye(ns)));
+Ss = kron(ones(nk,nk),kron(ones(np),eye(ns)));
 
-
-if nargout < 3 && nargin < 5, return, end
-
-% Only compute Delays if requested
-%==========================================================================
-% Delay differential equations can be integrated efficiently (but 
-% approximately) by absorbing the delay operator into the Jacobian
-%
-%    dx(t)/dt     = f(x(t - d))
-%                 = Q(d)f(x(t))
-%
-%    J(d)         = Q(d)df/dx
-%--------------------------------------------------------------------------
-% [specified] fixed parameters
-%--------------------------------------------------------------------------
-D  = [1 16];
-d  = D.*full(exp(P.D(1:2)))/1000;
-Sp = kron(ones(nk,nk),kron( eye(np,np),eye(ns,ns)));  % states: same pop.
-Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
-
-% Thalamo cortical interactions: ~80ms round trip: 20 ms T->C, 60 ms C->T
-%--------------------------------------------------------------------------
-%Thalamocortical connections and forward connections from Vp to Vs had
-%a mean delay of 3 ms, while corticothalamic connections and backward
-%connections from Vs to Vp had a mean delay of 8 m - Neural Dynamics in a Model of the
-%Thalamocortical System. I. Layers, Loops and the Emergence of Fast Synchronous Rhythms
-% Lumer et al 1997
-
-CT = 8; %60;
-TC = 3; %20;
+% Cortico-thalamic / thalamo-cortical constants (ms -> s)
+CT = 8;  % cortex->thalamus
+TC = 3;  % thalamus->cortex
 
 Tc              = zeros(np,np);
-Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal
-Tc([1:6],[7 8]) = TC  * exp(P.TC); % thal->ss
-
+Tc([7 8],[1:6]) = CT * exp(P.CT); % L6->thal
+Tc([1:6],[7 8]) = TC * exp(P.TC); % thal->cortex
 Tc = Tc / 1000;
 Tc = kron(ones(nk,nk),kron(Tc,ones(ns,ns)));
 
-
-%kd = exp(P.a(1)) * 8;
-%ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
+% Intra-population delays (ID), kept verbatim
 ID = [2 1 1 1 1 2 1 2];
-ID = ID.*exp(P.ID)/1000; 
+ID = ID .* exp(P.ID) / 1000;
 ID = repmat(ID,[1 nk]);
-
 ID = repmat(ID(:)',[np*nk,1]);
 ID = kron(ID,ones(ns,ns));
 
-%ID = ID - ID(:);
+% Historical alternatives kept off; final D as in original:
+% D = d(1)*Ds + Tc + ID;  (overwritten in original)
+D = Tc + ID;
 
-% Mean intra-population delays, inc. axonal etc. Seem to help oscillation
-%--------------------------------------------------------------------------
-Dp = ~Ss;                            % states: different sources
-Ds = ~Sp & Ss;                       % states: same source different pop.
-%Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
+% ---------------------- Local utilities (private) -------------------------
+function mb = local_mag_block(vrow, scaleNMDA)
+    % Preserves original mldivide + warning suppression semantics.
+    % mb = 1 ./ (1 + 0.2*exp(-0.062*scaleNMDA * vrow));
+    % Implemented via mldivide to match original exactly.
+    wstate = warning('query','all'); %#ok<WNOFF>
+    warning('off','all');
+    denom  = (1 + 0.2*exp(-0.062*(scaleNMDA)*squeeze(vrow)'))';
+    mb     = mldivide(denom, 1)';   % elementwise reciprocal via backslash
+    [~,wid] = lastwarn;             %#ok<ASGLU>
+    if ~isempty(wid), warning('off',wid); end
+    warning(wstate); % restore
+end
 
-D = d(1)*Ds + Tc + (ID) ;
-
-D =  Tc + (ID) ;
+end
 
 
-% Compute delays if dt provided, including on output vector;
-% if nargin == 5
-%     D_dt  = (D*1000)*dt;
-%     Dstep = dt - D_dt;
+% function [f,J,D] = tc_hilge2(x,u,P,M)
+% % State equations for an extended canonical thalamo-cortical neural-mass model.
+% %
+% % This model implements a conductance-based canonical thalamo-cortical circuit,
+% % with cytoarchitecture inspired by Gilbert & Wiesel (1983), Douglas & 
+% % Martin (2004) and Traub (2004) models.
+% %
+% % The equations of motion are Moris Lecar-esque equations, similar to Moran
+% % (2011), but with conductances for AMPA, NMDA, GABA-A, & GABA-B channels. 
+% % These 'channels' feature their own reversal poentials and rate constants:
+% %
+% % K  = -70           (Leak)
+% % Na =  60  / 2.2 ms   (AMPA)
+% % Cl = -90  / 5 ms  (GABA-A)
+% % Ca =  10  / 100 ms (NMDA)   + voltage mag switch
+% % B  = -100 / 300 ms (GABA-B)
+% % f  = -40
+% %
+% % FORMAT [f,J,Q,D] = atcm.tcm_hilge(x,u,P,M)
+% %
+% % x - states and covariances
+% %
+% % x(i,j,k)        - k-th state of j-th population of i-th source
+% %                   i.e., running over sources, pop. and states
+% %
+% %   population: 1  - Spint stellates (L4)
+% %               2  - Superficial pyramids (L2/3)
+% %               3  - Inhibitory interneurons (L2/3)     
+% %               4  - Deep pyramidal cells (L5)
+% %               5  - Deep interneurons (L5)
+% %               6  - Thalamic projection neurons (pyramid) (L6)
+% %               7  - Reticular cells (Thal)
+% %               8  - Thalamo-cortical relay cells (Thal)
+% %
+% %
+% %        state: 1 V   - voltage
+% %               2 gE  - conductance: AMPA   (excitatory)
+% %               3 gI  - conductance: GABA-A (inhibitory)
+% %               4 gN  - conductance: NMDA   (excitatory)
+% %               5 gB  - conductance: GABA-B (inhibitory)
+% %               6 gM  - conductance: M-channels (inhibitory)
+% %               7 gih - conductance: H-channels (inhibitory)
+% %
+% %      outputs: f = model states as a vector - hint: spm_unvec(f,M.x) 
+% %               J = system Jacobian - dfdx
+% %               D = states delay matrix
+% %
+% % Info:
+% %  - Ih is a hyperpolarization-activated cation current mediated by HCN channel
+% %  - non-selective, voltag gated, responsible for cariac 'funny' (pacemaker) current
+% %  - HCN = Hyperpolarization-Activated Cyclic Nucleotide-Gated Channels
+% %
+% %  - M-channels (aka Kv7) are noninactivating potassium channels
+% %  - M is unique because it is open at rest and even more likely to be open during depolarization
+% %  - M is a pip2 regulated ion channel
+% %
+% % Notes, changes, updates:
+% %
+% % Kv7 channels are actually everwhere - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7530275/#ref90
+% %
+% % Extrinsics connection matrices [ampa but AN{n} is nmda equiv]:
+% % A{1} = Forward  SP -> SS & DP
+% % A{2} = Backward DP -> SP & SI
+% % A{3} = Back/Lat TP -> SS & TP
+% % A{4} = Inter-Thal [B] RT -> RC
+% % A{5} = Inter-Thal [F] RC -> RT
+% %
+% % Dr Alexander Shaw | 2020 | alexandershaw4[@]gmail.com
 % 
-%     b = pinv(full(J)'.*x(:)).*f;
-%     Q = J.*b;
-%     f = (Q-Q*Dstep)*x(:);
+% if isstruct(P) && isfield(P,'p')
+%     P = P.p;
 % end
-
-
-%if ~isfield(P,'delays')
- %   D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;
-%else
- %   D = d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
-%end
-
-%D = d(2)*Dp + Tc; %%%%%!!!!!!
-
-% Implement: dx(t)/dt = f(x(t - d)) = inv(1 - D.*dfdx)*f(x(t))
-%                     = Q*f = Q*J*x(t)
-%--------------------------------------------------------------------------
-%Q  = spm_inv(speye(length(J)) - D.*J);
-%Q  = spm_inv(D.*J);
+% 
+% % Flag: include M- & H- channels on L6 TP & Thalamic Relay cells, or not
+% %--------------------------------------------------------------------------
+% IncludeMH = 1;
+% 
+% inputu = u;
+% 
+% % get dimensions and configure state variables
+% %--------------------------------------------------------------------------
+% ns   = size(M.x,1);                      % number of sources
+% np   = size(M.x,2);                      % number of populations per source
+% nk   = size(M.x,3);                      % number of states per population
+% x    = reshape(x,ns,np,nk);              % hidden states 
+% 
+% 
+% % extrinsic connection strengths
+% %==========================================================================
+% 
+% % exponential transform to ensure positivity constraints
+% %--------------------------------------------------------------------------
+% for i = 1:length( P.A )
+%     A{i}  = exp(P.A{i});
+%     AN{i} = exp(P.AN{i});
+% end
+% 
+% C     = exp(P.C); 
+% 
+% 
+% % detect and reduce the strength of reciprocal (lateral) connections
+% %--------------------------------------------------------------------------
+% for i = 1:length(A)
+%     L    = (A{i} > exp(-8)) & (A{i}' > exp(-8));
+%     A{i} = A{i}./(1 + 8*L);
+% end
+% 
+% 
+% % intrinsic connection strengths
+% %==========================================================================
+% G    = full(P.H);
+% G    = exp(G);
+% 
+% Gn = full(P.Hn);
+% Gn = exp(Gn);
+% 
+% if isfield(P,'Gb')
+%     Gb = exp(full(P.Gb));
+% else
+%     Gb = G;
+% end
+% 
+% % connectivity switches
+% %==========================================================================
+% % 1 - excitatory spiny stellate cells (granular input cells)
+% % 2 - superficial pyramidal cells     (forward  output cells)
+% % 3 - inhibitory interneurons         (intrisic interneuons)
+% % 4 - deep pyramidal cells            (backward output cells)
+% % 5 - deep interneurons               
+% % 6 - thalamic projection pyramidal cells (with m- and h- currents)
+% % 7 - thalamic reticular cells
+% % 8 - thalamic relay cells (with m- and h- currents)
+% %
+% % Thalamic cells attached to different cortical regions (models) are laterally connected
+% 
+% 
+% % % extrinsic connections (F B) - from superficial and deep pyramidal cells
+% % %--------------------------------------------------------------------------
+% %       SP  DP  tp  rt  rc
+% SA   = [1   0   0   0   0;   %  SS    % added TP->SP
+%         0   1   0   0   0;   %  SP
+%         0   1   0   0   0;   %  SI
+%         0   0   0   0   0;   %  DP
+%         0   0   0   0   0;   %  DI
+%         0   0   0   0   0;   %  TP % 0 in ket study
+%         0   0   0   0   1;   %  rt % 0 in ket study
+%         0   0   0   1   0]/8;%  rc % 0 in ket study
+% 
+%     SA(:,[3 4 5]) = 0; % For ket study
+% 
+% % % extrinsic NMDA-mediated connections (F B) - from superficial and deep pyramidal cells
+% % %--------------------------------------------------------------------------    
+% SNMDA = [1   0   0   0   0;   %  SS
+%          0   1   0   0   0;   %  SP
+%          0   1   0   0   0;   %  SI
+%          0   0   0   0   0;   %  DP
+%          0   0   0   0   0;   %  DI
+%          0   0   0   0   0;   %  TP % 0 in ket study
+%          0   0   0   0   1;   %  rt % 0 in ket study
+%          0   0   0   1   0]/8;%  rc % 0 in ket study
+% 
+%      SNMDA(:,[3 4 5]) = 0; % For ket study
+% 
+% 
+% % intrinsic connectivity switches
+% %--------------------------------------------------------------------------    
+% %   population: 1  - Spint stellates (L4)                : e
+% %               2  - Superficial pyramids (L2/3)         : e
+% %               3  - Inhibitory interneurons (L2/3)      : i
+% %               4  - Deep pyramidal cells (L5)           : e
+% %               5  - Deep interneurons (L5)              : i
+% %               6  - Thalamic projection neurons -L6     : e
+% %               7  - Reticular cells (Thal)              : i
+% %               8  - Thalamo-cortical relay cells (Thal) : e
+% 
+% GEa = zeros(8,8);
+% GIa = zeros(8,8);
+% 
+% % Excitatory (np x np): AMPA & NMDA
+% %--------------------------------------------------------------------------
+% GEa = [  0     0     0     0     0     2     0     2;
+%          2     2     0     0     0     0     0     0;
+%          0     2     0     0     0     0     0     0;
+%          0     2     0     0     0     0     0     0;
+%          0     0     0     2     0     0     0     0;
+%          0     0     0     2     0     0     0     0;
+%          0     0     0     0     0     0     0     2;
+%          2     0     0     0     0     2     0     0];
+% 
+% GEn =   [0     0     0     0     0     2     0     2;
+%          2     2     2     0     0     0     0     0;
+%          0     2     2     0     0     0     0     0;
+%          0     2     0     0     0     0     0     0;
+%          0     0     0     2     0     0     0     0;
+%          0     0     0     2     0     0     0     0;
+%          0     0     0     0     0     0     0     2;
+%          2     0     0     0     0     2     0     0];
+% 
+% 
+% 
+% 
+% % Inhibitory connections (np x np): GABA-A & GABA-B
+% %--------------------------------------------------------------------------
+% GIa =[8     0     10    0     0     0     0     0;
+%       0    18     10    0     0     0     0     0;
+%       0     0     10    0     0     0     0     0;
+%       0     0     0     8     6     0     0     0;
+%       0     0     0     0    14     0     0     0;
+%       0     0     0     0     6     8     0     0;
+%       0     0     0     0     0     0     8     0;
+%       0     0     0     0     0     0     8     8];
+% 
+% % GIa =[8     0     10    0     0     0     0     0;
+% %       0    18     10    0     0     0     0     0;
+% %       0     0     10    0     0     0     0     0;
+% %       0     0     0     8     2     0     0     0;
+% %       0     0     0     0     2     0     0     0;
+% %       0     0     0     0     2     8     0     0;
+% %       0     0     0     0     0     0     8     0;
+% %       0     0     0     0     0     0     8     8];
+% 
+% %GIa = GIa * exp(P.I);
+% 
+% % GIa =[8     0     10    0     0     0     0     0;
+% %       0    18     10    0     0     0     0     0;
+% %       0     0     10    0     0     0     0     0;
+% %       0     0     0     8     4     0     0     0;
+% %       0     0     0     0     8     0     0     0;
+% %       0     0     0     0     4     8     0     0;
+% %       0     0     0     0     0     0     8     0;
+% %       0     0     0     0     0     0     8     8];
+% 
+% 
+% GIb = GIa;
+% 
+% 
+% 
+% % Channel rate constants [decay times]
+% %--------------------------------------------------------------------------
+% KE  = exp(-P.T(:,1))*1000/2.2;%3;            % excitatory rate constants (AMPA) % 2 to 5
+% KI  = exp(-P.T(:,2))*1000/5;%6;           % inhibitory rate constants (GABAa)
+% KN  = exp(-P.T(:,3))*1000/100;%40;          % excitatory rate constants (NMDA) 40-100
+% KB  = exp(-P.T(:,4))*1000/300;          % excitatory rate constants (NMDA)
+% 
+% % notes on time-constants:
+% %-----------------------------------------------------------------------
+% % cojuld even use number from this friston paper
+% %https://www.sciencedirect.com/science/article/pii/S0361923000004366?via%3Dihub
+% % ampa = 1.2 to 2.4 ms
+% % gabaa -   6ms
+% % nmda - 50 ms
+% %KN  = exp(-P.T(:,3))*1000/50;    
+% 
+% % gaba-b maybe evern 300 or 500ms
+% % now using faster AMPA and GABA-A dynamics based on this book:
+% % https://neuronaldynamics.epfl.ch/online/Ch3.S1.html#:~:text=GABAA%20synapses%20have%20a,been%20deemed%203%20times%20larger.
+% 
+% 
+% % Trial-specific effects on time constants: AMPA & NMDA only for LTP task
+% if isfield(P,'T1')
+%     KE = KE + P.T1(1);
+%     KN = KN + P.T1(2);
+% end
+% 
+% % Voltages [reversal potentials] (mV)
+% %--------------------------------------------------------------------------
+% VL   = -70;                               % reversal  potential leak (K)
+% VE   =  60 ;                              % reversal  potential excite (Na)
+% VI   = -90 ;%* exp(P.pr(1));                % reversal  potential inhib (Cl)
+% VR   = -52 ;%* exp(P.pr(2));   %55          % threshold potential (firing)
+% VN   =  10 ;%* exp(P.pr(3));                % reversal Ca(NMDA)   
+% VB   = -100;%* exp(P.pr(4));               % reversal of GABA-B
+% 
+% 
+% if IncludeMH
+% 
+%     % M- & H- channel conductances (np x np) {L6 & Thal Relay cells only}
+%     %----------------------------------------------------------------------
+%     % https://www.sciencedirect.com/science/article/pii/S0006349599769250
+%     VM   = -52;                            % reversal potential m-channels          
+%     VH   = -30;                            % reversal potential h-channels 
+% 
+%     GIm = diag(4*[1 1 1 1 1 1 1 1].*exp(P.Mh(:)'));
+%     GIh = diag(4*[0 0 0 0 0 1 0 1].*exp(P.Hh(:)'));
+% 
+%     KM    = (exp(-P.T(:,5))*1000/160) ;               % m-current opening + CV
+%     KH    = (exp(-P.T(:,6))*1000/100) ;               % h-current opening + CV
+%     h     = 1 - spm_Ncdf_jdw(x(:,:,1),-100,300); % mean firing for h-currents
+%     h     = 1 - 1./(1 + exp(-(2/3).*(x(:,:,1)-VH)));
+%     %h      = 1./(1+exp((x(:,:,1)+81)/7));
+% end
+% 
+% % membrane capacitances {ss  sp  ii  dp  di  tp   rt  rl}
+% %--------------------------------------------------------------------------
+% CV   = exp(P.CV).*      [128*3 128 64 128 64  128  64  128]/1000;  
+% 
+% %CV   = exp(P.CV).*      [128 128 64 128 64  128  64  64*2]/1000;  
+% 
+% %CV   = exp(P.CV).*[16 16 32 16 32 16 32 16]*2/1000;  
+% 
+% 
+% %CV   = exp(P.CV).*[128 128 256 32]/1000;  % 
+% 
+% % leak conductance - fixed
+% %--------------------------------------------------------------------------
+% GL   = 1 ;       
+% 
+% % mean-field effects:
+% %==========================================================================
+% %ef = -55; If = -45;
+% %VR = [ef ef If ef If ef If ef];
+% VR = VR + exp(P.S);
+% 
+% % neural-mass approximation to covariance of states: trial specific
+% %----------------------------------------------------------------------
+% R  = 2/3; %* exp(P.S); % P.S is the slope pf the sigmoid for each pop firing rate
+% FF = 1./(1 + exp(-R.*(x(:,:,1)-VR)));
+% 
+% RS = 30 ;
+% Fu = find( x(:,:,1) >= VR ); FF(Fu) = 1;
+% Fl = find( x(:,:,1) >= RS ); FF(Fl) = 0;
+% m  = FF;
+% 
+% %Vrest = -70; Vthresh = -40;
+% %m = max(0, tanh((x(:,:,1) - Vthresh)/10));
+% 
+% % extrinsic effects
+% %--------------------------------------------------------------------------
+% a       = zeros(ns,5);
+% an      = zeros(ns,5); 
+% a(:,1)  = A{1}*m(:,2);                      % forward afference  AMPA - SP->SS
+% a(:,2)  = A{2}*m(:,4);                      % backward afference AMPA - DP->SP
+% a(:,3)  = A{3}*m(:,6);                      % FWD thalamic projection pyramids
+% a(:,4)  = A{4}*m(:,7);                      % LAT reticular AMPA
+% a(:,5)  = A{5}*m(:,8);                      % LAT relay AMPA
+% an(:,1) = AN{1}*m(:,2);                     % forward afference  NMDA
+% an(:,2) = AN{2}*m(:,4);                     % backward afference NMDA
+% an(:,3) = AN{3}*m(:,6);                     % thalamic projection pyramids
+% an(:,4) = AN{4}*m(:,7);                     % reticular NMDA
+% an(:,5) = AN{5}*m(:,8);                     % relay NMDA
+% 
+% 
+% % Averge background activity and exogenous input
+% %==========================================================================
+% BE     = exp(P.E)*0.8;
+% 
+% % flow over every (ns x np) subpopulation
+% %==========================================================================
+% f     = x;
+% 
+% if isfield(P,'global')
+%     GEa = GEa * exp(P.global(1));
+%     GEn = GEn * exp(P.global(2));
+%     GIa = GIa * exp(P.global(3));
+%     GIb = GIb * exp(P.global(4));
+% end
+% 
+% % Thalamo-cortical flow [eq. motion] over modes, populations, states...
+% %--------------------------------------------------------------------------
+% for i = 1:ns
+% 
+%         % input scaling: 
+%         %------------------------------------------------------------------
+%         dU = u(:)*C(i,1);
+% 
+%         % intrinsic coupling - parameterised
+%         %------------------------------------------------------------------
+%         E      = ( G(:,:,i).*GEa)*m(i,:)'; % AMPA currents
+%         ENMDA  = (Gn(:,:,i).*GEn)*m(i,:)'; % NMDA currents
+%         I      = ( G(:,:,i).*GIa)*m(i,:)'; % GABA-A currents
+%         IB     = (Gb(:,:,i).*GIb)*m(i,:)'; % GABA-B currents
+% 
+%         if IncludeMH
+% 
+%             % intrinsic coupling - non-parameterised: intrinsic dynamics
+%             %--------------------------------------------------------------
+%             Im     = GIm*m(i,:)'; % M currents
+%             Ih     = GIh*h(i,:)'; % H currents
+%         end
+% 
+%         % extrinsic coupling (excitatory only) and background activity
+%         %------------------------------------------------------------------
+%         E     = (E     +  BE  + SA   *a (i,:)')*2;
+%         ENMDA = (ENMDA +  BE  + SNMDA*an(i,:)')*2;
+% 
+%         if isfield(P,'endo')
+%             E(2) = E(2) + 2*exp(P.endo(1));
+%         end
+% 
+%         % and exogenous input(U): 
+%         %------------------------------------------------------------------
+%         % flag for the oscillation injection desribed here: 
+%         % https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5310631/
+% 
+%         % if length of input vector > 1, represents more than one exogenous
+%         % input - one to thal relay and one to cortical pyramids
+%         if length(u) > 1
+%             E(8) = E(8) + dU(2);
+%             E(2) = E(2) + dU(1);
+%         else
+%             % otherwise just drive the thalamus
+%             input_cell        = [8 7];
+%             E(input_cell)     = E(input_cell) + dU;            
+%         end
+% 
+%         % direct current to thalamus
+%         if isfield(P,'thi');
+%             E(8) = E(8) + exp(P.thi);
+%             ENMDA(8) = ENMDA(8) + exp(P.thi);
+%         end
+% 
+%         % Voltage equations
+%         %==================================================================
+%         if ~IncludeMH
+% 
+%           f(i,:,1) =         (GL*(VL - x(i,:,1))+...
+%                        1.0*x(i,:,2).*(VE - x(i,:,1))+...
+%                        1.0*x(i,:,3).*(VI - x(i,:,1))+...
+%                        1.0*x(i,:,5).*(VB - x(i,:,1))+...
+%                        1.0*x(i,:,4).*(VN - x(i,:,1)).*mg_switch(x(i,:,1)))./CV;
+% 
+%         elseif IncludeMH
+% 
+%           % alternative magnesium block:
+%           %warning off;
+%           %mag_block = 1/(1 + 0.2*exp(-0.062*(exp(P.scale_NMDA))*squeeze(x(i,:,1))')) ;
+%           warning('off','all') ;
+%           mag_block = mldivide((1 + 0.2*exp(-0.062*(exp(P.scale_NMDA))*squeeze(x(i,:,1))'))',1)';
+%           %warning on;
+%           [~,warnID] = lastwarn;
+%           warning('off',warnID);
+% 
+%           f(i,:,1) =  (GL*(VL - x(i,:,1))+...
+%                        x(i,:,2).*((VE - x(i,:,1)))+...
+%                        x(i,:,3).*((VI - x(i,:,1)))+...
+%                        x(i,:,5).*((VB - x(i,:,1)))+...
+%                        x(i,:,6).*((VM - x(i,:,1)))+...
+%                        x(i,:,7).*((VH - x(i,:,1)))+...
+%                        x(i,:,4).*((VN - x(i,:,1))).*mag_block)./CV;
+%                        %x(i,:,4).*((VN - x(i,:,1))).*mg_switch(x(i,:,1)))./CV;
+% 
+% 
+%         end
+% 
+%         % Conductance equations
+%         %==================================================================           
+% 
+%         f(i,:,2) = (E'     - x(i,:,2)).* (KE(i,:)');%*pop_rates);
+%         f(i,:,3) = (I'     - x(i,:,3)).* (KI(i,:)');%*gabaa_rate);
+%         f(i,:,5) = (IB'    - x(i,:,5)).* (KB(i,:)');%*pop_rates);
+%         f(i,:,4) = (ENMDA' - x(i,:,4)).* (KN(i,:)');%*nmdat);
+% 
+%         if IncludeMH
+%             f(i,:,6) = (Im'    - x(i,:,6)).*(KM(i,:) );%*pop_rates );
+%             f(i,:,7) = (Ih'    - x(i,:,7)).*(KH(i,:) );%*pop_rates );
+%         end
+% 
+% 
+% end
+% 
+% 
+% % vectorise equations of motion
+% %==========================================================================
+% f = spm_vec((f));
+% pE = P;
+% 
+% [J,Q,D]=deal([]);
+% 
+% if (nargout < 2 || nargout == 50) && nargin < 5, return, end
+% 
+% % Only compute Jacobian (gradients) if requested
+% %==========================================================================
+% J = spm_cat(spm_diff(M.f,x,u,P,M,1));
+% 
+% %fun = @(x) M.f(x,u,P,M);
+% %J = jaco_mimo_par(fun,x(:),ones(length(x(:)),1)/8,0,1);
+% %C = jaco_mimo_par(fun,x(:),ones(length(x(:)),1)/8,0,2);
+% 
+% %J = cat(2,J{:});
+% %C = cat(2,C{:}); C = denan(C);
+% 
+% %J = J./norm(J);
+% %C = C./norm(C);
+% 
+% 
+% if nargout < 3 && nargin < 5, return, end
+% 
+% % Only compute Delays if requested
+% %==========================================================================
+% % Delay differential equations can be integrated efficiently (but 
+% % approximately) by absorbing the delay operator into the Jacobian
+% %
+% %    dx(t)/dt     = f(x(t - d))
+% %                 = Q(d)f(x(t))
+% %
+% %    J(d)         = Q(d)df/dx
+% %--------------------------------------------------------------------------
+% % [specified] fixed parameters
+% %--------------------------------------------------------------------------
+% D  = [1 16];
+% d  = D.*full(exp(P.D(1:2)))/1000;
+% Sp = kron(ones(nk,nk),kron( eye(np,np),eye(ns,ns)));  % states: same pop.
+% Ss = kron(ones(nk,nk),kron(ones(np,np),eye(ns,ns)));  % states: same source
+% 
+% % Thalamo cortical interactions: ~80ms round trip: 20 ms T->C, 60 ms C->T
+% %--------------------------------------------------------------------------
+% %Thalamocortical connections and forward connections from Vp to Vs had
+% %a mean delay of 3 ms, while corticothalamic connections and backward
+% %connections from Vs to Vp had a mean delay of 8 m - Neural Dynamics in a Model of the
+% %Thalamocortical System. I. Layers, Loops and the Emergence of Fast Synchronous Rhythms
+% % Lumer et al 1997
+% 
+% CT = 8; %60;
+% TC = 3; %20;
+% 
+% Tc              = zeros(np,np);
+% Tc([7 8],[1:6]) = CT  * exp(P.CT); % L6->thal
+% Tc([1:6],[7 8]) = TC  * exp(P.TC); % thal->ss
+% 
+% Tc = Tc / 1000;
+% Tc = kron(ones(nk,nk),kron(Tc,ones(ns,ns)));
+% 
+% 
+% %kd = exp(P.a(1)) * 8;
+% %ID = [4 1/4 1 8 1/2 4 2 20]/8;%2.4;
+% ID = [2 1 1 1 1 2 1 2];
+% ID = ID.*exp(P.ID)/1000; 
+% ID = repmat(ID,[1 nk]);
+% 
+% ID = repmat(ID(:)',[np*nk,1]);
+% ID = kron(ID,ones(ns,ns));
+% 
+% %ID = ID - ID(:);
+% 
+% % Mean intra-population delays, inc. axonal etc. Seem to help oscillation
+% %--------------------------------------------------------------------------
+% Dp = ~Ss;                            % states: different sources
+% Ds = ~Sp & Ss;                       % states: same source different pop.
+% %Ds = Ds.*(~(Ds & Tc));              % remove t-c and c-t from intrinsic
+% 
+% D = d(1)*Ds + Tc + (ID) ;
+% 
+% D =  Tc + (ID) ;
+% 
+% 
+% % Compute delays if dt provided, including on output vector;
+% % if nargin == 5
+% %     D_dt  = (D*1000)*dt;
+% %     Dstep = dt - D_dt;
+% % 
+% %     b = pinv(full(J)'.*x(:)).*f;
+% %     Q = J.*b;
+% %     f = (Q-Q*Dstep)*x(:);
+% % end
+% 
+% 
+% %if ~isfield(P,'delays')
+%  %   D  = d(2)*Dp + d(1)*Ds ;%+ Tc  ;
+% %else
+%  %   D = d(1)*Ds + Tc  ;       %+ Dself;% Complete delay matrix
+% %end
+% 
+% %D = d(2)*Dp + Tc; %%%%%!!!!!!
+% 
+% % Implement: dx(t)/dt = f(x(t - d)) = inv(1 - D.*dfdx)*f(x(t))
+% %                     = Q*f = Q*J*x(t)
+% %--------------------------------------------------------------------------
+% %Q  = spm_inv(speye(length(J)) - D.*J);
+% %Q  = spm_inv(D.*J);
