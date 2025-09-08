@@ -52,4 +52,4 @@ elseif length(a) == 1 && length(n) == length(x)
 
 end
 
-y = rescale(y(indx),min(x),max(x));
+y = atcm.fun.rescale(y(indx),min(x),max(x));
