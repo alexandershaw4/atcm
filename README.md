@@ -1,5 +1,5 @@
 # ATCM  
-**A**lpha-? **T**halamo-**C**ortical **M**odel — extended thalamo-cortical neural mass model for M/EEG / electrophysiology
+**A**lex **T**halamo-**C**ortical **M**odel — extended thalamo-cortical neural mass model for M/EEG / electrophysiology
 
 ---
 
