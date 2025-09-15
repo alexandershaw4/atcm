@@ -245,7 +245,7 @@ for i = 1:Ne;
     %try c = c(1:512); end
     Nt    = length(c);
 
-    if isfield(DCM.option,'trial_index') && DCM.option.trial_index > 0
+    if isfield(DCM.options,'trial_index') && DCM.options.trial_index > 0
 
         c = DCM.option.trial_index;
         Nt = 1;
