@@ -94,7 +94,7 @@ f(:,:,1) = sum_curr ./ Ccap;         % <-- voltage derivative
 % Vectorise & outputs
 f = spm_vec(f);
 J = [];
-D = Comp.delay;                      % <-- already state×state if compiled that way
+D = kron(ones(nk,nk),kron(Comp.delay,ones(ns,ns)));                      
 if nargout > 1
   J = spm_cat(spm_diff(M.f, x, u, P, M, 1));
 end

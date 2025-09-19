@@ -99,8 +99,8 @@ M = [ ...
 
 Syn = syn_from_matrix(M, pop);
 
-Reg.Syn = cell2table(Syn, 'VariableNames', ...
-  {'pre','post','receptor','delay_family','stp_id','pre_mods','post_mods','param'});
+Reg.Syn = Syn;%cell2table(Syn, 'VariableNames', ...
+  %{'pre','post','receptor','delay_family','stp_id','pre_mods','post_mods','param'});
 
 % --- Short-term plasticity defaults (id -> params) ---
 Reg.STP = struct('U0',0.2,'D',0.4,'F',0.2); % global defaults; can extend per-edge
