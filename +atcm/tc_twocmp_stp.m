@@ -1,55 +1,128 @@
 function [f,J,Q,D] = tc_twocmp_stp(x,u,P,M)
-% State equations for a thalamo-cortical neural-mass model
-% with (i) pre- vs post-synaptic split (STP on presynaptic side) and
-% (ii) two-compartment pyramids (soma+apical) for SP (pop 2) & DP (pop 4).
+% TC_TWOCMP_STP  Thalamo–cortical neural-mass with 2-compartment pyramids and presynaptic STP.
 %
-% FORMAT: [f,J] = atcm.tc_twocmp_stp(x,u,P,M,fso)
+%   [f,J,Q,D] = atcm.tc_twocmp_stp(x,u,P,M)
 %
-% Inputs follow tc_hilge.m. Outputs:
-%   f : vectorised state derivatives (spm_vec of M.x-shaped array)
-%   J : (optional) Jacobian dfdx (computed via SPM numerical diff if requested)
+% Implements a conductance-based canonical thalamo–cortical circuit with:
+%   (i)  explicit PRE/POST split: presynaptic short-term plasticity (STP) per
+%        presynaptic population (Tsodyks–Markram: resources R and use u);
+%   (ii) two-compartment pyramids for superficial & deep pyramidal populations
+%        (soma Vs, apical dendrite Vd) with axial coupling g_c and compartment-
+%        specific synapse placement (E→dendrite, I→soma by default).
+%
+% Compatible with the original tc_hilge calling pattern and SPM-style DCM
+% wrappers. Supports delay integration via the returned delay operator Q.
 %
 % -------------------------------------------------------------------------
-% STATE LAYOUT (nk = 10 expected):
-%   1  Vs   : somatic membrane potential (all populations)
-%   2  gE   : AMPA conductance (post-synaptic, population-specific)
+% INPUTS
+%   x : hidden states, sized [ns × 8 × nk].  Expected nk = 10 (see below).
+%       If nk < 10, the function can be adapted to auto-pad (see code).
+%   u : exogenous input(s). Scalar or vector; routed to RL (pop 8) and TP (6).
+%   P : parameter struct. Standard fields from tc_hilge are respected:
+%         A{1..5}    : extrinsic AMPA gains   (log space)
+%         AN{1..5}   : extrinsic NMDA gains   (log space)
+%         H(np×np×ns): intrinsic gains (AMPA/GABA template) (log space)
+%         Hn(np×np×ns): intrinsic NMDA gains (log space)
+%         T(np×6)    : channel time constants (log space), columns:
+%                        [AMPA  GABAa  NMDA  GABAb  M  H]
+%         C(ns×1)    : input gain(s) (log space)
+%         CV(1×8)    : membrane capacitance scalers (log space)
+%         pr         : firing midpoint shift (log space; VR = -52*exp(pr))
+%         scale(4×1) : optional scaling of {GEa,GEn,GIa,GIb}
+%         D(2×1)     : intrinsic delay scales for within-source (1) and
+%                      across-source (2) interactions (log space)
+%         D0(2×1)    : thalamo-cortical delay scales: [CT, TC] (log space)
+%       Additional fields introduced here:
+%         prel(8×1)  : baseline release probability per presyn pop (log)
+%         tauR(8×1)  : STP resource recovery time constants (s)
+%         tauU(8×1)  : STP facilitation time constants (s)
+%         U0(8×1)    : baseline 'use' (logit space; model applies logistic)
+%         gc         : axial coupling (log space; default ~3 mS)
+%         w_dend(1×2): [AMPA_to_dend, NMDA_to_dend] in [0,1] (default [0.8 0.9])
+%         w_soma(1×2): [GABAa_to_soma, GABAb_to_soma] in [0,1] (default [0.9 0.9])
+%         IncludeMH  : 1/0 to include M/H currents on pops 6 & 8 (default 1)
+%         E          : background excitatory drive (log space; default 0)
+%
+%   M : model struct with at least:
+%         M.x : state template (used for ns,np,nk and Jacobian sizing)
+%         (Optional fields used by your pipeline are passed through)
+%
+% -------------------------------------------------------------------------
+% STATE LAYOUT (nk = 10 expected; per population)
+%   1  Vs   : somatic membrane potential (mV)
+%   2  gE   : AMPA conductance
 %   3  gI   : GABA-A conductance
-%   4  gN   : NMDA conductance
+%   4  gN   : NMDA conductance (with Mg²⁺ block)
 %   5  gB   : GABA-B conductance
-%   6  gM   : M-current (optional, usually on pop 6 & 8; preserved for compat)
-%   7  gH   : H-current (optional, usually on pop 6 & 8; preserved for compat)
-%   8  Vd   : apical dendritic potential (used by pops 2 & 4; others passive)
-%   9  R    : STP "resources" per PRESYN population (shared across its outputs)
-%   10 uSTP : STP "use" per PRESYN population
+%   6  gM   : M-current (optional; pops 6 & 8 by default)
+%   7  gH   : H-current (optional; pops 6 & 8 by default)
+%   8  Vd   : apical dendritic potential (used by pops 2 & 4; passive otherwise)
+%   9  R    : STP resources (presynaptic, one per presyn population)
+%   10 uSTP : STP 'use' (presynaptic)
 %
-% The **effective presynaptic release** from population p is:
-%   x_pre(p) = p_rel(p) * uSTP(p) * R(p) * m(p)
-% where m(p) is the presynaptic firing output (sigmoid of Vs).
-% Post-synaptic conductance gates (gE,gN,gI,gB) are driven by weighted sums
-% of x_pre from all excitatory (for gE,gN) or inhibitory (for gI,gB) sources.
+% POPULATIONS (as tc_hilge):
+%   1 SS (L4), 2 SP (L2/3), 3 SI (L2/3), 4 DP (L5), 5 DI (L5),
+%   6 TP (L6), 7 RT (TRN), 8 RL (TC relay)
 %
-% Two-compartment pyramids (pops 2 & 4):
-%   C_s dVs = leak + soma syn + ( -g_c (Vs - Vd) ) + ext
-%   C_d dVd = leak + dend syn + ( -g_c (Vd - Vs) )
-% AMPA/NMDA mainly on dendrite; GABA-A/B mainly on soma (weights tunable).
-%
-% This preserves most parameter names from tc_hilge.m (A, AN, H, Hn, T, etc.)
-% and adds a few optional fields with sensible defaults if missing:
-%   P.prel  (8x1) baseline release probability per presyn pop (log-space)
-%   P.tauR  (8x1) STP resource time constants (s)
-%   P.tauU  (8x1) STP facilitation time constants (s)
-%   P.U0    (8x1) baseline use (0..1, via logistic)
-%   P.gc    (scalar) axial coupling for pyramids (mS)
-%   P.w_dend (1x2) [wE_dend, wN_dend] placement of E on dendrite (0..1)
-%   P.w_soma (1x2) [wI_soma, wB_soma] placement of I on soma (0..1)
-%
-% Populations (as in tc_hilge):
-%   1 SS, 2 SP, 3 SI, 4 DP, 5 DI, 6 TP (L6), 7 RT, 8 RL (TC relay)
-%
-% Alexander D. Shaw (2025) — extended by request
 % -------------------------------------------------------------------------
+% OUTPUTS
+%   f : vectorised state derivatives, spm_vec-compatible with M.x
+%   J : Jacobian dfdx (computed via SPM numerical differentiation if requested)
+%   Q : delay operator,   Q = inv(I − D .* J)
+%   D : state-space delay matrix (same size as J).  D combines:
+%         • within-source, across-population delays (P.D(1))
+%         • across-source delays (P.D(2))
+%         • population-level thalamo-cortical delays:
+%             CT (cortex→thal) and TC (thal→cortex) via P.D0
+%       Units are seconds (negative sign convention as in tc_hilge).
+%
+% -------------------------------------------------------------------------
+% MODEL NOTES
+% • Presynaptic stage: x_pre = p_rel .* uSTP .* R .* m(Vs)
+%   drives postsynaptic gates (AMPA/NMDA). Inhibition (GABAa/b) currently
+%   follows firing rates m(Vs) (can be extended to presyn STP similarly).
+% • Two-compartment pyramids (SP, DP): AMPA/NMDA primarily on dendrite,
+%   GABAa/b on soma; set via w_dend and w_soma. Axial current ~ g_c(Vd−Vs).
+% • Observation tip: for M/EEG, consider using a dipole-like readout
+%   proportional to g_c*(Vd − Vs) from pyramidal populations.
+%
+% -------------------------------------------------------------------------
+% DEFAULTS & RANGES (informal)
+%   gc ≈ 3 mS (log-normal prior), w_dend ≈ [0.8 0.9], w_soma ≈ [0.9 0.9]
+%   tauR ≈ 0.6 s, tauU ≈ 0.2 s, U0 ≈ 0.2, prel ≈ 0.6
+%   T(:,*) follow tc_hilge scales: AMPA~2.2 ms, GABAa~5 ms, NMDA~100 ms,
+%   GABAb~300 ms, M~160 ms, H~100 ms (all entered in log space).
+%
+% -------------------------------------------------------------------------
+% EXAMPLES
+%   % Switch to this model, expand state dims, and run once:
+%   DCM.M.f = @atcm.tc_twocmp_stp;
+%   if size(DCM.M.x,3) < 10
+%       X = zeros(size(DCM.M.x,1), size(DCM.M.x,2), 10);
+%       X(:,:,1:size(DCM.M.x,3)) = DCM.M.x;
+%       X(:,:,8)  = X(:,:,1);    % Vd ~ Vs
+%       X(:,:,9)  = 0.9;         % R
+%       X(:,:,10) = 0.2;         % uSTP
+%       DCM.M.x = X;
+%   end
+%   [f,J,Q,D] = DCM.M.f(DCM.M.x, 0, DCM.M.pE, DCM.M);
+%
+%   % Minimal prior additions (log/logit spaces):
+%   DCM.M.pE.gc      = log(3);
+%   DCM.M.pE.prel    = log(0.6)*ones(8,1);
+%   DCM.M.pE.tauR    = 0.6*ones(8,1);
+%   DCM.M.pE.tauU    = 0.2*ones(8,1);
+%   DCM.M.pE.U0      = log(0.2/(1-0.2))*ones(8,1);   % logit
+%   DCM.M.pE.w_dend  = [0.8 0.9];
+%   DCM.M.pE.w_soma  = [0.9 0.9];
+%
+% -------------------------------------------------------------------------
+% SEE ALSO
+%   atcm.tc_hilge, atcm.Alex_LaplaceTFwD, spm_vec, spm_unvec, spm_diff
+%
+% ----------------------------------------------------------------------
+% ADS2025
 
-% ----- helpers ------------------------------------------------------------
 %gx = @(fld,def) (isfield(P,fld) && ~isempty(P.(fld))) * P.(fld) + (~isfield(P,fld) || isempty(P.(fld))) * def;
 gx = @(fld,def) iff(isfield(P,fld) && ~isempty(P.(fld)), P.(fld), def);
 function out = iff(cond, a, b), if cond, out = a; else, out = b; end, end
@@ -77,14 +150,7 @@ G     = exp(full(gx('H' ,zeros(np,np,ns))));   % AMPA/GABA base (used with GEa/G
 Gn    = exp(full(gx('Hn',zeros(np,np,ns))));   % NMDA base (used with GEn)
 scale = gx('scale',zeros(4,1));
 
-% Rates (ms -> s scaling already in original; keep same style)
-% KE = exp(-gx('T',zeros(ns,6))(:,1))*1000/2.2;   % AMPA
-% KI = exp(-gx('T',zeros(ns,6))(:,2))*1000/5;     % GABA-A
-% KN = exp(-gx('T',zeros(ns,6))(:,3))*1000/100;   % NMDA
-% KB = exp(-gx('T',zeros(ns,6))(:,4))*1000/300;   % GABA-B
-% KM = (exp(-gx('T',zeros(ns,6))(:,5))*1000/160); % M
-% KH = (exp(-gx('T',zeros(ns,6))(:,6))*1000/100); % H
-
+% time constants
 Tmat = gx('T', zeros(np,6));        % <-- np, not ns
 
 KE = exp(-Tmat(:,1))*1000/2.2;        % AMPA
