@@ -29,13 +29,15 @@ function [t, X, Y, Meta] = integrate_tcm_modular(P, M, dt, T, ufun, x0, obs)
 % Dr Alexander D. Shaw — extended TCM integrator
 
 % --- Sizes / state template ---
-if ~isfield(M,'Reg') || ~isfield(M,'f')
-    error('M must contain .Reg and .f (@tcm_modular).');
-end
-Reg   = M.Reg;
-ns    = 1;                        % your current code uses one source (ns=1)
-np    = numel(Reg.Pops);
-nk    = 1 + numel(Reg.Channels);  % [V, gates...]
+%if ~isfield(M,'Reg') || ~isfield(M,'f')
+%    error('M must contain .Reg and .f (@tcm_modular).');
+%end
+%Reg   = M.Reg;
+[ns,np,nk] = size(M.x);
+
+%ns    = 1;                        % your current code uses one source (ns=1)
+%np    = numel(Reg.Pops);
+%nk    = 1 + numel(Reg.Channels);  % [V, gates...]
 Nx    = ns * np * nk;             % total state dimension (vectorised)
 
 % State template

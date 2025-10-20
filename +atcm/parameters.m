@@ -19,6 +19,8 @@ if Ns == 1
         pth = fileparts(mfilename('fullpath'));
         %load([pth '/AugSpectralPriors']);
         load([pth '/+fun/TCM_NC_Priors4Feb']);
+        pE.Hh = [0 0 0 0 0 0 0 0];
+        pC.Hh = [1 1 1 1 1 1 1 1]./8;
     else
         load(priorfile)
     end

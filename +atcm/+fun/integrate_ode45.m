@@ -1,4 +1,4 @@
-function [y,t] = integrate_ode45(P,M,U,pst,)
+function [y,t] = integrate_ode45(P,M,U,pst)
 % integrate a neuronal model of DCM-like form using a matlab built-in integrator
 %
 %

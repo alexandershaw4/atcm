@@ -40,8 +40,8 @@ ufun = @(t) [0; uRC(t)];         % adapt length to however many inputs your mode
 obs = struct(); % leave empty to auto-define mean(V); or set obs.C manually
 
 % --- Integrate ---
-dt = 1e-3;   % 1 ms
-T  = 5.0;    % 5 seconds
+dt = 1/600; 1e-3;   % 1 ms
+T  = 1.0;    % 5 seconds
 [t, X, Y, Meta] = integrate_tcm_modular(P, M, dt, T, ufun, x0, obs);
 
 % --- Unpack and plot voltages ---
