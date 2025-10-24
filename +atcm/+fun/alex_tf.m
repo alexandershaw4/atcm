@@ -159,7 +159,7 @@ for i = 1:Ns
     lambda = 0.01 * exp(P.d(3));
     Gf = conj(H) ./ (abs(H).^2 + lambda);
 
-    Y = Gf.*Y;
+    %Y = Gf.*Y;
 
     % electrode scaling
     PSD(i,:) = exp(P.L(i))*(Y);

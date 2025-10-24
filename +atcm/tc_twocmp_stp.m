@@ -178,7 +178,8 @@ wE_dend = min(max(gx('w_dend',[0.8 0.9]),0),1);   % [AMPA, NMDA] to dend
 wI_soma = min(max(gx('w_soma',[0.9 0.9]),0),1);   % [GABAa, GABAb] to soma
 
 % which pops are pyramids with two compartments
-isPyr = false(1,8); isPyr([2 4]) = true;
+isPyr = false(1,8); 
+isPyr([2 4]) = true;
 
 % ----- Presynaptic STP (per PRESYN population) ----------------------------
 % States R (resources), u (use). Per-population dynamics feed all its outputs.
