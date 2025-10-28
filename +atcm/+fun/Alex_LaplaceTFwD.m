@@ -91,6 +91,7 @@ for ii = 1:Ns
     BB  = Bfull(win,:);                      % handle multi-input later by weighting
     Cw  = exp(P.J(win));                     % observer weights (vector)
     Cmat = diag(Cw);                         % lfp readout = Cw' * x_win
+    X0 = x0(win);
 
     drive_scale = 1;
     if isfield(P,'C') && numel(P.C) >= ii
@@ -119,7 +120,7 @@ for ii = 1:Ns
         if Input
             % Exogenous: y(ω) = C * Jm^{-1} * B * u(ω)
             u_j = Uomega(j) * drive_scale;
-            Ym  = Jm \ (BB * u_j);
+            Ym  = (Jm \ (BB * u_j)) + (Jm \ X0);
             MG(:,j) = Ym;
             y(j)    = (Cw.' * Ym);
         else
@@ -206,16 +207,21 @@ for i = 1:Ns
     end
 end
 
-% Smooth magnitudes (keeps your behaviour of |.| then smooth)
+% Smooth magnitudes (keeps behaviour of |.| then smooth)
 dw = mean(diff(w));
-for i = 1:Ns
-    for j = 1:Ns
-        CSD(:,i,j) = atcm.fun.agauss_smooth(real(CSD(:,i,j)), dw * exp(P.d(1)));
-        CSD(:,j,i) = CSD(:,i,j);
+if Ns == 1
+    CSD = atcm.fun.agauss_smooth(abs(CSD), dw * exp(P.d(1)));
+else
+
+    for i = 1:Ns
+        for j = 1:Ns
+            CSD(:,i,j) = atcm.fun.agauss_smooth(abs(CSD(:,i,j)), dw * exp(P.d(1)));
+            CSD(:,j,i) = CSD(:,i,j);
+        end
     end
 end
 
-Y     = {abs(CSD)};
+Y     = {(CSD)};
 units = [];
 
 % --- Optional time-domain reconstruction (note: ignores delays in time domain) ---
