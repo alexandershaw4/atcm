@@ -213,6 +213,10 @@ for i = i;%1:length(Data.Datasets)
     % PC0.w_dend = (0.2^2) * ones(1,2);   % direct [0,1] (clamped in model)
     % PC0.w_soma = (0.2^2) * ones(1,2);
 
+    [J, Wsrc]    = atcm.build_twocmp_observer_J(DCM.M, DCM.M.pE);
+    pE.J   = J;
+    pC.J   = J*0; pC.J(find(pE.J)) = 1/8;
+
 
     % Make changes here;
     %-----------------------------------------------------------
