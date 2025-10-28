@@ -185,7 +185,7 @@ end
 
 % --- Cross-spectra construction (simple heuristic, as in your original) ---
 % For endogenous path, true cross terms need state-noise cross-covariances.
-% We keep your original heuristic (scaled product of autospectra).
+% We keep original heuristic (scaled product of autospectra).
 CSD = zeros(numel(w),Ns,Ns);
 for i = 1:Ns
     CSD(:,i,i) = PSD(i,:).';  % auto
@@ -210,12 +210,12 @@ end
 dw = mean(diff(w));
 for i = 1:Ns
     for j = 1:Ns
-        CSD(:,i,j) = atcm.fun.agauss_smooth(abs(CSD(:,i,j)), dw * (isfield(P,'d')*exp(P.d(1)) + ~isfield(P,'d')));
+        CSD(:,i,j) = atcm.fun.agauss_smooth(real(CSD(:,i,j)), dw * exp(P.d(1)));
         CSD(:,j,i) = CSD(:,i,j);
     end
 end
 
-Y     = {CSD};
+Y     = {abs(CSD)};
 units = [];
 
 % --- Optional time-domain reconstruction (note: ignores delays in time domain) ---
