@@ -590,7 +590,7 @@ switch IntMethod
 
                 %drive(i) = 0;
                 
-                k1   = f(v,drive(:,i),P,M);
+                k1   = f(v,drive(i),P,M);
                 k2   = f(v+0.5.*dt.*k1,drive(i)+0.5*dt,P,M);
                 k3   = f(v+0.5.*dt.*k2,drive(i)+0.5*dt,P,M);
                 k4   = f(v+     dt.*k3,drive(i)+dt,P,M);
@@ -610,15 +610,15 @@ switch IntMethod
             VR  = -52;
             V   = spm_unvec(v,M.x);            
             
-            R  = 2/3 * exp(P.S);
-            FF = 1./(1 + exp(-R'.*(v(1:8)-VR)));
-
-            RS = 30 ;
-            Fu = find( v(1:8) >= VR ); FF(Fu) = 1;
-            Fl = find( v(1:8) >= RS ); FF(Fl) = 0;
-            
-            m(i,:)  = FF;
-
+            % R  = 2/3 * exp(P.S);
+            % FF = 1./(1 + exp(-R'.*(v(1:8)-VR)));
+            % 
+            % RS = 30 ;
+            % Fu = find( v(1:8) >= VR ); FF(Fu) = 1;
+            % Fl = find( v(1:8) >= RS ); FF(Fl) = 0;
+            % 
+            % m(i,:)  = FF;
+            % 
             
             % log whether membrane potential crossed threshold
             %--------------------------------------------------------------

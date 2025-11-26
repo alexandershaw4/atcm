@@ -267,17 +267,17 @@ for i   = 1:length(t)
 
     % firing function at dxdt - the sigmoid
     %--------------------------------------------------------------
-    VR  = -52;
-    V   = spm_unvec(v,M.x);
-
-    R  = 2/3 * exp(P.S);
-    FF = 1./(1 + exp(-R'.*(v(1:8)-VR)));
-
-    RS = 30 ;
-    Fu = find( v(1:8) >= VR ); FF(Fu) = 1;
-    Fl = find( v(1:8) >= RS ); FF(Fl) = 0;
-
-    m(i,:)  = FF;
+    % VR  = -52;
+    % V   = spm_unvec(v,M.x);
+    % 
+    % R  = 2/3 * exp(P.S);
+    % FF = 1./(1 + exp(-R'.*(v(1:8)-VR)));
+    % 
+    % RS = 30 ;
+    % Fu = find( v(1:8) >= VR ); FF(Fu) = 1;
+    % Fl = find( v(1:8) >= RS ); FF(Fl) = 0;
+    % 
+    % m(i,:)  = FF;
 
 
     % log whether membrane potential crossed threshold
@@ -394,7 +394,7 @@ for ins = 1:ns
             clear Ppf
 
             ys  = yx(Ji(ij),:);
-            ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)+1/2]);
+            %ys  = atcm.fun.bandpassfilter(ys,1/dt,[w(1) w(end)+1/2]);
             %ys  = real(ys);
             %ys  = ys - mean(ys);
 
@@ -421,7 +421,7 @@ for ins = 1:ns
             Ppf = abs(Fs);
 
             %Ppf = atcm.fun.awinsmooth(Ppf,8);
-            %Ppf = atcm.fun.agauss_smooth(Ppf,1);
+            Ppf = atcm.fun.agauss_smooth(Ppf,1);
 
             % De-NaN/inf the spectrum
             %--------------------------------------------------------------

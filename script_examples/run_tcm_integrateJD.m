@@ -37,11 +37,11 @@ function [X, time, info, u_t] = run_tcm_integrateJD(M, P, varargin)
 %   [X,t,info,u] = run_tcm(DCM.M, DCM.M.pE, 'dt',1/600, 'T',2, 'freq',20, 'dur',0.5);
 %
 
-x = reshape(X,[1 8 7 1200]);lab = {'mV' 'AMPA' 'GABA-A' 'NMDA' 'GABA-B' 'Kv7 (M)' 'HCN'};
-for i = 1:7
-    subplot(7,1,i);
-    plot(t,squeeze(x(1,:,i,:)));title(lab{i});
-end
+% x = reshape(X,[1 8 7 1200]);lab = {'mV' 'AMPA' 'GABA-A' 'NMDA' 'GABA-B' 'Kv7 (M)' 'HCN'};
+% for i = 1:7
+%     subplot(7,1,i);
+%     plot(t,squeeze(x(1,:,i,:)));title(lab{i});
+% end
 
 % -------------------- parse inputs --------------------
 ip = inputParser;

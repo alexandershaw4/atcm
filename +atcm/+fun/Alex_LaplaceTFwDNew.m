@@ -30,7 +30,6 @@ function [Y,w,G,units,MAG,PHA] = Alex_LaplaceTFwDNew(P,M,U)
 % - Endogenous case: S_y(ω) = H(ω) Σ_w H(ω)^* , H(ω) = C * (sI - A_eff)^(-1)
 %
 % Notes:
-%   * If present, P.q (per-region log process noise) sets Σ_w = exp(P.q(i)) I.
 %   * P.d(2) can act as a small real shift of s (damping/jitter). Set to 0 if unused.
 %
 % AS2023 updated Oct 2025
@@ -72,15 +71,11 @@ if isfield(P,'d') && numel(P.d) >= 2
     damp = exp(P.d(2));
 end
 
-% Optional per-region log-noise power (for endogenous)
-have_q = isfield(P,'q') && numel(P.q) >= Ns;
-
 % Prealloc
 PSD   = zeros(Ns,numel(w));
 MAG   = cell(Ns,1);
 PHA   = cell(Ns,1);
 G     = [];                 % state-space sys object not used here
-Hstore = cell(Ns,1);        % for endogenous path: H rows
 
 for ii = 1:Ns
     % states for region ii (block picking every Ns-th state)
@@ -121,70 +116,42 @@ for ii = 1:Ns
             % Exogenous: y(ω) = C * Jm^{-1} * B * u(ω)
             u_j = Uomega(j) * drive_scale;
             Ym  = (Jm \ (BB * u_j)) + (Jm \ X0);
+            
             MG(:,j) = Ym;
             y(j)    = (Cw.' * Ym);
         else
-            % Endogenous: store H row; spectra computed after loop
-            % H(ω) maps state noise w (n×1) -> output y (scalar):
-            % H_row = Cw' * Jm^{-1}    (1×n)
-            Hstore{ii}(j,1:n) = (Cw.' / Jm);
-            % Keep MG/y placeholders for completeness (not used)
-            MG(:,j) = complex(NaN);
-            y(j)    = complex(NaN);
-
-            Hrow = (Cw.' / Jm);       % 1×n complex transfer from state-noise -> output
-            qpow = (have_q && numel(P.q)>=ii) * exp(P.q(ii)) + (~(have_q && numel(P.q)>=ii)) * 1;
-
-            % Power (scalar): S_y(ω) = q * sum |H|^2
-            psd_i = qpow * sum(abs(Hrow).^2, 2);   % (#ω × 1), real
-
-            % If you want something like MG/PHA for plotting contributions:
-            MG(:,j)  = Hrow.';                    % n×1 complex gains per state
-            PH(:,j) = angle(MG(:,j))*180/pi;             % optional: "amplitude-like" scalar (no true phase)
-
+            % Endogenous y(ω) = C * Jm^{-1} * x0
+            Ym      = (Jm \ X0);
+            MG(:,j) = Ym;
+            y(j)    = (Cw.' * Ym);
         end
     end
 
-    if Input
-        % Optional taper on output spectrum magnitude
-        if isfield(M,'ham') && M.ham
-            Hm = hamming(numel(w));
-            y  = y(:) .* Hm(:);
-        end
-
-        MAG{ii} = MG;
-        PHA{ii} = angle(MG)*180/pi;
-
-        % Electrode scaling (log-gain per region)
-        Lgain = 1;
-        if isfield(P,'L') && numel(P.L) >= ii
-            Lgain = exp(P.L(ii));
-        end
-
-        PSD(ii,:) = Lgain * (y(:)).';   % complex response per region
-    else
-        % Endogenous PSD via sandwich: S_y(ω) = H Σ_w H*
-        qpow = 1;
-        if have_q, qpow = exp(P.q(ii)); end
-
-        Hrw = Hstore{ii};   % (#ω × n)
-        % For Σ_w = q * I, the scalar PSD is q * sum |H_row|^2
-        psd_i = qpow * sum(abs(Hrw).^2, 2);   % (#ω × 1), real
-
-        % Electrode scaling (as magnitude scaling)
-        Lgain = 1;
-        if isfield(P,'L') && numel(P.L) >= ii
-            Lgain = exp(P.L(ii));
-        end
-        PSD(ii,:) = (Lgain * psd_i(:)).';     % real, non-negative
-
-        MAG{ii} = MG;
-        PHA{ii} = PH;
-
+    % Optional taper on output spectrum magnitude
+    if isfield(M,'ham') && M.ham
+        Hm = hamming(numel(w));
+        y  = y(:) .* Hm(:);
     end
+
+    MAG{ii} = MG;
+    PHA{ii} = angle(MG)*180/pi;
+
+    % Electrode scaling (log-gain per region)
+    Lgain = 1;
+    if isfield(P,'L') && numel(P.L) >= ii
+        Lgain = exp(P.L(ii));
+    end
+
+    % Laplace is pretty smooth, parameterise granularity
+    Y = y(:);
+    H = gradient(gradient(Y));
+    Y = Y - (exp(P.d(1))*3)*H;
+
+    PSD(ii,:) = Lgain * (Y(:)).';   % complex response per region
+
 end
 
-% --- Cross-spectra construction (simple heuristic, as in your original) ---
+% --- Cross-spectra construction (simple heuristic) ---
 % For endogenous path, true cross terms need state-noise cross-covariances.
 % We keep original heuristic (scaled product of autospectra).
 CSD = zeros(numel(w),Ns,Ns);
@@ -196,11 +163,11 @@ for i = 1:Ns
             if isfield(P,'Lc') && numel(P.Lc) >= i
                 Lc = exp(P.Lc(i));
             end
-            % Use product with conjugate for exogenous (complex), or plain product if real
+
             if Input
                 CSD(:,i,j) = Lc * (PSD(i,:).' .* conj(PSD(j,:).'));
             else
-                CSD(:,i,j) = Lc * (PSD(i,:).' .* (PSD(j,:).')); % real, phase-free
+                CSD(:,i,j) = Lc * (PSD(i,:).' .* (PSD(j,:).')); 
             end
             CSD(:,j,i) = CSD(:,i,j);
         end
@@ -210,12 +177,11 @@ end
 % Smooth magnitudes (keeps behaviour of |.| then smooth)
 dw = mean(diff(w));
 if Ns == 1
-    CSD = atcm.fun.agauss_smooth(abs(CSD), dw * exp(P.d(1)));
+    CSD = atcm.fun.agauss_smooth(abs(CSD), dw * exp(P.d(3)));
 else
-
     for i = 1:Ns
         for j = 1:Ns
-            CSD(:,i,j) = atcm.fun.agauss_smooth(abs(CSD(:,i,j)), dw * exp(P.d(1)));
+            CSD(:,i,j) = atcm.fun.agauss_smooth(abs(CSD(:,i,j)), dw * exp(P.d(3)));
             CSD(:,j,i) = CSD(:,i,j);
         end
     end
