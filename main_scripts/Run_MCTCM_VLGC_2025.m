@@ -1,20 +1,336 @@
 function Run_MCTCM_VLGC_2025(i)
-% Multi-compartment version of TCM with soma + dendrite compoartns and
-% separate presynaptic and postsynaptic 
+% Run_MCTCM_VLGC_2025
 %
-% Top level script showing how to apply the thalamo-cortical neural mass
-% model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
+% Top-level pipeline for fitting a multi-compartment thalamo-cortical neural
+% mass model (MC-TCM) to M/EEG cross-spectral data using a delay-aware
+% Laplace-domain transfer function and Variational Laplace optimisation in
+% generalised coordinates.
 %
-% This version using a linearisation and transfer function (numerical
-% Laplace) rather than brute numerical integration.
+% OVERVIEW
+% -------------------------------------------------------------------------
+% This script implements a Dynamic Causal Modelling (DCM)-style workflow for
+% electrophysiological data using an extended thalamo-cortical model that
+% augments the standard conductance-based TCM with:
 %
-% Requires atcm (thalamo cortical modelling package) and aoptim
-% (optimisation package)
+%   - separate somatic and dendritic compartments
+%   - distinct pre- and postsynaptic contributions
+%   - short-term synaptic plasticity (STP) states
+%   - compartment-specific routing of excitatory and inhibitory inputs
 %
-% atcm: https://github.com/alexandershaw4/atcm
+% The aim is to fit M/EEG cross-spectral density (CSD) data with a richer
+% circuit model that can capture dendrite-versus-soma dynamics and dynamic
+% modulation of synaptic efficacy, while retaining efficient frequency-domain
+% inversion through local linearisation around a stable operating point.
+%
+% In broad terms, the pipeline is:
+%
+%   1) Load and prepare M/EEG spectral data
+%   2) Specify the multi-compartment thalamo-cortical generative model
+%   3) Define intrinsic / extrinsic connectivity and exogenous input structure
+%   4) Expand and initialise the hidden state space
+%   5) Set priors over biophysical, synaptic, compartmental, and STP parameters
+%   6) Search for a stable fixed point of the nonlinear system
+%   7) Linearise the dynamics around that operating point
+%   8) Evaluate a delay-aware transfer function in the Laplace / frequency domain
+%   9) Compare predicted and observed spectra
+%  10) Optimise model parameters using Variational Laplace in generalised
+%      coordinates
+%  11) Save fitted posteriors, predictions, and diagnostics into a DCM struct
 %
 %
-% AS2020/21/22 {alexandershaw4[@]gmail.com}
+% MODEL
+% -------------------------------------------------------------------------
+% The hidden-state dynamics are defined by the multi-compartment neural mass
+% model:
+%
+%   DCM.M.f = @atcm.tc_twocmp_stp
+%
+% This model extends the original thalamo-cortical neural mass formalism by
+% introducing additional state variables and biophysical structure. The
+% hidden states evolve according to:
+%
+%   dx/dt = f(x,u,P,M)
+%
+% where:
+%
+%   x   - hidden neuronal and synaptic states
+%   u   - exogenous input
+%   P   - model parameters
+%   M   - model structure and metadata
+%
+% Relative to the simpler single-compartment TCM, this version includes:
+%
+%   - somatic membrane voltage states
+%   - dendritic membrane voltage states
+%   - presynaptic resource / utilisation variables for STP
+%   - compartment-specific synaptic routing
+%   - axial soma-dendrite coupling
+%
+% This makes the model more biophysically expressive and allows the fitted
+% spectra to reflect not only synaptic gain and time constants, but also
+% dendritic filtering, presynaptic dynamics, and compartment-specific
+% inhibition / excitation.
+%
+%
+% MULTI-COMPARTMENT / STP STATE SPACE
+% -------------------------------------------------------------------------
+% The state space is expanded from the standard 7-state formulation to a
+% 10-state formulation per population. In addition to the standard membrane
+% and conductance states, the model introduces:
+%
+%   Vd   - dendritic membrane voltage
+%   R    - synaptic resource variable
+%   uSTP - dynamic synaptic utilisation / use variable
+%
+% This creates a richer operating point and allows the model to express
+% activity-dependent changes in synaptic transmission. Initial values for
+% these additional states are chosen to place the system in a plausible
+% baseline regime before fixed-point refinement.
+%
+%
+% DATA PREPARATION
+% -------------------------------------------------------------------------
+% The script expects a text file listing SPM-format electrophysiology
+% datasets. These are read and converted into DCM-compatible cross-spectral
+% form.
+%
+% Preparation steps include:
+%
+%   - selecting trials / conditions
+%   - choosing channels and source labels
+%   - restricting the frequency range of interest
+%   - estimating / smoothing spectra
+%   - assembling the DCM.xY observation structure
+%
+% The helper function:
+%
+%   atcm.fun.prepcsd
+%
+% is used to prepare observed spectra for fitting. The final model inversion
+% is performed on CSD data rather than raw time series.
+%
+%
+% TRANSFER FUNCTION FORMULATION
+% -------------------------------------------------------------------------
+% The forward model is evaluated using a custom delay-aware transfer
+% function:
+%
+%   DCM.M.IS = @atcm.fun.Alex_LaplaceTFwD
+%
+% Rather than repeatedly simulating the full nonlinear model in the time
+% domain during optimisation, this approach:
+%
+%   - finds a stable operating point
+%   - linearises the nonlinear hidden-state equations around that point
+%   - constructs the local Jacobian and input mappings
+%   - incorporates delays in the frequency domain
+%   - computes the model’s spectral response over the frequencies of interest
+%
+% In local linear form, the dynamics are approximated as:
+%
+%   dx/dt ≈ A x + B u
+%
+% and the frequency response is evaluated using a Laplace / resolvent
+% formulation of the form:
+%
+%   H(s) = C * (sI - A_eff(s))^(-1) * B
+%
+% where A_eff contains delay-dependent phase factors. This yields an
+% efficient and numerically tractable way to predict spectra and cross-
+% spectra from a nonlinear conductance-based model.
+%
+% For this multi-compartment model, the transfer-function approximation is
+% especially useful because the underlying nonlinear system is larger and
+% more expensive to simulate directly.
+%
+%
+% COMPARTMENT-SPECIFIC OBSERVATION MODEL
+% -------------------------------------------------------------------------
+% The observation model is configured so that different hidden-state
+% components can contribute differently to the measured signal. In
+% particular, observation weights are constructed using:
+%
+%   atcm.build_twocmp_observer_J
+%
+% which allows the measured signal to reflect different contributions from
+% somatic and dendritic dynamics across populations. This is important in
+% multi-compartment models because the observed field potential is generally
+% not a simple readout of a single state, but a weighted combination of
+% subcellular and population-level processes.
+%
+%
+% PRIORS AND PARAMETERISATION
+% -------------------------------------------------------------------------
+% Priors are initialised using:
+%
+%   DCM = atcm.parameters(DCM,Ns)
+%
+% and then modified manually to accommodate the extended multi-compartment
+% model. The prior structures pE and pC include parameters governing:
+%
+%   - observation weights (J)
+%   - synaptic gains and conductances
+%   - delay / smoothing terms
+%   - source / channel scaling
+%   - axial soma-dendrite coupling (gc)
+%   - routing of excitation to dendrites (w_dend)
+%   - routing of inhibition to soma (w_soma)
+%   - short-term plasticity parameters:
+%         prel   baseline release probability
+%         tauR   recovery time constant
+%         tauU   facilitation / utilisation time constant
+%         U0     baseline synaptic use
+%
+% These priors regularise inference and encourage the model to remain in a
+% biologically plausible regime. They also define which aspects of the
+% circuit are allowed to vary during inversion.
+%
+%
+% SHORT-TERM PLASTICITY (STP)
+% -------------------------------------------------------------------------
+% A key feature of this model is the inclusion of short-term synaptic
+% plasticity. STP is represented through hidden states and parameters that
+% govern moment-to-moment changes in effective synaptic transmission.
+%
+% In particular, the model includes:
+%
+%   R    - available synaptic resources
+%   uSTP - current synaptic utilisation
+%
+% with priors on:
+%
+%   prel - baseline release strength / probability
+%   tauR - resource recovery time constant
+%   tauU - utilisation / facilitation time constant
+%   U0   - baseline use parameter
+%
+% These mechanisms allow the model to express activity-dependent synaptic
+% depression / facilitation and thereby shape spectral output in a way that
+% is not possible with a purely static synaptic gain formulation.
+%
+%
+% FIXED POINT / OPERATING POINT SEARCH
+% -------------------------------------------------------------------------
+% Before spectral fitting, the script searches for a stable fixed point of
+% the nonlinear state equations:
+%
+%   f(x*,0,P,M) = 0
+%
+% using:
+%
+%   atcm.fun.find_fixed_point_robust
+%
+% The initial STP utilisation state is seeded from the prior U0 parameter via
+% a logistic transform before fixed-point search, so that the operating point
+% is internally consistent with the prior synaptic-use regime.
+%
+% The fixed point is crucial because the Laplace-domain transfer function is
+% based on a local linearisation around this operating point. In effect, the
+% fitted model describes the spectral dynamics of the system near its inferred
+% baseline state.
+%
+%
+% OPTIMISATION
+% -------------------------------------------------------------------------
+% Parameter estimation is performed using the custom optimisation wrapper:
+%
+%   M = aFitDCM(DCM)
+%
+% followed by:
+%
+%   M.aloglikVLthermGC
+%
+% The aFitDCM object builds a reduced parameter representation from the DCM
+% priors and calls a Variational Laplace routine in generalised coordinates.
+% This routine updates posterior means and covariances by comparing observed
+% and predicted spectra under a local Gaussian approximation to the
+% posterior.
+%
+% In practice, the optimisation procedure:
+%
+%   - proposes parameter updates in reduced space
+%   - reconstructs the full parameter structure
+%   - evaluates the multi-compartment transfer-function prediction
+%   - computes spectral prediction error
+%   - updates the posterior mean and covariance using local curvature
+%   - iterates until a satisfactory fit is reached or a maximum number of
+%     refinement attempts has been made
+%
+% The main outputs are:
+%
+%   Ep  - posterior parameter estimates
+%   CP  - posterior covariance
+%   F   - free energy / model evidence proxy
+%
+%
+% WHY USE THIS MODEL?
+% -------------------------------------------------------------------------
+% This script is intended for situations where a standard single-compartment
+% thalamo-cortical neural mass model may be too coarse. The present
+% formulation is useful when one wishes to investigate:
+%
+%   - dendritic versus somatic contributions to spectral features
+%   - compartment-specific routing of excitation and inhibition
+%   - the role of presynaptic mechanisms in shaping oscillatory responses
+%   - richer synaptic dynamics than static conductance changes alone
+%
+% In this sense, the model is a more biophysically detailed extension of the
+% standard TCM, while still retaining a DCM-style inversion framework.
+%
+%
+% OUTPUTS
+% -------------------------------------------------------------------------
+% For each dataset, the script saves a fitted DCM structure containing:
+%
+%   DCM.Ep      posterior parameter estimates
+%   DCM.Cp      posterior covariance
+%   DCM.F       free energy / model evidence proxy
+%   DCM.pred    predicted spectra / cross-spectra
+%   DCM.w       frequency vector
+%   DCM.G       transfer-function / auxiliary output
+%   DCM.series  optional reconstructed series and state diagnostics
+%
+% These outputs can be used for:
+%   - subject-level model inversion
+%   - posterior predictive checks
+%   - mechanistic interpretation of fitted oscillatory spectra
+%   - subsequent group-level analyses
+%
+%
+% DEPENDENCIES
+% -------------------------------------------------------------------------
+% This script requires:
+%
+%   atcm   - thalamo-cortical modelling package
+%   aoptim - optimisation / inference package
+%   SPM    - for core DCM/SPM helper functions
+%
+% Example dependency:
+%   atcm: https://github.com/alexandershaw4/atcm
+%
+%
+% NOTES
+% -------------------------------------------------------------------------
+% - This example is configured as a one-node model for illustration.
+% - The model uses a larger hidden-state space than the standard TCM and may
+%   therefore require more careful prior specification and fixed-point
+%   stabilisation.
+% - The transfer-function formulation makes inversion much faster than full
+%   brute-force simulation for spectral fitting.
+% - The observation model can be tailored to emphasise different compartmental
+%   contributions to the measured signal.
+% - Because the model is more flexible, it is especially important to check
+%   posterior plausibility, parameter identifiability, and fit quality.
+%
+%
+% INPUT
+% -------------------------------------------------------------------------
+% i : index (or vector of indices) specifying which dataset(s) to fit from
+%     the dataset list.
+%
+%
+% AS2020-2025
+% Alex Shaw
 
 % EXAMPLE ONE NODE SETUP:
 %==========================================================================

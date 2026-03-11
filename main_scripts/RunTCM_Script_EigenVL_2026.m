@@ -1,17 +1,292 @@
 function RunTCM_Script_EigenVL_2026(i)
-% Top level script showing how to apply the thalamo-cortical neural mass
-% model decribed in Shaw et al 2020 NeuroImage, to M/EEG data.
+% Top-level pipeline for fitting a conductance-based thalamo-cortical neural
+% mass model (TCM) to M/EEG cross-spectral data using an eigendecomposition-
+% based transfer-function formulation and Variational Laplace optimisation.
 %
-% This version using a linearisation and transfer function (numerical
-% Laplace) rather than brute numerical integration.
+% OVERVIEW
+% -------------------------------------------------------------------------
+% This script implements a Dynamic Causal Modelling (DCM)-style workflow for
+% electrophysiological data, specialised to the thalamo-cortical model
+% described in Shaw et al. (2020, NeuroImage). In contrast to brute-force
+% time-domain integration, this version uses local linearisation of the
+% nonlinear neural mass equations around a stable operating point and
+% evaluates spectral responses using an eigenmode decomposition of the
+% linearised system.
 %
-% Requires atcm (thalamo cortical modelling package) and aoptim
-% (optimisation package)
+% The pipeline is:
 %
-% atcm: https://github.com/alexandershaw4/atcm
+%   1) Load and prepare M/EEG spectral data
+%   2) Specify a thalamo-cortical generative model and connectivity pattern
+%   3) Set model priors and initialise the hidden state space
+%   4) Search for a stable fixed point of the neural mass equations
+%   5) Linearise the system around that operating point
+%   6) Eigendecompose the local Jacobian / state transition operator
+%   7) Construct a modal transfer function in the frequency domain
+%   8) Compare predicted and observed spectra
+%   9) Optimise model parameters using Variational Laplace in generalised
+%      coordinates
+%  10) Save fitted posteriors, predictions, and diagnostics into a DCM struct
 %
 %
-% AS2020/21/22 {alexandershaw4[@]gmail.com}
+% MODEL
+% -------------------------------------------------------------------------
+% The underlying generative model is a conductance-based thalamo-cortical
+% neural mass model, implemented here with:
+%
+%   DCM.M.f = @atcm.tc_hilge2
+%
+% The hidden neuronal states x evolve according to:
+%
+%   dx/dt = f(x,u,P,M)
+%
+% where P contains biophysical parameters and u denotes exogenous input. The
+% observable signal y is generated from a weighted readout of the hidden
+% states after local linearisation around a fixed point. This allows the
+% model to retain a mechanistic interpretation while being evaluated
+% efficiently in the frequency domain.
+%
+% In this example the model is a simple one-node thalamo-cortical circuit,
+% but the same framework generalises to larger multi-node architectures with
+% forward, backward, and lateral connections.
+%
+%
+% DATA PREPARATION
+% -------------------------------------------------------------------------
+% The script expects a text file containing a list of SPM-format M/EEG
+% datasets. These are converted into DCM-compatible cross-spectral form and
+% prepared for model inversion.
+%
+% Preparation includes:
+%   - selecting trials / conditions
+%   - choosing channels and source labels
+%   - restricting the frequency range of interest
+%   - estimating and smoothing spectra
+%   - assembling the DCM.xY observation structure
+%
+% Spectral preparation is handled using helper functions such as:
+%
+%   atcm.fun.prepcsd
+%
+% so that observed spectra and model predictions share a common
+% representation.
+%
+%
+% EIGENMODE TRANSFER-FUNCTION FORMULATION
+% -------------------------------------------------------------------------
+% The central feature of this version is the use of an eigendecomposition-
+% based transfer-function routine:
+%
+%   DCM.M.IS = @<eigenmode transfer routine>
+%
+% Rather than evaluating the transfer function solely through direct
+% inversion of the resolvent at each frequency, this approach decomposes the
+% local linearised system into its constituent dynamical modes.
+%
+% After fixed-point evaluation, the nonlinear model is locally approximated
+% as:
+%
+%   dx/dt ≈ A x + B u
+%
+% where A is the Jacobian of the flow with respect to the states and B is
+% the input Jacobian. The local dynamics are then decomposed as:
+%
+%   A = V * Lambda * V^(-1)
+%
+% where:
+%
+%   V       - eigenvectors / modal basis
+%   Lambda  - eigenvalues / modal poles
+%
+% This allows the transfer function to be expressed in modal form, so that
+% the spectral response becomes a weighted sum of damped dynamical modes.
+% Each mode contributes according to its pole location and its projection
+% onto the input and observation spaces.
+%
+% Conceptually, this means that the model prediction can be interpreted not
+% only as a spectrum, but as a superposition of underlying oscillatory /
+% dynamical motifs, each with its own characteristic frequency and damping.
+%
+%
+% WHY USE EIGENMODE DECOMPOSITION?
+% -------------------------------------------------------------------------
+% The eigendecomposition transfer formulation is useful because it provides:
+%
+%   - a mechanistically interpretable decomposition of the spectral response
+%   - direct access to modal frequencies and damping rates
+%   - an efficient route to spectral prediction after linearisation
+%   - insight into which state-space modes dominate specific peaks or bands
+%
+% In practice, this makes it especially useful for:
+%   - interpreting alpha / beta / spindle-like modes
+%   - identifying dominant local circuit motifs
+%   - linking fitted spectra to eigenvalues of the linearised dynamics
+%   - visualising how parameters reshape oscillatory modes
+%
+% Relative to a plain resolvent evaluation, the eigenmode formulation is
+% particularly attractive when the goal is not just fitting spectra but also
+% understanding the modal structure of the fitted thalamo-cortical circuit.
+%
+%
+% IMPORTANT NOTE ON DELAYS
+% -------------------------------------------------------------------------
+% In its simplest form, the eigendecomposition approach diagonalises the
+% instantaneous local Jacobian A and therefore provides a clean modal
+% description of the undelayed linearised system. If explicit propagation
+% delays are included in the transfer formulation, the effective system
+% matrix may become frequency-dependent, in which case the modal structure is
+% also frequency-dependent.
+%
+% Accordingly, the precise interpretation of the eigenmodes depends on the
+% implementation used:
+%
+%   - delay-free / instantaneous modes:
+%       one global eigendecomposition of A
+%
+%   - delay-aware modes:
+%       frequency-specific eigendecomposition of an effective operator
+%
+% The present eigendecomposition approach is therefore best understood as a
+% modal analysis of the local linearised system, and may serve as either a
+% standalone transfer function or an interpretability layer alongside a more
+% explicitly delay-aware Laplace-domain transfer function.
+%
+%
+% PRIORS AND PARAMETERISATION
+% -------------------------------------------------------------------------
+% Priors are defined using:
+%
+%   DCM = atcm.parameters(DCM,Ns)
+%
+% and may then be adjusted manually to constrain or emphasise particular
+% parameter families. The prior mean structure (pE) and covariance / precision
+% structure (pC) govern parameters such as:
+%
+%   - observation weights
+%   - synaptic / conductance gains
+%   - intrinsic and extrinsic couplings
+%   - spectral smoothing and delay-related terms
+%   - channel / source scaling constants
+%
+% These priors serve both a biological and numerical role: they regularise
+% inference and encourage the inversion to remain within plausible dynamical
+% regimes.
+%
+%
+% FIXED POINT / OPERATING POINT SEARCH
+% -------------------------------------------------------------------------
+% Before eigendecomposition, the script estimates a stable operating point
+% x* satisfying:
+%
+%   f(x*,0,P,M) = 0
+%
+% using a robust fixed-point routine:
+%
+%   atcm.fun.find_fixed_point_robust
+%
+% This step is essential because the Jacobian A, and hence the eigenmodes
+% themselves, depend on the operating point. In this sense, the modal
+% decomposition is local: it characterises the dynamics of the system near
+% the inferred baseline state.
+%
+%
+% OPTIMISATION
+% -------------------------------------------------------------------------
+% Model parameters are optimised using:
+%
+%   M = aFitDCM(DCM)
+%
+% followed by:
+%
+%   M.aloglikVLthermGC
+%
+% The aFitDCM wrapper converts the structured DCM priors into a reduced
+% optimisation vector and calls a Variational Laplace routine in generalised
+% coordinates. During inversion, the optimiser:
+%
+%   - proposes a parameter update
+%   - reconstructs the full DCM parameter structure
+%   - evaluates the eigenmode transfer-function prediction
+%   - compares prediction and data in spectral space
+%   - updates the posterior mean and covariance using local curvature
+%
+% This yields:
+%
+%   Ep  - posterior parameter means
+%   CP  - posterior covariance
+%   F   - variational free energy / objective value
+%
+% The outer fitting loop may repeat the inversion several times if the model
+% prediction remains insufficiently close to the observed spectrum, allowing
+% iterative refinement of the posterior solution.
+%
+%
+% INTERPRETATION OF FITTED MODES
+% -------------------------------------------------------------------------
+% A major advantage of this formulation is that the fitted model can be
+% interrogated at the level of eigenmodes. For example, one can inspect:
+%
+%   - eigenvalues in the complex plane
+%   - modal damping (real part)
+%   - modal frequency (imaginary part)
+%   - state participation / eigenvector loadings
+%   - contribution of each mode to the predicted spectrum
+%
+% This makes the approach particularly useful when trying to understand which
+% hidden circuit motifs generate observed oscillatory phenomena, and how
+% fitted parameters shift the system toward or away from specific dynamical
+% regimes.
+%
+%
+% OUTPUTS
+% -------------------------------------------------------------------------
+% For each dataset, the script saves a fitted DCM structure containing:
+%
+%   DCM.Ep      posterior parameter estimates
+%   DCM.Cp      posterior covariance
+%   DCM.F       free energy / model evidence proxy
+%   DCM.pred    predicted spectra / cross-spectra
+%   DCM.w       frequency vector
+%   DCM.G       transfer-function / modal output
+%   DCM.series  optional reconstructed state / signal diagnostics
+%
+% Depending on the implementation of the eigenmode transfer routine, the
+% auxiliary outputs may also include modal quantities such as eigenvalues,
+% eigenvectors, residues, or per-mode spectral contributions.
+%
+%
+% DEPENDENCIES
+% -------------------------------------------------------------------------
+% This script requires:
+%
+%   atcm   - thalamo-cortical modelling package
+%   aoptim - optimisation / inference package
+%   SPM    - for DCM/SPM helper functions
+%
+% Example dependency:
+%   atcm: https://github.com/alexandershaw4/atcm
+%
+%
+% NOTES
+% -------------------------------------------------------------------------
+% - This example uses a simple one-node model for illustration.
+% - The eigenmode transfer formulation is best viewed as a local modal
+%   approximation around the inferred operating point.
+% - It is often more interpretable than a plain transfer-function inversion,
+%   because spectral peaks can be related to specific modes.
+% - If delays are important, care is needed in interpreting the eigenmodes,
+%   as the effective system may become frequency-dependent.
+% - Priors, state initialisation, and parameter restrictions may need tuning
+%   for different datasets or model variants.
+%
+%
+% INPUT
+% -------------------------------------------------------------------------
+% i : index (or vector of indices) specifying which dataset(s) to fit from
+%     the dataset list.
+%
+%
+% AS2020-2025
+% Alex Shaw
 
 % EXAMPLE ONE NODE SETUP:
 %==========================================================================
