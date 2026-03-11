@@ -470,7 +470,7 @@ for i = i;%1:length(Data.Datasets)
     %[Qp,Cp,Eh,F] = spm_nlsi_GN(DCM.M,DCM.xU,DCM.xY);
     
 
-    % Fit with LM (Log Likelihood estimation):
+    % Fit with Variational Laplace in generalised coordinates
     %----------------------------------------------------------------------
     M = aFitDCM(DCM)
 
