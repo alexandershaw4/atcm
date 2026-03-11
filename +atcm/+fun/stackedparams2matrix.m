@@ -8,10 +8,10 @@ function [matrix,list] = stackedparams2matrix(params)
 % AS
 
 % concatenate 3d arrays 
-AMPA = tcm_mat2list(cat(3,params.AMPA),'AMPA');
-GABAA = tcm_mat2list(cat(3,params.GABAA),'GABAA');
-NMDA = tcm_mat2list(cat(3,params.NMDA),'NMDA');
-GABAB = tcm_mat2list(cat(3,params.GABAB),'GABAB');
+AMPA = atcm.fun.tcm_mat2list(cat(3,params.AMPA),'AMPA');
+GABAA = atcm.fun.tcm_mat2list(cat(3,params.GABAA),'GABAA');
+NMDA = atcm.fun.tcm_mat2list(cat(3,params.NMDA),'NMDA');
+GABAB = atcm.fun.tcm_mat2list(cat(3,params.GABAB),'GABAB');
 
 TC = [params.TC]';
 CT = [params.CT]';

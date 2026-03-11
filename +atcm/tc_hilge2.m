@@ -158,6 +158,8 @@ if isfield(P,'global')
     GEn = GEn * exp(P.global(2));
     GIa = GIa * exp(P.global(3));
     GIb = GIb * exp(P.global(4));
+    GIm = GIm * exp(P.global(5));
+    GIh = GIh * exp(P.global(6));
 end
 
 % --- Flow over sources/populations ----------------------------------------

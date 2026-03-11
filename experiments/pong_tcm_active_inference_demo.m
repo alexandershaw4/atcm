@@ -12,7 +12,7 @@ function pong_tcm_active_inference_demo
 %   x_env = [ball_x; ball_y; ball_vx; ball_vy; paddle_y];
 
 % --- Simulation parameters ------------------------------------------------
-T_steps        = 500;     % number of discrete Pong time steps
+T_steps        = 5000;     % number of discrete Pong time steps
 dt_env         = 0.02;    % environment time step (seconds)
 dt_tcm         = 1/600;    % TCM integration step (seconds)
 n_tcm_substeps = 10;      % TCM micro-steps per environment step
@@ -163,9 +163,9 @@ for t = 1:T_steps
         % Gradient descent step to reduce motor error
         % theta_new = theta + eta_th * err * d_v_dtheta
         %theta = theta + eta_th * err * real(d_v_dtheta);
-        theta = theta + eta_th * -d_v_dtheta;
+        %theta = theta + eta_th * -d_v_dtheta;
 
-        theta = real(theta);
+        %theta = real(theta);
 
         % Write back into P_tcm
         P_tcm = unpack_theta_into_P(P_tcm, theta);

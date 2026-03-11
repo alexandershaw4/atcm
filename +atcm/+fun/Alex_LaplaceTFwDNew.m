@@ -54,7 +54,7 @@ x0  = M.x(:);                 % not used as drive any more
 Ns  = size(M.x,1);
 
 % Linearisation
-[~,A,D] = feval(M.f,M.x,0,P,M);         % A, D (states×states)
+[f0,A,D] = feval(M.f,M.x,0,P,M);         % A, D (states×states)
 A       = denan(A);
 Bfull   = spm_diff(M.f,M.x,1,P,M,2);    % input Jacobian wrt u
 Bfull   = denan(Bfull);
@@ -118,12 +118,24 @@ for ii = 1:Ns
             Ym  = (Jm \ (BB * u_j)) + (Jm \ X0);
             
             MG(:,j) = Ym;
-            y(j)    = (Cw.' * Ym);
+            %y(j)    = (Cw.' * Ym);
+
+            if size(Cw,2) == size(Ym,1)
+                y(j) = (Cw * Ym);
+            else
+                y(j) = (Cw.' * Ym);
+            end
+
         else
             % Endogenous y(ω) = C * Jm^{-1} * x0
             Ym      = (Jm \ X0);
             MG(:,j) = Ym;
-            y(j)    = (Cw.' * Ym);
+            %y(j)    = (Cw.' * Ym);
+            if size(Cw,2) == size(Ym,1)
+                y(j) = (Cw * Ym);
+            else
+                y(j) = (Cw.' * Ym);
+            end
         end
     end
 
@@ -189,6 +201,9 @@ end
 
 Y     = {(CSD)};
 units = [];
+
+units.x0 = x0;
+units.dx = f0;
 
 % --- Optional time-domain reconstruction (note: ignores delays in time domain) ---
 if isfield(M,'sim') && nargout > 3
