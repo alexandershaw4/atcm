@@ -818,7 +818,7 @@ for ins = 1:ns
 
             Ppf  = abs(Fs);
             
-            Ppf  = atcm.fun.agauss_smooth(Ppf,1);
+            %Ppf  = atcm.fun.agauss_smooth(Ppf,1);
 
             %N   = spm_dctmtx(length(w),24);
             %b   = N\Fs';

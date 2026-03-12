@@ -121,6 +121,10 @@ for ii = 1:Ns
     end
 
     Yloc = y(:);
+
+    H = gradient(gradient(Yloc));
+    Yloc = Yloc - (exp(P.d(1))*3)*H;
+
     PSD(ii,:) = Lgain * Yloc(:).';
 
     modes.region{ii}.V = V;
@@ -133,16 +137,52 @@ end
 
 CSD = zeros(numel(w),Ns,Ns);
 for i = 1:Ns
-    CSD(:,i,i) = PSD(i,:).';
+    CSD(:,i,i) = PSD(i,:).';  % auto
     for j = 1:Ns
         if i ~= j
-            CSD(:,i,j) = PSD(i,:).' .* conj(PSD(j,:).');
+            Lc = 1;
+            if isfield(P,'Lc') && numel(P.Lc) >= i
+                Lc = exp(P.Lc(i));
+            end
+
+            if Input
+                CSD(:,i,j) = Lc * (PSD(i,:).' .* conj(PSD(j,:).'));
+            else
+                CSD(:,i,j) = Lc * (PSD(i,:).' .* (PSD(j,:).')); 
+            end
             CSD(:,j,i) = CSD(:,i,j);
         end
     end
 end
 
-Y = {CSD};
+% Smooth magnitudes (keeps behaviour of |.| then smooth)
+dw = mean(diff(w));
+if Ns == 1
+    CSD = atcm.fun.agauss_smooth(abs(CSD), dw * exp(P.d(3)));
+else
+    for i = 1:Ns
+        for j = 1:Ns
+            CSD(:,i,j) = atcm.fun.agauss_smooth(abs(CSD(:,i,j)), dw * exp(P.d(3)));
+            CSD(:,j,i) = CSD(:,i,j);
+        end
+    end
+end
+
+Y     = {(CSD)};
+
+
+% CSD = zeros(numel(w),Ns,Ns);
+% for i = 1:Ns
+%     CSD(:,i,i) = PSD(i,:).';
+%     for j = 1:Ns
+%         if i ~= j
+%             CSD(:,i,j) = PSD(i,:).' .* conj(PSD(j,:).');
+%             CSD(:,j,i) = CSD(:,i,j);
+%         end
+%     end
+% end
+% 
+% Y = {CSD};
 
 units = [];
 units.x0 = x0;

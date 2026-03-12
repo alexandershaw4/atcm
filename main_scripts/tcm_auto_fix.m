@@ -463,7 +463,8 @@ function scores_tbl = compute_scores(MU, Cdiag, C_full, mu0, C0, labels, ycell, 
     % Posterior collinearity (compute full, then pick free rows)
     Rho_full = zeros(P,1);
     for s=1:N
-        R = corrcov(C_full{s} + 1e-12*eye(P));
+        C_full{s} = (C_full{s} + C_full{s}')/2;
+        R = corrcov(1e-10 + C_full{s} + 1e-6*eye(P));
         R(1:P+1:end) = 0;
         Rho_full = Rho_full + max(abs(R),[],2) / N;
     end

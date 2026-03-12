@@ -395,7 +395,7 @@ for i = i;%1:length(Data.Datasets)
     %----------------------------------------------------------------------
     %DCM.M.f  = @atcm.tc_hilge2;               % model function handle
     DCM.M.f = @atcm.tc_twocmp_stp;
-    DCM.M.IS = @atcm.fun.Alex_LaplaceTFwD;            % Alex integrator/transfer function
+    DCM.M.IS = @atcm.fun.Alex_LaplaceTFwDNew;            % Alex integrator/transfer function
     %DCM.M.IS = @atcm.fun.Alex_LaplaceTFwDNew;
     DCM.options.SpecFun = @atcm.fun.Afft;    % fft function for IS
     
