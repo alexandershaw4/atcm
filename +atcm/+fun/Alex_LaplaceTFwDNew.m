@@ -77,6 +77,10 @@ MAG   = cell(Ns,1);
 PHA   = cell(Ns,1);
 G     = [];                 % state-space sys object not used here
 
+if isfield(M,'dynamic_observer') && M.dynamic_observer
+    [~,M.obs] = atcm.build_twocmp_dynamic_lfp_observer_all8(M,P,[]);
+end
+
 for ii = 1:Ns
     % states for region ii (block picking every Ns-th state)
     win = ii:Ns:(length(A));
@@ -85,7 +89,6 @@ for ii = 1:Ns
     AA  = A(win,win);
     BB  = Bfull(win,:);                      % handle multi-input later by weighting
     Cw  = exp(P.J(win));                     % observer weights (vector)
-    Cmat = diag(Cw);                         % lfp readout = Cw' * x_win
     X0 = x0(win);
 
     drive_scale = 1;
@@ -108,6 +111,12 @@ for ii = 1:Ns
         s   = damp + 1i*2*pi*w(j);
         E   = exp(-1i*2*pi*w(j) * D(win,win));   % elementwise exp(-s*D_ij) with s=jω
         Aef = AA .* E;                           % A_eff(s) = A ∘ e^{-sD}
+        
+        % hack for when using dynamic observer from Mazzoni et al 2015
+        % doi:10.1371/journal.pcbi.1004584
+        if isfield(M,'dynamic_observer') && M.dynamic_observer
+            Cw = atcm.twocmp_dynamic_lfp_observer_eval(M.obs,s);
+        end
 
         % Resolvent
         Jm  = (s*eye(n)) - Aef;
@@ -225,11 +234,22 @@ if isfield(M,'sim') && nargout > 3
             for ii_ = 1:size(mag,1)
                 for jj_ = 1:size(mag,2)
                     series(ii_,jj_,:) = mag(ii_,jj_) * sin(2*pi*w(jj_)*pst/1000 - the(ii_,jj_));
+
                 end
             end
             S{k}   = squeeze(sum(series,2));
             S{k}   = S{k} + spm_vec(M.x(k,:,:));
             Cw_top = exp(P.J(k:Ns:end));
+
+            if isfield(M,'dynamic_observer') && M.dynamic_observer
+                for jj_ = 1:size(mag,2)
+                    Cw_top(:,jj_) = atcm.twocmp_dynamic_lfp_observer_eval(M.obs,w(jj_));
+                end
+                    Cw_top = Cw_top - mean(Cw_top,1);      
+                    [U,Sx,V] = svd(Cw_top, 'econ');
+                    Cw_top = U(:,1) * Sx(1,1);       % 80 x 1 scores on PC1
+            end
+
             LFP(k,:) = (Cw_top)'*S{k};
         end
         units.series = S;
