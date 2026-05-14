@@ -247,7 +247,7 @@ for i = 1:Ne;
 
     if isfield(DCM.options,'trial_index') && DCM.options.trial_index > 0
 
-        c = DCM.option.trial_index;
+        c = DCM.options.trial_index;
         Nt = 1;
         fprintf('Selecting only trial / window %d\n',c);
 
