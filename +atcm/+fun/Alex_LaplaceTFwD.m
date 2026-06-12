@@ -80,7 +80,11 @@ for i = 1:Ns
     win = i:Ns:(length(A));
 
     AA = A(win,win);
-    BB = B(win)*exp(P.C(i));
+    try
+        BB = B(win)*exp(P.C(i));
+    catch
+        BB = B(win);
+    end
 
     % Outside loop over j (frequencies)
     Uomega = ones(size(w));  % default flat drive

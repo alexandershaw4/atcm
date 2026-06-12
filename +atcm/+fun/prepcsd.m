@@ -413,9 +413,9 @@ for i = 1:Ne;
                         end
 
 
-                        if j == 1
-                            FMAT   = atcm.fun.asinespectrum(DCM.xY.Hz,D.time(It)*1000);
-                        end
+                        %if j == 1
+                        %    FMAT   = atcm.fun.asinespectrum(DCM.xY.Hz,D.time(It)*1000);
+                        %end
 
                         %b   = atcm.fun.lsqnonneg(F',Ymod);
                         %b = abs(F'\Ymod);

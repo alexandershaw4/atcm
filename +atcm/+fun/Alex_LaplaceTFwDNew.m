@@ -50,7 +50,7 @@ if isfield(M,'fixedpoint') && M.fixedpoint == 1
 end
 
 w   = M.Hz(:);
-x0  = M.x(:);                 % not used as drive any more
+x0  = M.x(:);                 
 Ns  = size(M.x,1);
 
 % Linearisation
@@ -68,7 +68,7 @@ end
 % Optional tiny real shift in s (numerical damping)
 damp = 0;
 if isfield(P,'d') && numel(P.d) >= 2
-    damp = exp(P.d(2));
+    %damp = exp(P.d(2));
 end
 
 % Prealloc
