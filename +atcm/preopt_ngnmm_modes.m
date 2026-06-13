@@ -19,7 +19,7 @@ function [Pbest, infoBest, hist] = preopt_ngnmm_modes(P0, M, targetBands, opts)
 % This does not fit data amplitude.  It only tunes the prior dynamical
 % regime so VL begins from a model with useful modes.
 %
-% AS / ChatGPT drop-in, 2026
+% AS2026
 
     if nargin < 3 || isempty(targetBands)
         targetBands = [ ...
