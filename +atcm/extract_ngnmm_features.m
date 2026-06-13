@@ -10,6 +10,8 @@ function feat = extract_ngnmm_features(P, M, x)
 %
 % Output
 %   feat : structure of interpretable NGNMM summaries
+%
+% AS20206
 
     if nargin < 3 || isempty(x)
         x = M.x;

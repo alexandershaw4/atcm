@@ -33,7 +33,7 @@ function [score, info] = score_ngnmm_mode_bands(P, M, targetBands, opts)
 % score       scalar objective value; lower is better
 % info        diagnostic structure with eigenvalues, frequencies, Q, matches
 %
-% AS / ChatGPT drop-in, 2026
+% AS2026
 
     if nargin < 3 || isempty(targetBands)
         targetBands = [ ...
