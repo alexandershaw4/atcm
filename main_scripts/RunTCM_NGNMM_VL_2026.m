@@ -14,7 +14,7 @@ Data.Design.name  = {'undefined'};
 Data.Design.tCode = [1];
 Data.Design.Ic    = [1];
 Data.Design.Sname = {''};
-Data.Prefix       = 'NGNMM8_';
+Data.Prefix       = 'aNGNMM8_';
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % -------------------------------------------------------------------------
@@ -26,8 +26,11 @@ B = (T==2);
 C = [1]';
 L = sparse(1,1);
 
-[p] = fileparts(which('atcm.tc_ngnmm_fx'));
-p = strrep(p,'+atcm','');
+% fix the iddue with finding the initial states .mat file
+%--------------------------------------------------------------------------
+p = mfilename('fullpath');
+p = fileparts(p);
+p = strrep(p,'main_scripts','');
 addpath(p);
 
 % -------------------------------------------------------------------------
@@ -117,14 +120,17 @@ for i = i
     DCM.options.UseWelch      = 1010;
     DCM.options.FFTSmooth     = 0;
     DCM.options.BeRobust      = 0;
-    DCM.options.FrequencyStep = 1;
+    DCM.options.FrequencyStep = 1/2;
 
     DCM.xY.name = DCM.Sname;
 
     DCM = atcm.fun.prepcsd(DCM);
     DCM.options.DATA = 1;
 
-    DCM.xY.y{:} = atcm.fun.agauss_smooth(abs(DCM.xY.y{:}),1)';
+    DCM.xY.y = {abs(DCM.xY.y{:})};
+    DCM.xY.y{:} = atcm.fun.agauss_smooth(abs(DCM.xY.y{:}),1)';;
+
+    %DCM.xY.y{:} = atcm.fun.agauss_smooth(abs(DCM.xY.y{:}),1)';
 
     % ---------------------------------------------------------------------
     % Priors and initial state

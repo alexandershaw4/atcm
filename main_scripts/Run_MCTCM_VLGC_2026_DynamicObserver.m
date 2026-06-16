@@ -39,8 +39,12 @@ B = (T==2);
 C = [1]';          % input(s)
 L = sparse(1,1);
 
-[p]=fileparts(which('atcm.tc_hilge2'));p=strrep(p,'+atcm','');addpath(p);
-
+% fix the iddue with finding the initial states .mat file
+%--------------------------------------------------------------------------
+p = mfilename('fullpath');
+p = fileparts(p);
+p = strrep(p,'main_scripts','');
+addpath(p);
 
 % Set up, over subjects
 %--------------------------------------------------------------------------

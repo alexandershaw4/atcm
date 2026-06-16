@@ -355,8 +355,12 @@ B = (T==2);
 C = [1]';          % input(s)
 L = sparse(1,1);
 
-[p]=fileparts(which('atcm.integrate_1'));p=strrep(p,'+atcm','');addpath(p);
-
+% fix the iddue with finding the initial states .mat file
+%--------------------------------------------------------------------------
+p = mfilename('fullpath');
+p = fileparts(p);
+p = strrep(p,'main_scripts','');
+addpath(p);
 
 % Set up, over subjects
 %--------------------------------------------------------------------------
@@ -591,7 +595,7 @@ for i = i;%1:length(Data.Datasets)
     [y,w,G,s] = feval(DCM.M.IS,spm_unvec(M.Ep,DCM.M.pE),DCM.M,DCM.xU);
 
     numit = 0;
-    while cdist(DCM.xY.y{:}',y{:}') > (1/2) && numit < 8
+    while cdist(DCM.xY.y{:}(:)',y{:}(:)') > (1/2) && numit < 8
         numit = numit + 1;
         %M.aloglik;
         M.aloglikVLthermGC;%([],0);
