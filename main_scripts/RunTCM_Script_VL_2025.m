@@ -247,8 +247,8 @@ Data.Design.X     = [];                % design matrix
 Data.Design.name  = {'undefined'};     % condition names
 Data.Design.tCode = [1];               % condition codes in SPM
 Data.Design.Ic    = [1];               % channel indices
-Data.Design.Sname = {'PBVE'};            % channel (node) names
-Data.Prefix       = 'rVL_TFD_TCM_';      % outputted DCM prefix
+Data.Design.Sname = {''};            % channel (node) names
+Data.Prefix       = 'TCM_';      % outputted DCM prefix
 Data.Datasets     = atcm.fun.ReadDatasets(Data.Datasets);
 
 % Model space - T = ns x ns, where 1 = Fwd, 2 = Bkw
